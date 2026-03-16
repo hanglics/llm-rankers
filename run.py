@@ -5,6 +5,7 @@ from pyserini.search._base import get_topics
 from llmrankers.rankers import SearchResult
 from llmrankers.pointwise import PointwiseLlmRanker, MonoT5LlmRanker
 from llmrankers.setwise import SetwiseLlmRanker, OpenAiSetwiseLlmRanker
+from llmrankers.setwise_extended import BottomUpSetwiseLlmRanker, DualEndSetwiseLlmRanker, BidirectionalEnsembleRanker
 from llmrankers.pairwise import PairwiseLlmRanker, DuoT5LlmRanker, OpenAiPairwiseLlmRanker
 from llmrankers.listwise import OpenAiListwiseLlmRanker, ListwiseLlmRanker
 from tqdm import tqdm
@@ -74,7 +75,7 @@ def main(args):
                                             num_child=args.setwise.num_child,
                                             method=args.setwise.method,
                                             k=args.setwise.k)
-        else:
+        elif args.setwise.direction == 'topdown':
             ranker = SetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                       device=args.run.device,
@@ -84,6 +85,40 @@ def main(args):
                                       method=args.setwise.method,
                                       num_permutation=args.setwise.num_permutation,
                                       k=args.setwise.k)
+        elif args.setwise.direction == 'bottomup':
+            ranker = BottomUpSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
+                                              tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                              device=args.run.device,
+                                              cache_dir=args.run.cache_dir,
+                                              num_child=args.setwise.num_child,
+                                              scoring=args.run.scoring,
+                                              method=args.setwise.method,
+                                              num_permutation=args.setwise.num_permutation,
+                                              k=args.setwise.k)
+        elif args.setwise.direction == 'dualend':
+            ranker = DualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
+                                             tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                             device=args.run.device,
+                                             cache_dir=args.run.cache_dir,
+                                             num_child=args.setwise.num_child,
+                                             scoring=args.run.scoring,
+                                             method=args.setwise.method,
+                                             num_permutation=args.setwise.num_permutation,
+                                             k=args.setwise.k)
+        elif args.setwise.direction == 'bidirectional':
+            ranker = BidirectionalEnsembleRanker(model_name_or_path=args.run.model_name_or_path,
+                                                tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                                device=args.run.device,
+                                                num_child=args.setwise.num_child,
+                                                k=args.setwise.k,
+                                                scoring=args.run.scoring,
+                                                method=args.setwise.method,
+                                                num_permutation=args.setwise.num_permutation,
+                                                fusion=args.setwise.fusion,
+                                                alpha=args.setwise.alpha,
+                                                cache_dir=args.run.cache_dir)
+        else:
+            raise ValueError(f'Unknown direction: {args.setwise.direction}')
 
     elif args.pairwise:
         if args.pairwise.method != 'allpair':
@@ -239,9 +274,18 @@ if __name__ == '__main__':
     setwise_parser = commands.add_parser('setwise')
     setwise_parser.add_argument('--num_child', type=int, default=3)
     setwise_parser.add_argument('--method', type=str, default='heapsort',
-                                choices=['heapsort', 'bubblesort'])
+                                choices=['heapsort', 'bubblesort', 'selection'])
     setwise_parser.add_argument('--k', type=int, default=10)
     setwise_parser.add_argument('--num_permutation', type=int, default=1)
+    setwise_parser.add_argument('--direction', type=str, default='topdown',
+                                choices=['topdown', 'bottomup', 'dualend', 'bidirectional'],
+                                help='Ranking direction: topdown (standard), bottomup (reverse), '
+                                     'dualend (simultaneous best-worst), bidirectional (ensemble)')
+    setwise_parser.add_argument('--fusion', type=str, default='rrf',
+                                choices=['rrf', 'combsum', 'weighted'],
+                                help='Fusion method for bidirectional ensemble')
+    setwise_parser.add_argument('--alpha', type=float, default=0.5,
+                                help='Weight for top-down in weighted fusion (bidirectional only)')
 
     listwise_parser = commands.add_parser('listwise')
     listwise_parser.add_argument('--window_size', type=int, default=3)

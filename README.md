@@ -304,6 +304,122 @@ python3 run.py \
 </details>
 
 <details>
+<summary>Extended Setwise</summary>
+
+We also provide extended setwise strategies in [llmrankers/setwise_extended.py](llmrankers/setwise_extended.py):
+
+- `--direction topdown`: standard setwise baseline
+- `--direction bottomup`: reverse selection, choose the least relevant passage
+- `--direction dualend`: choose both the best and worst passage in one call
+- `--direction bidirectional`: run top-down and bottom-up independently, then fuse them
+
+Additional CLI options for the extended runs:
+
+- `--method selection`: double-ended selection sort for `dualend`
+- `--fusion {rrf,combsum,weighted}`: fusion rule for `bidirectional`
+- `--alpha 0.7`: weight for `weighted` fusion
+
+Example: dual-end cocktail-shaker sort
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 run.py \
+  run --model_name_or_path google/flan-t5-xxl \
+      --tokenizer_name_or_path google/flan-t5-xxl \
+      --run_path run.msmarco-v1-passage.bm25-default.dl19.txt \
+      --save_path run.setwise.dualend.bubblesort.txt \
+      --ir_dataset_name msmarco-passage/trec-dl-2019 \
+      --hits 100 \
+      --query_length 32 \
+      --passage_length 64 \
+      --scoring generation \
+      --device cuda \
+  setwise --num_child 3 \
+          --method bubblesort \
+          --k 10 \
+          --direction dualend
+```
+
+Example: bottom-up heapsort
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 run.py \
+  run --model_name_or_path google/flan-t5-xxl \
+      --tokenizer_name_or_path google/flan-t5-xxl \
+      --run_path run.msmarco-v1-passage.bm25-default.dl19.txt \
+      --save_path run.setwise.bottomup.heapsort.txt \
+      --ir_dataset_name msmarco-passage/trec-dl-2019 \
+      --hits 100 \
+      --query_length 32 \
+      --passage_length 64 \
+      --scoring generation \
+      --device cuda \
+  setwise --num_child 3 \
+          --method heapsort \
+          --k 10 \
+          --direction bottomup
+```
+
+Example: bidirectional ensemble with RRF fusion
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 run.py \
+  run --model_name_or_path google/flan-t5-xxl \
+      --tokenizer_name_or_path google/flan-t5-xxl \
+      --run_path run.msmarco-v1-passage.bm25-default.dl19.txt \
+      --save_path run.setwise.bidirectional.rrf.txt \
+      --ir_dataset_name msmarco-passage/trec-dl-2019 \
+      --hits 100 \
+      --query_length 32 \
+      --passage_length 64 \
+      --scoring generation \
+      --device cuda \
+  setwise --num_child 3 \
+          --method heapsort \
+          --k 10 \
+          --direction bidirectional \
+          --fusion rrf
+```
+
+We also provide a convenience script that runs all eight extended configurations and prints an NDCG@10 summary:
+
+```bash
+bash experiments/run_extended_setwise.sh \
+  google/flan-t5-xxl \
+  msmarco-passage/trec-dl-2019 \
+  run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/extended_setwise \
+  cuda generation 3 10 100 64
+```
+
+Qwen models can be used in the same commands by changing `--model_name_or_path`, for example:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python3 run.py \
+  run --model_name_or_path Qwen/Qwen3-8B-FP8 \
+      --tokenizer_name_or_path Qwen/Qwen3-8B-FP8 \
+      --run_path run.msmarco-v1-passage.bm25-default.dl19.txt \
+      --save_path run.setwise.dualend.qwen3-8b.txt \
+      --ir_dataset_name msmarco-passage/trec-dl-2019 \
+      --hits 100 \
+      --query_length 32 \
+      --passage_length 128 \
+      --scoring generation \
+      --device cuda \
+  setwise --num_child 3 \
+          --method bubblesort \
+          --k 10 \
+          --direction dualend
+```
+
+Notes:
+
+- For Flan-T5 models, prefer a smaller `--passage_length` such as `64`, otherwise the prompt may exceed the encoder limit and be truncated.
+- For Qwen3-family models, thinking is disabled in the chat template automatically and any remaining `<think>...</think>` block is filtered before label extraction.
+- `Qwen/Qwen3.5-4B` requires a Transformers build with `Qwen3_5ForConditionalGeneration` support.
+
+</details>
+
+<details>
 <summary>BEIR experiments</summary>
 
 For BEIR datasets experiments, change `--ir_dataset_name` to `--pyserini_index` with pyserini pre-build index.

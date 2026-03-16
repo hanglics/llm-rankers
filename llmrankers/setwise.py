@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Sequence
 from .rankers import LlmRanker, SearchResult
 import openai
 import time
@@ -10,12 +10,23 @@ from collections import Counter
 import tiktoken
 import random
 try:
+    from transformers import Qwen3_5ForConditionalGeneration
+except ImportError:
+    Qwen3_5ForConditionalGeneration = None
+try:
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
-except ImportError:
-    print("Seems vllm is not installed, RankR1SetwiseLlmRanker only supports vllm inference so far.")
+    VLLM_IMPORT_ERROR = None
+except ImportError as err:
+    LLM = None
+    SamplingParams = None
+    LoRARequest = None
+    VLLM_IMPORT_ERROR = err
 
 random.seed(929)
+
+CAUSAL_MODEL_TYPES = {"llama", "qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+QWEN_MODEL_TYPES = {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
 
 
 class SetwiseLlmRanker(LlmRanker):
@@ -38,6 +49,7 @@ class SetwiseLlmRanker(LlmRanker):
         self.num_permutation = num_permutation
         self.k = k
         self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+        self._warned_input_truncation = False
         if self.config.model_type == 't5':
             self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
                                                          if tokenizer_name_or_path is not None else
@@ -51,22 +63,47 @@ class SetwiseLlmRanker(LlmRanker):
             self.decoder_input_ids = self.tokenizer.encode("<pad> Passage",
                                                            return_tensors="pt",
                                                            add_special_tokens=False).to(self.device) if self.tokenizer else None
+            self.dual_decoder_input_ids = self.tokenizer.encode("<pad> Best:",
+                                                                return_tensors="pt",
+                                                                add_special_tokens=False).to(self.device) if self.tokenizer else None
 
             self.target_token_ids = self.tokenizer.batch_encode_plus([f'<pad> Passage {self.CHARACTERS[i]}'
                                                                       for i in range(len(self.CHARACTERS))],
                                                                      return_tensors="pt",
                                                                      add_special_tokens=False,
                                                                      padding=True).input_ids[:, -1]
-        elif self.config.model_type == 'llama':
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, cache_dir=cache_dir)
-            self.tokenizer.use_default_system_prompt = False
+        elif self._is_supported_causal_model():
+            tokenizer_kwargs = {"cache_dir": cache_dir}
+            model_kwargs = {
+                "device_map": "auto",
+                "torch_dtype": "auto" if device == "cuda" else torch.float32,
+                "cache_dir": cache_dir,
+            }
+            if self.config.model_type in QWEN_MODEL_TYPES:
+                tokenizer_kwargs["trust_remote_code"] = True
+                model_kwargs["trust_remote_code"] = True
+
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
+            if hasattr(self.tokenizer, "use_default_system_prompt"):
+                self.tokenizer.use_default_system_prompt = False
+            if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
             if 'vicuna' and 'v1.5' in model_name_or_path:
                 self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% set system_message = 'A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user\\'s questions.' %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{{ system_message }}{% endif %}{% if message['role'] == 'user' %}{{ ' USER: ' + message['content'].strip() }}{% elif message['role'] == 'assistant' %}{{ ' ASSISTANT: ' + message['content'].strip() + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ ' ASSISTANT:' }}{% endif %}"
-            self.llm = AutoModelForCausalLM.from_pretrained(model_name_or_path,
-                                                            device_map='auto',
-                                                            torch_dtype=torch.float16 if device == 'cuda'
-                                                            else torch.float32,
-                                                            cache_dir=cache_dir).eval()
+            if self.config.model_type == "qwen3_5":
+                if Qwen3_5ForConditionalGeneration is None:
+                    raise ImportError(
+                        "Qwen3.5 requires a Transformers build with Qwen3_5ForConditionalGeneration support."
+                    )
+                self.llm = Qwen3_5ForConditionalGeneration.from_pretrained(
+                    model_name_or_path,
+                    **model_kwargs,
+                ).eval()
+            else:
+                self.llm = AutoModelForCausalLM.from_pretrained(
+                    model_name_or_path,
+                    **model_kwargs,
+                ).eval()
         else:
             raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for setwise:(")
 
@@ -75,6 +112,140 @@ class SetwiseLlmRanker(LlmRanker):
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
+        self.max_input_tokens = self._resolve_max_input_tokens()
+
+    def _is_supported_causal_model(self):
+        return self.config.model_type in CAUSAL_MODEL_TYPES
+
+    def _chat_template_kwargs(self):
+        if self.config.model_type in QWEN_MODEL_TYPES:
+            return {"enable_thinking": False}
+        return {}
+
+    def _build_chat_prompt(self, messages):
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            **self._chat_template_kwargs(),
+        )
+
+    def _resolve_max_input_tokens(self):
+        candidates = []
+        model_max_length = getattr(self.tokenizer, "model_max_length", None)
+        if isinstance(model_max_length, int) and 0 < model_max_length < 100000:
+            candidates.append(model_max_length)
+        for attr in ("n_positions", "max_position_embeddings"):
+            value = getattr(self.config, attr, None)
+            if isinstance(value, int) and value > 0:
+                candidates.append(value)
+        return min(candidates) if candidates else None
+
+    def _tokenize_inputs(self, inputs, padding=False):
+        raw = self.tokenizer(inputs, add_special_tokens=True, return_attention_mask=True)
+        raw_ids = raw["input_ids"]
+        if raw_ids and isinstance(raw_ids[0], int):
+            lengths = [len(raw_ids)]
+        else:
+            lengths = [len(ids) for ids in raw_ids]
+
+        if (
+            self.max_input_tokens is not None
+            and lengths
+            and max(lengths) > self.max_input_tokens
+            and not self._warned_input_truncation
+        ):
+            print(
+                f"Warning: prompt length {max(lengths)} exceeds model limit {self.max_input_tokens}; "
+                "truncating the encoded prompt. Lower --passage_length or --query_length for cleaner comparisons."
+            )
+            self._warned_input_truncation = True
+
+        kwargs = {
+            "return_tensors": "pt",
+            "return_attention_mask": True,
+            "truncation": self.max_input_tokens is not None,
+        }
+        if self.max_input_tokens is not None:
+            kwargs["max_length"] = self.max_input_tokens
+        if padding:
+            kwargs["padding"] = True
+        return self.tokenizer(inputs, **kwargs).to(self.device)
+
+    def _generate(self, model_inputs, max_new_tokens, decoder_input_ids=None):
+        kwargs = {
+            "input_ids": model_inputs.input_ids,
+            "attention_mask": model_inputs.attention_mask,
+            "max_new_tokens": max_new_tokens,
+        }
+        if decoder_input_ids is not None:
+            kwargs["decoder_input_ids"] = decoder_input_ids
+        if self._is_supported_causal_model():
+            generation_config = copy.deepcopy(getattr(self.llm, "generation_config", None))
+            if generation_config is not None:
+                generation_config.do_sample = False
+                for attr in (
+                    "temperature",
+                    "top_k",
+                    "top_p",
+                    "min_p",
+                    "typical_p",
+                    "epsilon_cutoff",
+                    "eta_cutoff",
+                ):
+                    if hasattr(generation_config, attr):
+                        setattr(generation_config, attr, None)
+                if self.tokenizer.pad_token_id is not None:
+                    generation_config.pad_token_id = self.tokenizer.pad_token_id
+                if self.tokenizer.eos_token_id is not None:
+                    generation_config.eos_token_id = self.tokenizer.eos_token_id
+                kwargs["generation_config"] = generation_config
+            else:
+                kwargs["do_sample"] = False
+                if self.tokenizer.pad_token_id is not None:
+                    kwargs["pad_token_id"] = self.tokenizer.pad_token_id
+                if self.tokenizer.eos_token_id is not None:
+                    kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+        return self.llm.generate(**kwargs)
+
+    def _clean_generation_output(self, output: str) -> str:
+        stripped = output.strip()
+        # Strip complete <think>...</think> blocks
+        cleaned = re.sub(r"(?is)<think>.*?</think>\s*", "", stripped)
+        # Strip truncated/unclosed <think> blocks (from max_new_tokens cutoff)
+        cleaned = re.sub(r"(?is)<think>.*", "", cleaned)
+        cleaned = cleaned.replace("<|im_start|>", " ").replace("<|im_end|>", " ").strip()
+        return cleaned or stripped
+
+    def _parse_single_label(self, output: str, valid_chars: Sequence[str]) -> Optional[str]:
+        cleaned = self._clean_generation_output(output)
+        output_upper = cleaned.upper()
+        valid = set(valid_chars)
+
+        for pattern in (
+            r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?([A-W])\b",
+            r"PASSAGE\s*([A-W])\b",
+        ):
+            for match in re.findall(pattern, output_upper):
+                if match in valid:
+                    return match
+
+        for match in re.findall(r"\b([A-W])\b", output_upper):
+            if match in valid:
+                return match
+
+        all_found = [char for char in output_upper if char in valid]
+        if all_found and len(set(all_found)) == 1:
+            return all_found[0]
+
+        # Handle numeric outputs: map 1-based index to the corresponding label
+        num_match = re.search(r"\b(\d+)\b", cleaned)
+        if num_match:
+            idx = int(num_match.group(1)) - 1  # convert 1-based to 0-based
+            if 0 <= idx < len(valid_chars):
+                return valid_chars[idx]
+
+        return None
 
     def compare(self, query: str, docs: List):
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
@@ -87,18 +258,22 @@ class SetwiseLlmRanker(LlmRanker):
             if self.config.model_type == 't5':
 
                 if self.num_permutation == 1:
-                    input_ids = self.tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
-                    self.total_prompt_tokens += input_ids.shape[1]
+                    inputs = self._tokenize_inputs(input_text)
+                    self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                    output_ids = self.llm.generate(input_ids,
-                                                   decoder_input_ids=self.decoder_input_ids,
-                                                   max_new_tokens=2)[0]
+                    output_ids = self._generate(
+                        inputs,
+                        max_new_tokens=2,
+                        decoder_input_ids=self.decoder_input_ids,
+                    )[0]
 
                     self.total_completion_tokens += output_ids.shape[0]
 
-                    output = self.tokenizer.decode(output_ids,
-                                                   skip_special_tokens=True).strip()
-                    output = output[-1]
+                    raw_output = self.tokenizer.decode(output_ids,
+                                                       skip_special_tokens=True).strip()
+                    output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
+                    if output is None:
+                        output = self._clean_generation_output(raw_output).upper()
                 else:
                     id_passage = [(i, p) for i, p in enumerate(docs)]
                     labels = [self.CHARACTERS[i] for i in range(len(docs))]
@@ -122,22 +297,24 @@ class SetwiseLlmRanker(LlmRanker):
                         input_text.append(f'Given a query "{query}", which of the following passages is the most relevant one to the query?\n\n' \
                                           + passages + '\n\nOutput only the passage label of the most relevant passage:')
 
-                    input_ids = self.tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
-                    self.total_prompt_tokens += input_ids.shape[1] * input_ids.shape[0]
+                    inputs = self._tokenize_inputs(input_text, padding=True)
+                    self.total_prompt_tokens += inputs.input_ids.shape[1] * inputs.input_ids.shape[0]
 
-                    output_ids = self.llm.generate(input_ids,
-                                                   decoder_input_ids=self.decoder_input_ids.repeat(input_ids.shape[0], 1),
-                                                   max_new_tokens=2)
+                    output_ids = self._generate(
+                        inputs,
+                        max_new_tokens=2,
+                        decoder_input_ids=self.decoder_input_ids.repeat(inputs.input_ids.shape[0], 1),
+                    )
                     output = self.tokenizer.batch_decode(output_ids[:, self.decoder_input_ids.shape[1]:],
                                                          skip_special_tokens=True)
 
                     # vote
                     candidates = []
                     for ref, result in zip(batch_ref, output):
-                        result = result.strip().upper()
                         docids, characters = ref
-                        if len(result) != 1 or result not in characters:
-                            print(f"Unexpected output: {result}")
+                        result = self._parse_single_label(result, characters)
+                        if result is None or result not in characters:
+                            print(f"Unexpected output: {self._clean_generation_output(str(result))}")
                             continue
                         win_doc = docids[characters.index(result)]
                         candidates.append(win_doc)
@@ -156,32 +333,39 @@ class SetwiseLlmRanker(LlmRanker):
                         else:
                             output = self.CHARACTERS[random.choice(most_common_candidates)]
 
-            elif self.config.model_type == 'llama':
+            elif self._is_supported_causal_model():
                 conversation = [{"role": "user", "content": input_text}]
 
-                prompt = self.tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
+                prompt = self._build_chat_prompt(conversation)
                 prompt += " Passage:"
 
-                input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.device)
-                self.total_prompt_tokens += input_ids.shape[1]
+                inputs = self._tokenize_inputs(prompt)
+                self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                output_ids = self.llm.generate(input_ids,
-                                               do_sample=False,
-                                               temperature=0.0,
-                                               top_p=None,
-                                               max_new_tokens=1)[0]
+                # Thinking models (e.g. Qwen3) may emit <think>...</think> before the
+                # answer, so we need enough token budget for the thinking block to
+                # complete.  Non-thinking models will hit EOS well before 64 tokens.
+                max_new = 64 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0]
 
-                output = self.tokenizer.decode(output_ids[input_ids.shape[1]:],
-                                               skip_special_tokens=True).strip().upper()
+                raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
+                                                   skip_special_tokens=True).strip()
+                output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
+                if output is None:
+                    output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
             if self.config.model_type == 't5':
-                input_ids = self.tokenizer(input_text, return_tensors="pt").input_ids.to(self.device)
-                self.total_prompt_tokens += input_ids.shape[1]
+                inputs = self._tokenize_inputs(input_text)
+                self.total_prompt_tokens += inputs.input_ids.shape[1]
                 with torch.no_grad():
-                    logits = self.llm(input_ids=input_ids, decoder_input_ids=self.decoder_input_ids).logits[0][-1]
+                    logits = self.llm(
+                        input_ids=inputs.input_ids,
+                        attention_mask=inputs.attention_mask,
+                        decoder_input_ids=self.decoder_input_ids,
+                    ).logits[0][-1]
                     distributions = torch.softmax(logits, dim=0)
                     scores = distributions[self.target_token_ids[:len(docs)]]
                     ranked = sorted(zip(self.CHARACTERS[:len(docs)], scores), key=lambda x: x[1], reverse=True)
@@ -418,6 +602,11 @@ class RankR1SetwiseLlmRanker(SetwiseLlmRanker):
                  num_permutation=1,
                  cache_dir=None,
                  verbose=False):
+
+        if VLLM_IMPORT_ERROR is not None:
+            raise ImportError(
+                "vllm is required for RankR1SetwiseLlmRanker. Install vllm to use this ranker."
+            ) from VLLM_IMPORT_ERROR
 
         if scoring != 'generation':
             raise NotImplementedError(f"Scoring method {scoring} is not supported for RankR1SetwiseLlmRanker. RankR1SetwiseLlmRanker only supports 'generation' scoring.")
