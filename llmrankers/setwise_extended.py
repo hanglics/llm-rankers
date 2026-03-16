@@ -126,13 +126,13 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 inputs = self._tokenize_inputs(prompt)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                max_new = 64 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0]
 
                 raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
-                                                   skip_special_tokens=True).strip()
+                                                   skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
                     output = self._clean_generation_output(raw_output).upper()
@@ -365,12 +365,14 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 inputs = self._tokenize_inputs(prompt)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                output_ids = self._generate(inputs, max_new_tokens=30)[0]
+                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 30
+                output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0]
 
                 output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
-                                               skip_special_tokens=True).strip()
+                                               skip_special_tokens=False).strip()
+                output = self._clean_generation_output(output)
                 best, worst = self._try_parse_dual_output(output, len(docs))
                 if best is None or worst is None:
                     print(
@@ -445,10 +447,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             prompt += " Passage:"
             inputs = self._tokenize_inputs(prompt)
             self.total_prompt_tokens += inputs.input_ids.shape[1]
-            max_new = 64 if self.config.model_type in QWEN_MODEL_TYPES else 4
+            max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
             output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
             self.total_completion_tokens += output_ids.shape[0]
-            raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+            raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
             output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
             if output is None:
                 output = self._clean_generation_output(raw_output).upper()
@@ -880,10 +882,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 prompt += " Passage:"
                 inputs = self._tokenize_inputs(prompt)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
-                max_new = 64 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
                 self.total_completion_tokens += output_ids.shape[0]
-                raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+                raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs_list)])
                 if output is None:
                     output = self._clean_generation_output(raw_output).upper()

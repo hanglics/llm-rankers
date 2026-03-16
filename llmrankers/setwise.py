@@ -210,11 +210,27 @@ class SetwiseLlmRanker(LlmRanker):
 
     def _clean_generation_output(self, output: str) -> str:
         stripped = output.strip()
-        # Strip complete <think>...</think> blocks
+
+        # --- Qwen-family thinking tokens (<think>...</think>) ---
+        # Strip complete blocks first, then any truncated/unclosed block
         cleaned = re.sub(r"(?is)<think>.*?</think>\s*", "", stripped)
-        # Strip truncated/unclosed <think> blocks (from max_new_tokens cutoff)
         cleaned = re.sub(r"(?is)<think>.*", "", cleaned)
-        cleaned = cleaned.replace("<|im_start|>", " ").replace("<|im_end|>", " ").strip()
+
+        # --- Pipe-delimited special tokens (Qwen / LLaMA / general) ---
+        # Matches <|im_start|>, <|im_end|>, <|endoftext|>, <|end|>, etc.
+        cleaned = re.sub(r"<\|[^|]*\|>", " ", cleaned)
+
+        # --- T5 / Flan-T5 special tokens ---
+        cleaned = re.sub(r"</s>", " ", cleaned)
+        cleaned = re.sub(r"<pad>", " ", cleaned)
+        cleaned = re.sub(r"<unk>", " ", cleaned)
+        cleaned = re.sub(r"<extra_id_\d+>", " ", cleaned)
+
+        # --- General XML-style tags left over from any tokenizer ---
+        # Strip isolated angle-bracket tokens like <s>, </s>, <bos>, <eos>, etc.
+        cleaned = re.sub(r"</?(?:s|bos|eos|sep|cls|mask|pad)\s*>", " ", cleaned)
+
+        cleaned = cleaned.strip()
         return cleaned or stripped
 
     def _parse_single_label(self, output: str, valid_chars: Sequence[str]) -> Optional[str]:
@@ -244,6 +260,14 @@ class SetwiseLlmRanker(LlmRanker):
             idx = int(num_match.group(1)) - 1  # convert 1-based to 0-based
             if 0 <= idx < len(valid_chars):
                 return valid_chars[idx]
+
+        # Handle refusal outputs: model says none are relevant — default to first
+        # passage (maintains current order, equivalent to no swap)
+        if re.search(
+            r"(?i)\b(none of the|no passage|not relevant|none are|cannot determine|neither)\b",
+            cleaned,
+        ):
+            return valid_chars[0]
 
         return None
 
@@ -344,14 +368,18 @@ class SetwiseLlmRanker(LlmRanker):
 
                 # Thinking models (e.g. Qwen3) may emit <think>...</think> before the
                 # answer, so we need enough token budget for the thinking block to
-                # complete.  Non-thinking models will hit EOS well before 64 tokens.
-                max_new = 64 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                # complete.  Non-thinking models will hit EOS well before 256 tokens.
+                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0]
 
+                # Decode WITHOUT skipping special tokens so <think>...</think> tags
+                # are preserved for proper stripping by _clean_generation_output.
+                # With skip_special_tokens=True, <think>/<think> are removed but
+                # the thinking *content* leaks through and pollutes parsing.
                 raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
-                                                   skip_special_tokens=True).strip()
+                                                   skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
                     output = self._clean_generation_output(raw_output).upper()
