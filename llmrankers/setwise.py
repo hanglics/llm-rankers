@@ -456,12 +456,20 @@ class SetwiseLlmRanker(LlmRanker):
             last_start = len(ranking) - (self.num_child + 1)
 
             for i in range(self.k):
+                # Clamp last_start so the window always contains at least
+                # num_child+1 documents (or all remaining documents) when
+                # start_ind is clamped to i.
+                if last_start < i:
+                    last_start = i
                 start_ind = last_start
-                end_ind = last_start + (self.num_child + 1)
+                end_ind = min(last_start + (self.num_child + 1), len(ranking))
                 is_change = False
                 while True:
                     if start_ind < i:
                         start_ind = i
+                    # Need at least 2 documents for a meaningful comparison
+                    if end_ind - start_ind < 2:
+                        break
                     output = self.compare(query, ranking[start_ind:end_ind])
                     try:
                         best_ind = self.CHARACTERS.index(output)
