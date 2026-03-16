@@ -474,9 +474,12 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         output_upper = self._clean_generation_output(output).upper().strip()
         valid_chars = set(self.CHARACTERS[:n_docs])
 
+        # Label pattern: bare letter or letter in square brackets, e.g. A, [A]
+        _L = r'\[?([A-W])\]?'
+
         # Try "Best: X, Worst: Y" format first (most reliable)
-        best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?([A-W])', output_upper)
-        worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?([A-W])', output_upper)
+        best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+        worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
 
         if best_match and worst_match:
             best = best_match.group(1)
@@ -485,8 +488,8 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 return best, worst
 
         # Try "most relevant: X ... least relevant: Y" pattern
-        most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?([A-W])', output_upper)
-        least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?([A-W])', output_upper)
+        most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+        least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         if most_match and least_match:
             best = most_match.group(1)
             worst = least_match.group(1)
@@ -494,15 +497,19 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 return best, worst
 
         # Try "Passage X" patterns
-        passage_matches = re.findall(r'PASSAGE\s*([A-W])', output_upper)
+        passage_matches = re.findall(r'PASSAGE\s*' + _L, output_upper)
         passage_matches = [c for c in passage_matches if c in valid_chars]
         if len(passage_matches) >= 2:
             return passage_matches[0], passage_matches[1]
 
-        # Try comma-separated single characters (filter words that happen to be A-W)
-        # Use a more careful regex: look for standalone single chars
+        # Try comma-separated single characters or bracketed characters
         parts = re.split(r'[,\s]+', output_upper)
-        found_chars = [p for p in parts if len(p) == 1 and p in valid_chars]
+        found_chars = []
+        for p in parts:
+            # Match bare letter or [letter]
+            m = re.fullmatch(r'\[?([A-W])\]?', p)
+            if m and m.group(1) in valid_chars:
+                found_chars.append(m.group(1))
         if len(found_chars) >= 2:
             return found_chars[0], found_chars[1]
 

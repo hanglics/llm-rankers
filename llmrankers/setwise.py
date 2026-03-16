@@ -239,16 +239,18 @@ class SetwiseLlmRanker(LlmRanker):
         valid = set(valid_chars)
 
         for pattern in (
-            r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?([A-W])\b",
-            r"PASSAGE\s*([A-W])\b",
+            r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?\[?([A-W])\]?",
+            r"PASSAGE\s*\[?([A-W])\]?",
         ):
             for match in re.findall(pattern, output_upper):
                 if match in valid:
                     return match
 
-        for match in re.findall(r"\b([A-W])\b", output_upper):
-            if match in valid:
-                return match
+        # Match standalone letter or bracketed letter like [A]
+        for match in re.findall(r"(?:\[([A-W])\]|\b([A-W])\b)", output_upper):
+            char = match[0] or match[1]
+            if char in valid:
+                return char
 
         all_found = [char for char in output_upper if char in valid]
         if all_found and len(set(all_found)) == 1:
