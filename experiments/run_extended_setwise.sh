@@ -223,11 +223,15 @@ else
     exit 0
 fi
 
+RESULTS_FILE="${OUTPUT_DIR}/results.txt"
+
+{
 echo ""
 echo "Results Summary (NDCG@10):"
 echo "==========================================="
 for f in ${OUTPUT_DIR}/*.txt; do
     name=$(basename $f .txt)
+    [[ "${name}" == "results" ]] && continue
     score=$(python -m pyserini.eval.trec_eval -c -l 2 -m ndcg_cut.10 ${QRELS} ${f} 2>/dev/null | grep "ndcg_cut_10" | awk '{print $3}')
     printf "%-35s %s\n" "${name}" "${score}"
 done
@@ -245,3 +249,7 @@ for f in ${OUTPUT_DIR}/*.log; do
     printf "%-35s comps: %s  tokens: %s  time: %s\n" "${name}" "${comparisons}" "${prompt_tokens}" "${time}"
 done
 echo "==========================================="
+} | tee "${RESULTS_FILE}"
+
+echo ""
+echo "Summary saved to ${RESULTS_FILE}"
