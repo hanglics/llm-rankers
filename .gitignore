@@ -165,3 +165,4 @@ research_pipeline_setwise/
 results/
 pyserini/
 ranker_env/
+runs/bm25/*.txt
