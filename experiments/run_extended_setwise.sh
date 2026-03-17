@@ -14,6 +14,18 @@
 # Qwen/Qwen3-14B
 # Qwen/Qwen3.5-4B  # requires a Transformers build with qwen3_5 support
 #
+# Datasets:
+# msmarco-passage/trec-dl-2019/judged
+# msmarco-passage/trec-dl-2020/judged
+# beir/dbpedia-entity/test
+# beir/nfcorpus/test
+# beir/scifact/test
+# beir/trec-covid
+# beir/webis-touche2020/v2
+# beir/hotpotqa/test
+# beir/quora/test
+# beir/fever/test
+# 
 # Notes:
 # - For Flan-T5 models, a smaller passage length (e.g. 64) is usually cleaner.
 # - Qwen3-family chat templates support enable_thinking=False in the ranker code.
