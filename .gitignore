@@ -162,3 +162,6 @@ cython_debug/
 #.idea/
 .claude/
 research_pipeline_setwise/
+results/
+pyserini/
+ranker_env/

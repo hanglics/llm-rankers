@@ -202,9 +202,9 @@ echo "=============================================="
 echo ""
 echo ">>> Evaluating all runs..."
 
-if [ "${DATASET}" = "msmarco-passage/trec-dl-2019" ]; then
+if [[ "${DATASET}" = "msmarco-passage/trec-dl-2019" || "${DATASET}" = "msmarco-passage/trec-dl-2019/judged" ]]; then
     QRELS="dl19-passage"
-elif [ "${DATASET}" = "msmarco-passage/trec-dl-2020" ]; then
+elif [[ "${DATASET}" = "msmarco-passage/trec-dl-2020" || "${DATASET}" = "msmarco-passage/trec-dl-2020/judged" ]]; then
     QRELS="dl20-passage"
 else
     echo "Unknown dataset for evaluation: ${DATASET}"
@@ -229,7 +229,7 @@ for f in ${OUTPUT_DIR}/*.log; do
     name=$(basename $f .log)
     comparisons=$(grep "Avg comparisons" $f | awk '{print $3}')
     prompt_tokens=$(grep "Avg prompt tokens" $f | awk '{print $4}')
-    time=$(grep "Avg time per query" $f | awk '{print $6}')
+    time=$(grep "Avg time per query" $f | awk '{print $5}')
     printf "%-35s comps: %s  tokens: %s  time: %s\n" "${name}" "${comparisons}" "${prompt_tokens}" "${time}"
 done
 echo "==========================================="
