@@ -9,8 +9,6 @@
 #SBATCH --gres=gpu:h100:1
 #SBATCH --time=10:00:00
 #SBATCH --account=a_ai_collab
-#SBATCH -o /scratch/project/neural_ir/hang/llm-rankers/logs/qwen3-4b-3-10-100-512-dl20-topdown_bubblesort.output
-#SBATCH -e /scratch/project/neural_ir/hang/llm-rankers/logs/qwen3-4b-3-10-100-512-dl20-topdown_bubblesort.error
 
 module load anaconda3
 conda deactivate

@@ -351,12 +351,23 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
         if self.scoring == 'generation':
             if self.config.model_type == 't5':
-                # T5 models cannot reliably produce dual-label output in generation mode.
-                # Instead, we make two separate calls: one for best, one for worst.
-                # This is equivalent to the dual prompt in terms of information extracted,
-                # but uses the proven single-label prompts that T5 handles well.
-                best = self.compare(query, docs)
-                worst = self._compare_worst_single(query, docs)
+                # Use the dual decoder prompt "<pad> Best:" to prime T5 for dual output.
+                # With enough max_new_tokens, T5 generates "A, Worst: C" after the prompt.
+                inputs = self._tokenize_inputs(input_text)
+                self.total_prompt_tokens += inputs.input_ids.shape[1]
+
+                output_ids = self._generate(
+                    inputs,
+                    max_new_tokens=20,
+                    decoder_input_ids=self.dual_decoder_input_ids,
+                )[0]
+
+                self.total_completion_tokens += output_ids.shape[0]
+
+                raw_output = self.tokenizer.decode(output_ids,
+                                                   skip_special_tokens=True).strip()
+                # raw_output includes the decoder prefix, e.g. "Best: A, Worst: C"
+                best, worst = self._parse_dual_output(raw_output, len(docs))
 
             elif self._is_supported_causal_model():
                 conversation = [{"role": "user", "content": input_text}]
@@ -365,7 +376,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 inputs = self._tokenize_inputs(prompt)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 30
+                # Thinking models (Qwen3) need a larger budget: the <think>...</think>
+                # block can easily consume 200+ tokens before the answer appears.
+                # 512 tokens gives ample room for thinking + "Best: A, Worst: C".
+                max_new = 512 if self.config.model_type in QWEN_MODEL_TYPES else 64
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0]
@@ -373,14 +387,8 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
                                                skip_special_tokens=False).strip()
                 output = self._clean_generation_output(output)
-                best, worst = self._try_parse_dual_output(output, len(docs))
-                if best is None or worst is None:
-                    print(
-                        f"Warning: Could not reliably parse dual output '{output}', "
-                        "falling back to separate best/worst prompts."
-                    )
-                    best = self.compare(query, docs)
-                    worst = self._compare_worst_single(query, docs)
+                # Always parse from the single call — never fall back to 2 separate calls
+                best, worst = self._parse_dual_output(output, len(docs))
 
         elif self.scoring == 'likelihood':
             if self.config.model_type == 't5':
@@ -463,12 +471,22 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                     return char
         return self.CHARACTERS[len(docs) - 1]
 
+    def _num_to_label(self, num: int, n_docs: int) -> Optional[str]:
+        """Convert a 1-based number to the corresponding passage label."""
+        idx = num - 1  # 1-based → 0-based
+        if 0 <= idx < n_docs:
+            return self.CHARACTERS[idx]
+        return None
+
     def _try_parse_dual_output(self, output: str, n_docs: int) -> Tuple[Optional[str], Optional[str]]:
         """Parse the dual output from the LLM.
 
         Handles various output formats:
-        - "Best: A, Worst: C"
-        - "A, C"
+        - "Best: A, Worst: C"      (letter labels)
+        - "Best: [A], Worst: [C]"  (bracketed labels)
+        - "Best: 1, Worst: 3"      (numeric labels)
+        - "A, C"                   (bare letters)
+        - "1, 3"                   (bare numbers)
         - "Passage A, Passage C"
         """
         output_upper = self._clean_generation_output(output).upper().strip()
@@ -477,7 +495,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         # Label pattern: bare letter or letter in square brackets, e.g. A, [A]
         _L = r'\[?([A-W])\]?'
 
-        # Try "Best: X, Worst: Y" format first (most reliable)
+        # --- Pattern 1: "Best: X, Worst: Y" with letter labels ---
         best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
 
@@ -487,7 +505,16 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             if best in valid_chars and worst in valid_chars:
                 return best, worst
 
-        # Try "most relevant: X ... least relevant: Y" pattern
+        # --- Pattern 2: "Best: N, Worst: M" with numeric labels (1-based) ---
+        best_num_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
+        worst_num_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
+        if best_num_match and worst_num_match:
+            best = self._num_to_label(int(best_num_match.group(1)), n_docs)
+            worst = self._num_to_label(int(worst_num_match.group(1)), n_docs)
+            if best is not None and worst is not None:
+                return best, worst
+
+        # --- Pattern 3: "most relevant: X ... least relevant: Y" ---
         most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         if most_match and least_match:
@@ -496,43 +523,72 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             if best in valid_chars and worst in valid_chars:
                 return best, worst
 
-        # Try "Passage X" patterns
+        # --- Pattern 4: "Passage X" patterns (at least 2) ---
         passage_matches = re.findall(r'PASSAGE\s*' + _L, output_upper)
         passage_matches = [c for c in passage_matches if c in valid_chars]
         if len(passage_matches) >= 2:
             return passage_matches[0], passage_matches[1]
 
-        # Try comma-separated single characters or bracketed characters
+        # --- Pattern 5: comma/space-separated letters or bracketed letters ---
         parts = re.split(r'[,\s]+', output_upper)
         found_chars = []
         for p in parts:
-            # Match bare letter or [letter]
             m = re.fullmatch(r'\[?([A-W])\]?', p)
             if m and m.group(1) in valid_chars:
                 found_chars.append(m.group(1))
         if len(found_chars) >= 2:
             return found_chars[0], found_chars[1]
 
+        # --- Pattern 6: two distinct numbers (1-based) anywhere in the output ---
+        all_nums = re.findall(r'\b(\d+)\b', output_upper)
+        found_num_labels = []
+        for n in all_nums:
+            label = self._num_to_label(int(n), n_docs)
+            if label is not None and (not found_num_labels or label != found_num_labels[-1]):
+                found_num_labels.append(label)
+            if len(found_num_labels) >= 2:
+                return found_num_labels[0], found_num_labels[1]
+
         return None, None
 
     def _parse_dual_output(self, output: str, n_docs: int) -> Tuple[str, str]:
+        """Parse dual output with guaranteed return — never returns None.
+
+        Falls back to heuristics if _try_parse_dual_output fails:
+        1. If one letter found: use it as best, default worst
+        2. If one number found: map to label, default the other
+        3. Last resort: default to first and last
+        """
         best, worst = self._try_parse_dual_output(output, n_docs)
         if best is not None and worst is not None:
             return best, worst
 
-        output_upper = output.upper().strip()
+        cleaned = self._clean_generation_output(output)
+        output_upper = cleaned.upper().strip()
         valid_chars = set(self.CHARACTERS[:n_docs])
 
-        # If only one valid character found, use it as best and default worst to last
+        # Try finding any valid letter characters
         all_found = [c for c in output_upper if c in valid_chars]
+        if len(all_found) >= 2 and all_found[0] != all_found[1]:
+            print(f"Warning: Partial dual parse from '{cleaned}', using {all_found[0]} as best, {all_found[1]} as worst")
+            return all_found[0], all_found[1]
         if len(all_found) >= 1:
             best = all_found[0]
-            worst = self.CHARACTERS[n_docs - 1] if all_found[0] != self.CHARACTERS[n_docs - 1] else self.CHARACTERS[0]
-            print(f"Warning: Could only parse one label from '{output}', using {best} as best, {worst} as worst")
+            worst = self.CHARACTERS[n_docs - 1] if best != self.CHARACTERS[n_docs - 1] else self.CHARACTERS[0]
+            print(f"Warning: Could only parse one label from '{cleaned}', using {best} as best, {worst} as worst")
             return best, worst
 
+        # Try numeric: find any number that maps to a valid label
+        num_match = re.search(r'\b(\d+)\b', cleaned)
+        if num_match:
+            label = self._num_to_label(int(num_match.group(1)), n_docs)
+            if label is not None:
+                worst = self.CHARACTERS[n_docs - 1] if label != self.CHARACTERS[n_docs - 1] else self.CHARACTERS[0]
+                print(f"Warning: Numeric-only dual parse from '{cleaned}', using {label} as best, {worst} as worst")
+                return label, worst
+
         # Last resort: default to first and last
-        print(f"Warning: Could not parse dual output: '{output}', defaulting to A and {self.CHARACTERS[n_docs-1]}")
+        print(f"Warning: Could not parse dual output: '{cleaned}', defaulting to A and {self.CHARACTERS[n_docs-1]}")
         return self.CHARACTERS[0], self.CHARACTERS[n_docs - 1]
 
     def _majority_vote(self, candidates: List[int]) -> int:
