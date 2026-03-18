@@ -39,14 +39,15 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 
 MODEL=${1:-"google/flan-t5-xl"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019"}
-RUN_PATH=${3:-"runs/run.msmarco-passage.bm25-default.dl19.txt"}
+RUN_PATH=${3:-"runs/bm25/run.msmarco-passage.bm25-default.dl19.txt"}
 OUTPUT_DIR=${4:-"results/extended_setwise"}
 DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
 NUM_CHILD=${7:-3}
 K=${8:-10}
 HITS=${9:-100}
-PASSAGE_LENGTH=${10:-128}
+PASSAGE_LENGTH=${10:-512}
+BIDIRECTION_WEIGHTED_ALPHA=${11:-0.7}
 
 mkdir -p ${OUTPUT_DIR}
 
@@ -56,6 +57,7 @@ echo "Model: ${MODEL}"
 echo "Dataset: ${DATASET}"
 echo "Scoring: ${SCORING}"
 echo "num_child: ${NUM_CHILD}, k: ${K}, hits: ${HITS}"
+echo "weighted alpha: ${BIDIRECTION_WEIGHTED_ALPHA}"
 echo "=============================================="
 
 # --- Baseline: Standard Top-Down Setwise (Heapsort) ---
@@ -187,12 +189,12 @@ python run.py \
 
 # --- Bidirectional Ensemble (Weighted, alpha=0.7) ---
 echo ""
-echo ">>> [8/8] Bidirectional Ensemble (Weighted, alpha=0.7)"
+echo ">>> [8/8] Bidirectional Ensemble (Weighted, alpha=${BIDIRECTION_WEIGHTED_ALPHA})"
 python run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
-        --save_path ${OUTPUT_DIR}/bidirectional_weighted.txt \
+        --save_path ${OUTPUT_DIR}/bidirectional_weighted_alpha_${BIDIRECTION_WEIGHTED_ALPHA}.txt \
         --device ${DEVICE} \
         --scoring ${SCORING} \
         --hits ${HITS} \
@@ -202,8 +204,8 @@ python run.py \
             --k ${K} \
             --direction bidirectional \
             --fusion weighted \
-            --alpha 0.7 \
-    2>&1 | tee ${OUTPUT_DIR}/bidirectional_weighted.log
+            --alpha ${BIDIRECTION_WEIGHTED_ALPHA} \
+    2>&1 | tee ${OUTPUT_DIR}/bidirectional_weighted_alpha_${BIDIRECTION_WEIGHTED_ALPHA}.log
 
 echo ""
 echo "=============================================="

@@ -166,3 +166,4 @@ results/
 pyserini/
 ranker_env/
 runs/bm25/*.txt
+logs/
