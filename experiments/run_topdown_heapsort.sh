@@ -10,8 +10,8 @@
 #SBATCH --time=20:00:00
 #SBATCH --account=a_ai_collab
 
-module load anaconda3
-conda deactivate
+module load anaconda3/2023.09-0
+source $EBROOTANACONDA3/etc/profile.d/conda.sh
 module load cuda/12.2
 conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
 cd /scratch/project/neural_ir/hang/llm-rankers

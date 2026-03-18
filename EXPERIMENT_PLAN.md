@@ -42,7 +42,7 @@ The paper addresses three research questions. Every experiment must map to at le
 | Issue | Paper Says | Code/Scripts Say | Impact | Status |
 |-------|-----------|-----------------|--------|--------|
 | **Models** | Flan-T5-XL/XXL, Vicuna | SLURM defaults to Qwen3-4B | **HIGH** | ✅ Plan updated: use 7 models (3 T5, 3 Qwen3, 1 Qwen3.5) |
-| **passage_length** | 128 tokens | Scripts use 512 | **HIGH** | ✅ Plan clarifies: 128 for T5, 512 for Qwen; ablation added |
+| **passage_length** | 128 tokens | Scripts use 512 | **HIGH** | ✅ Plan clarifies: **128 for T5** (matches original paper), 512 for Qwen; ablation added |
 | **Likelihood scoring** | Tab 1 has likelihood rows | No script | **HIGH** | ✅ `run_likelihood.sh` created |
 | **Permutation voting** | §5.3 compares BiDir vs. p=2 | No script | **HIGH** | ✅ `run_permvote_p2.sh` created |
 | **num_child ablation** | Tab 4 tests c∈{2,3,5,7} | Not scripted | **MEDIUM** | ✅ `run_ablation_nc.sh` created |
@@ -62,9 +62,12 @@ All three ranker classes are implemented and parsing bugs are fixed:
 - `BidirectionalEnsembleRanker` — RRF + CombSUM + Weighted ✅
 - `_clean_generation_output` — handles Qwen thinking tokens, T5/Flan-T5 tokens ✅
 - `_parse_single_label` — handles brackets, numbers, refusals ✅
-- `_try_parse_dual_output` — handles square-bracketed labels ✅
+- `_try_parse_dual_output` — handles square-bracketed labels + numeric labels ✅
+- `_parse_dual_output` — guaranteed-return fallback with numeric + heuristic parsing ✅
 - Bubblesort window-shrinking bug — fixed ✅
-- `max_new_tokens` — 256 for Qwen models ✅
+- `max_new_tokens` — 512 for Qwen dual-end, 256 for Qwen single-label, 64 for non-Qwen causal ✅
+- DualEnd T5 generation — uses likelihood internally (single forward pass, no parsing) ✅
+- DualEnd strict single-call enforcement — never falls back to 2 separate calls ✅
 
 ---
 
@@ -136,24 +139,37 @@ runs/bm25/run.beir.bm25-flat.fever.txt
 ### Default Parameters
 
 ```
-  - num_child = 3 (unless ablation)
+  - num_child = 3              ← matches original paper (c=3 default)
   - k = 10
   - hits = 100
-  - passage_length = 512      ← default for Qwen3 models (large context)
-                    = 128      ← recommended for Flan-T5 (512-token context limit)
-                    → varies by model family; use passage_length ablation to determine best
-  - query_length = 128         (default in run.py)
+  - passage_length = 128      ← for Flan-T5 (matches original paper; at 512-token limit)
+                    = 512      ← for Qwen3/Qwen3.5 (32k+ context)
+  - query_length = 128         (default in run.py; TREC DL queries are short so this rarely matters)
   - scoring = generation       (unless likelihood experiment for T5 models)
   - num_permutation = 1        (unless permutation voting experiment)
 ```
 
 ### Recommended Passage Length by Model
 
-| Model Family | Context Limit | Recommended `passage_length` | Notes |
+**Matching the original paper (arXiv:2310.09497):**
+
+The original paper uses `num_child=3` with `passage_length=128` for Flan-T5. Both heapsort and bubblesort present `num_child+1 = 4` documents per comparison. With 4×128 = 512 passage tokens plus ~65 tokens overhead (short TREC DL queries), this is at or slightly above the T5 512-token limit. The original paper accepts this marginal truncation — it's part of their methodology.
+
+Their `num_child` ablation (Table 5) calibrates PL to stay near the 512 limit:
+```
+c=3 → PL=128 → (c+1)×PL = 4×128 = 512
+c=5 → PL=85  → 6×85  = 510
+c=7 → PL=60  → 8×60  = 480
+c=9 → PL=45  → 10×45 = 450
+```
+
+| Model Family | Context Limit | `passage_length` | Notes |
 |---|---|---|---|
-| Flan-T5-large/xl/xxl | 512 tokens | 128 | 4 passages × 128 + overhead ≈ 700 tokens; 256 may truncate |
-| Qwen3-4B/8B/14B | 32k+ tokens | 512 | Plenty of room |
-| Qwen3.5-4B | 32k+ tokens | 512 | Same as Qwen3 |
+| Flan-T5-large/xl/xxl | 512 tokens | **128** | Matches original paper; marginal truncation expected for some queries |
+| Qwen3-4B/8B/14B | 32k+ tokens | **512** | Plenty of room |
+| Qwen3.5-4B | 32k+ tokens | **512** | Same as Qwen3 |
+
+**Note**: You may see `"Warning: prompt length NNN exceeds model limit 512"` for T5 models. This is expected — the original paper experiences the same marginal truncation. The code handles it gracefully via `_tokenize_inputs()`. For BEIR datasets with longer queries, consider reducing to `passage_length=100`.
 
 ### Experiment Scale Summary
 
@@ -202,16 +218,24 @@ python -c "from transformers import AutoConfig; AutoConfig.from_pretrained('lmsy
 ```
 
 ### P0.3: Verify passage_length alignment
-**CRITICAL**: The paper specifies `passage_length=128`. The current `run_extended_setwise_all.sh` defaults to 512.
+**CRITICAL**: Match the original paper's parameters exactly for fair comparison. Use `passage_length=128` for Flan-T5 (matches arXiv:2310.09497) and `passage_length=512` for Qwen3/Qwen3.5.
 
-All experiment commands in this plan use `passage_length=128`. When running the `run_extended_setwise_all.sh` script, override:
 ```bash
+# Flan-T5 (passage_length=128, matches original paper):
 bash experiments/run_extended_setwise_all.sh google/flan-t5-xl \
     msmarco-passage/trec-dl-2019/judged \
     runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
     results/flan-t5-xl-dl19 \
     cuda generation 3 10 100 128
-#                              ^^^ passage_length=128
+#                              ^^^ passage_length=128 (original paper)
+
+# Qwen3 (passage_length=512, plenty of context room):
+bash experiments/run_extended_setwise_all.sh Qwen/Qwen3-4B \
+    msmarco-passage/trec-dl-2019/judged \
+    runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    results/qwen3-4b-dl19 \
+    cuda generation 3 10 100 512
+#                              ^^^ passage_length=512
 ```
 
 ### P0.4: Verify code works (smoke test)
@@ -286,11 +310,11 @@ done
 
 | Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
 |-------|----------------|----------------|-----|
-| `google/flan-t5-large` | `results/flan-t5-large-dl19` | `results/flan-t5-large-dl20` | 128 |
-| `google/flan-t5-xl` | `results/flan-t5-xl-dl19` | `results/flan-t5-xl-dl20` | 128 |
-| `google/flan-t5-xxl` | `results/flan-t5-xxl-dl19` | `results/flan-t5-xxl-dl20` | 128 |
+| `google/flan-t5-large` | `results/flan-t5-large-dl19` | `results/flan-t5-large-dl20` | **128** |
+| `google/flan-t5-xl` | `results/flan-t5-xl-dl19` | `results/flan-t5-xl-dl20` | **128** |
+| `google/flan-t5-xxl` | `results/flan-t5-xxl-dl19` | `results/flan-t5-xxl-dl20` | **128** |
 
-**passage_length=128** for Flan-T5 (512-token context limit; 4 passages × 128 + prompt ≈ 700 tokens, already tight).
+**passage_length=128** for Flan-T5 — matches the original paper (arXiv:2310.09497). With `num_child=3` (4 passages per prompt), this is at the 512-token limit. Marginal truncation is expected and matches the original methodology.
 
 Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 
@@ -333,10 +357,10 @@ Total: **12 runs**.
 Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 
 **Important Qwen3-specific behavior**:
-- Thinking models emit `<think>...</think>` blocks; `max_new_tokens=256` already set in code
+- Thinking models emit `<think>...</think>` blocks; `max_new_tokens=512` set for dual-end, `256` for single-label
 - `skip_special_tokens=False` in code to preserve `<think>` tags for regex stripping
 - `enable_thinking=False` passed via `_chat_template_kwargs()`
-- DualEnd dual prompt works in a single call (unlike T5 which falls back to 2 calls)
+- DualEnd dual prompt works in a single generation call (parses "Best: X, Worst: Y" from output)
 
 **SLURM notes**:
 - Qwen3-4B: `--mem=256G`, `--gres=gpu:h100:1`, `--time=10:00:00`
@@ -470,9 +494,11 @@ python run.py \
 
 ### Ablation 3D: Passage Length — Table 5b (NEW)
 
-Test `passage_length ∈ {64, 128, 256, 512}` to understand the effect of passage truncation on ranking quality.
+Test `passage_length ∈ {64, 100, 128, 256, 512}` to understand the effect of passage truncation on ranking quality.
 
-**Motivation**: Different model families have different context limits. Flan-T5 has a 512-token limit, making passage_length=128 a safe default. Qwen3 models have 32k+ context, so passage_length=512 is feasible. This ablation answers: does more passage text help ranking quality, and does the answer differ for TopDown vs. BottomUp vs. DualEnd?
+**Motivation**: Different model families have different context limits. Flan-T5 has a 512-token limit; with `num_child=3` (4 passages), `passage_length=100` is the safe max. Qwen3 models have 32k+ context, so `passage_length=512` is feasible. This ablation answers: does more passage text help ranking quality, and does the answer differ for TopDown vs. BottomUp vs. DualEnd?
+
+**Note for T5**: `passage_length=128` with `num_child=3` will cause input truncation (4×128+70=582 > 512). This is still interesting to test — it shows the effect of truncation. `passage_length=256` will truncate even more severely. Include these but note the truncation in the table.
 
 **Test on 2 representative models** (one T5, one Qwen3) with TopDown-Heap on DL19:
 
@@ -510,11 +536,12 @@ bash experiments/run_ablation_passage_length.sh \
 | PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
 |----|:---:|:---:|:---:|
 | 64 | ☐ | ☐ | ☐ |
-| 128 | ☐ | ☐ | ☐ |
-| 256 | ☐ | ☐ | ☐ |
-| 512 | ☐ (may truncate) | ☐ | ☐ |
+| 100 | ☐ | ☐ | ☐ |
+| 128 | ☐ (our default, matches paper) | ☐ | ☐ |
+| 256 | ☐ (heavy truncation) | ☐ | ☐ |
+| 512 | N/A | ☐ | ☐ |
 
-Total: ~12 runs.
+Total: ~14 runs.
 
 ---
 
@@ -741,9 +768,10 @@ For each model below, all 8 methods on both DL19 and DL20:
 | PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
 |----|:---:|:---:|:---:|
 | 64 | ☐ | ☐ | ☐ |
-| 128 | ☐ | ☐ | ☐ |
-| 256 | ☐ | ☐ | ☐ |
-| 512 | ☐ | ☐ | ☐ |
+| 100 | ☐ | ☐ | ☐ |
+| 128 | ☐ (default, matches paper) | ☐ | ☐ |
+| 256 | ☐ (heavy truncation) | ☐ | ☐ |
+| 512 | N/A | ☐ | ☐ |
 
 ### Table 6: Query Difficulty
 ☐ Post-hoc analysis from Phase 1
@@ -766,7 +794,7 @@ For each model below, all 8 methods on both DL19 and DL20:
 
 ### Critical
 
-1. **Wrong passage_length for model**: Flan-T5 models have a 512-token context limit — use `passage_length=128`. Qwen3/Qwen3.5 models have 32k+ context — use `passage_length=512`. The scripts default to 512 which is correct for Qwen but will cause truncation for T5. Always check the model before setting passage_length.
+1. **Wrong passage_length for model**: Flan-T5 models use `passage_length=128` (matching the original paper arXiv:2310.09497). This is at the 512-token limit with `num_child=3` and marginal truncation is expected (same as the original paper). Qwen3/Qwen3.5 models have 32k+ context — use `passage_length=512`. For BEIR datasets with longer queries, consider reducing T5 to `passage_length=100`.
 
 2. **Wrong model in SLURM scripts**: SLURM scripts default to `Qwen/Qwen3-4B`. Always pass the model as the first argument when running other models (Flan-T5, etc.).
 
@@ -776,9 +804,9 @@ For each model below, all 8 methods on both DL19 and DL20:
 
 5. **BiDir double-counting comparisons**: BidirectionalEnsembleRanker already aggregates stats from both sub-rankers. Don't accidentally double-count when reporting.
 
-6. **DualEnd T5 uses `dual_decoder_input_ids`**: T5 dual-end generation is primed with `"<pad> Best:"` and generates up to 20 tokens to produce "Best: A, Worst: C". This is a SINGLE call (not 2 separate calls). If the model produces malformed output, the parser falls back to heuristics (never to 2 separate calls). Verify parsing success rate in logs.
+6. **DualEnd T5 uses likelihood internally (even in generation mode)**: T5 cannot reliably produce dual-format text output ("Best: X, Worst: Y") — it echoes the template literally. So `compare_both()` automatically uses a single likelihood forward pass (reading max/min from softmax) regardless of `--scoring` setting. This is a SINGLE forward pass (satisfies the single-call constraint), requires no parsing, and uses the shorter "most relevant" prompt that fits within 512 tokens.
 
-7. **DualEnd Qwen3 uses `max_new_tokens=512`**: Thinking models need a large token budget because `<think>...</think>` blocks can consume 200+ tokens before the answer. The answer itself is only ~10 tokens. If you still see truncated outputs, increase further.
+7. **DualEnd Qwen3 uses `max_new_tokens=512`**: Thinking models need a large token budget because `<think>...</think>` blocks can consume 200+ tokens before the answer. The answer itself is only ~10 tokens. If you still see truncated outputs, increase further. Non-Qwen causal models use `max_new_tokens=64`.
 
 ### Medium
 

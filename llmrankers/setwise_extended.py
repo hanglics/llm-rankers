@@ -351,23 +351,38 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
         if self.scoring == 'generation':
             if self.config.model_type == 't5':
-                # Use the dual decoder prompt "<pad> Best:" to prime T5 for dual output.
-                # With enough max_new_tokens, T5 generates "A, Worst: C" after the prompt.
-                inputs = self._tokenize_inputs(input_text)
+                # T5 generation cannot reliably produce dual-format output ("Best: X, Worst: Y")
+                # because: (1) T5's 512-token input limit is easily exceeded by the longer dual
+                # prompt, causing truncation and garbage output; (2) T5 tends to echo the template
+                # literally ("Best: [label], Worst: [label]") instead of filling in actual labels.
+                #
+                # Solution: use likelihood scoring internally — a single forward pass that reads
+                # the full label distribution, taking max as best and min as worst. This is:
+                # - Exactly ONE forward pass (satisfies the single-call constraint)
+                # - No parsing needed (reads directly from logits)
+                # - Uses the shorter "most relevant" prompt (fits within 512 tokens)
+                likelihood_text = (
+                    f'Given a query "{query}", which of the following passages is the most '
+                    f'relevant one to the query?\n\n'
+                    + passages +
+                    '\n\nOutput only the passage label of the most relevant passage:'
+                )
+                inputs = self._tokenize_inputs(likelihood_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
-
-                output_ids = self._generate(
-                    inputs,
-                    max_new_tokens=20,
-                    decoder_input_ids=self.dual_decoder_input_ids,
-                )[0]
-
-                self.total_completion_tokens += output_ids.shape[0]
-
-                raw_output = self.tokenizer.decode(output_ids,
-                                                   skip_special_tokens=True).strip()
-                # raw_output includes the decoder prefix, e.g. "Best: A, Worst: C"
-                best, worst = self._parse_dual_output(raw_output, len(docs))
+                with torch.no_grad():
+                    logits = self.llm(
+                        input_ids=inputs.input_ids,
+                        attention_mask=inputs.attention_mask,
+                        decoder_input_ids=self.decoder_input_ids,
+                    ).logits[0][-1]
+                    distributions = torch.softmax(logits, dim=0)
+                    scores = distributions[self.target_token_ids[:len(docs)]]
+                    ranked = sorted(
+                        zip(self.CHARACTERS[:len(docs)], scores),
+                        key=lambda x: x[1], reverse=True,
+                    )
+                    best = ranked[0][0]
+                    worst = ranked[-1][0]
 
             elif self._is_supported_causal_model():
                 conversation = [{"role": "user", "content": input_text}]
@@ -392,12 +407,14 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
         elif self.scoring == 'likelihood':
             if self.config.model_type == 't5':
-                # For likelihood mode: use a single forward pass to get all label logits
-                # Select highest as best, lowest as worst
-                # Note: we use the "most relevant" prompt for likelihood since we extract
-                # both best (highest score) and worst (lowest score) from the same distribution
-                likelihood_text = f'Given a query "{query}", which of the following passages is the most relevant one to the query?\n\n' \
-                                  + passages + '\n\nOutput only the passage label of the most relevant passage:'
+                # Explicit likelihood mode — same single-forward-pass approach as the
+                # T5 generation path above (which also uses likelihood internally).
+                likelihood_text = (
+                    f'Given a query "{query}", which of the following passages is the most '
+                    f'relevant one to the query?\n\n'
+                    + passages +
+                    '\n\nOutput only the passage label of the most relevant passage:'
+                )
                 inputs = self._tokenize_inputs(likelihood_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
                 with torch.no_grad():
@@ -408,7 +425,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                     ).logits[0][-1]
                     distributions = torch.softmax(logits, dim=0)
                     scores = distributions[self.target_token_ids[:len(docs)]]
-                    ranked = sorted(zip(self.CHARACTERS[:len(docs)], scores), key=lambda x: x[1], reverse=True)
+                    ranked = sorted(
+                        zip(self.CHARACTERS[:len(docs)], scores),
+                        key=lambda x: x[1], reverse=True,
+                    )
                     best = ranked[0][0]
                     worst = ranked[-1][0]
             else:
