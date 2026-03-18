@@ -1,13 +1,13 @@
 #!/bin/bash --login
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=512G
 #SBATCH --job-name=tdbb
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --account=a_ai_collab
 
 module load anaconda3
@@ -17,9 +17,9 @@ conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"Qwen/Qwen3-4B"}
-DATASET=${2:-"msmarco-passage/trec-dl-2020/judged"}
-RUN_PATH=${3:-"/scratch/project/neural_ir/hang/llm-rankers/runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt"}
-OUTPUT_DIR=${4:-"/scratch/project/neural_ir/hang/llm-rankers/results/extended_setwise/qwen3-4b-3-10-100-512-dl20"}
+DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
+RUN_PATH=${3:-"runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
+OUTPUT_DIR=${4:-"results/extended_setwise/qwen3-4b-dl19"}
 DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
 NUM_CHILD=${7:-3}

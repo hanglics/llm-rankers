@@ -38,7 +38,7 @@ export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserin
 export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
 
 MODEL=${1:-"google/flan-t5-xl"}
-DATASET=${2:-"msmarco-passage/trec-dl-2019"}
+DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
 RUN_PATH=${3:-"runs/bm25/run.msmarco-passage.bm25-default.dl19.txt"}
 OUTPUT_DIR=${4:-"results/extended_setwise"}
 DEVICE=${5:-"cuda"}

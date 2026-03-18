@@ -1,13 +1,13 @@
 #!/bin/bash --login
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=256G
 #SBATCH --job-name=ablation_nc
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --account=a_ai_collab
 
 module load anaconda3
@@ -23,8 +23,8 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 
 MODEL=${1:-"google/flan-t5-xl"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
-RUN_PATH=${3:-"/scratch/project/neural_ir/hang/llm-rankers/runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
-OUTPUT_DIR=${4:-"/scratch/project/neural_ir/hang/llm-rankers/results/ablation-nc"}
+RUN_PATH=${3:-"runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
+OUTPUT_DIR=${4:-"results/ablation-nc"}
 DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
 K=${7:-10}

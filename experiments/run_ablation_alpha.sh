@@ -1,7 +1,7 @@
 #!/bin/bash --login
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=256G
 #SBATCH --job-name=ablation_alpha
 #SBATCH --partition=gpu_cuda
@@ -23,8 +23,8 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 
 MODEL=${1:-"google/flan-t5-xl"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
-RUN_PATH=${3:-"/scratch/project/neural_ir/hang/llm-rankers/runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
-OUTPUT_DIR=${4:-"/scratch/project/neural_ir/hang/llm-rankers/results/ablation-alpha"}
+RUN_PATH=${3:-"runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
+OUTPUT_DIR=${4:-"results/ablation-alpha"}
 DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
 NUM_CHILD=${7:-3}
