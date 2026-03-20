@@ -1,6 +1,7 @@
 from typing import List, Optional, Sequence
 from .rankers import LlmRanker, SearchResult
 import openai
+import os
 import time
 import re
 from transformers import T5Tokenizer, T5ForConditionalGeneration, AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -9,6 +10,8 @@ import copy
 from collections import Counter
 import tiktoken
 import random
+
+_DEBUG = os.environ.get("LLM_RANKER_DEBUG", "").lower() in ("1", "true", "yes")
 try:
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
@@ -44,7 +47,8 @@ class SetwiseLlmRanker(LlmRanker):
         self.num_child = num_child
         self.num_permutation = num_permutation
         self.k = k
-        self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+        self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir,
+                                                   trust_remote_code=True)
         self._warned_input_truncation = False
         if self.config.model_type == 't5':
             self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
@@ -252,7 +256,7 @@ class SetwiseLlmRanker(LlmRanker):
         # Handle refusal outputs: model says none are relevant — default to first
         # passage (maintains current order, equivalent to no swap)
         if re.search(
-            r"(?i)\b(none of the|no passage|not relevant|none are|cannot determine|neither)\b",
+            r"(?i)\b(none of the|no passage|not relevant|none are|cannot determine|neither|none|i cannot)\b",
             cleaned,
         ):
             return valid_chars[0]
@@ -360,7 +364,7 @@ class SetwiseLlmRanker(LlmRanker):
                 max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
-                self.total_completion_tokens += output_ids.shape[0]
+                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
 
                 # Decode WITHOUT skipping special tokens so <think>...</think> tags
                 # are preserved for proper stripping by _clean_generation_output.
@@ -368,6 +372,9 @@ class SetwiseLlmRanker(LlmRanker):
                 # the thinking *content* leaks through and pollutes parsing.
                 raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
                                                    skip_special_tokens=False).strip()
+                if _DEBUG:
+                    cleaned_dbg = self._clean_generation_output(raw_output)
+                    print(f"[DEBUG] raw={repr(raw_output[:200])}  cleaned={repr(cleaned_dbg[:200])}")
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
                     output = self._clean_generation_output(raw_output).upper()

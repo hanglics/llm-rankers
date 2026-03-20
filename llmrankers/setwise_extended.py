@@ -129,7 +129,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
-                self.total_completion_tokens += output_ids.shape[0]
+                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
 
                 raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
                                                    skip_special_tokens=False).strip()
@@ -397,7 +397,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 max_new = 512 if self.config.model_type in QWEN_MODEL_TYPES else 64
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
-                self.total_completion_tokens += output_ids.shape[0]
+                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
 
                 output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
                                                skip_special_tokens=False).strip()
@@ -477,7 +477,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             self.total_prompt_tokens += inputs.input_ids.shape[1]
             max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
             output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
-            self.total_completion_tokens += output_ids.shape[0]
+            self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
             raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
             output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
             if output is None:
@@ -967,7 +967,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
                 max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
-                self.total_completion_tokens += output_ids.shape[0]
+                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
                 raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs_list)])
                 if output is None:
