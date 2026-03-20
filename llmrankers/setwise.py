@@ -10,10 +10,6 @@ from collections import Counter
 import tiktoken
 import random
 try:
-    from transformers import Qwen3_5ForConditionalGeneration
-except ImportError:
-    Qwen3_5ForConditionalGeneration = None
-try:
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
     VLLM_IMPORT_ERROR = None
@@ -90,20 +86,10 @@ class SetwiseLlmRanker(LlmRanker):
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             if 'vicuna' and 'v1.5' in model_name_or_path:
                 self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% set system_message = 'A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user\\'s questions.' %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{{ system_message }}{% endif %}{% if message['role'] == 'user' %}{{ ' USER: ' + message['content'].strip() }}{% elif message['role'] == 'assistant' %}{{ ' ASSISTANT: ' + message['content'].strip() + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ ' ASSISTANT:' }}{% endif %}"
-            if self.config.model_type == "qwen3_5":
-                if Qwen3_5ForConditionalGeneration is None:
-                    raise ImportError(
-                        "Qwen3.5 requires a Transformers build with Qwen3_5ForConditionalGeneration support."
-                    )
-                self.llm = Qwen3_5ForConditionalGeneration.from_pretrained(
-                    model_name_or_path,
-                    **model_kwargs,
-                ).eval()
-            else:
-                self.llm = AutoModelForCausalLM.from_pretrained(
-                    model_name_or_path,
-                    **model_kwargs,
-                ).eval()
+            self.llm = AutoModelForCausalLM.from_pretrained(
+                model_name_or_path,
+                **model_kwargs,
+            ).eval()
         else:
             raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for setwise:(")
 

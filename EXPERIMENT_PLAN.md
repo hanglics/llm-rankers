@@ -86,8 +86,8 @@ Decoder-Only / Causal (Qwen3 family — generation only, thinking models):
   - Qwen/Qwen3-8B             (8B)
   - Qwen/Qwen3-14B            (14B)
 
-Encoder-Decoder / Hybrid (Qwen3.5 — requires custom Transformers build):
-  - Qwen/Qwen3.5-4B           (4B, uses Qwen3_5ForConditionalGeneration)
+Hybrid Causal (Qwen3.5 — requires transformers dev build with qwen3_5 support):
+  - Qwen/Qwen3.5-4B           (4B, loaded via AutoModelForCausalLM)
 ```
 
 ### Datasets
@@ -367,7 +367,7 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 - Qwen3-8B: `--mem=512G`, `--gres=gpu:h100:1`, `--time=15:00:00`
 - Qwen3-14B: `--mem=512G`, `--gres=gpu:h100:1`, `--time=20:00:00`
 
-### Phase 1D: Qwen3.5-4B (Encoder-Decoder Hybrid)
+### Phase 1D: Qwen3.5-4B (Hybrid Causal — Gated DeltaNet + Standard Attention)
 
 | Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
 |-------|----------------|----------------|-----|
@@ -375,10 +375,18 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 
 8 methods × 2 datasets = **16 runs**.
 
-**Prerequisite**: Requires a Transformers build with `Qwen3_5ForConditionalGeneration` support. Verify:
-```python
-from transformers import Qwen3_5ForConditionalGeneration  # must not raise ImportError
+**Prerequisite**: Requires transformers dev build with `qwen3_5` model type support:
+```bash
+pip install "transformers @ git+https://github.com/huggingface/transformers.git@main"
 ```
+Verify:
+```python
+from transformers import AutoConfig, AutoModelForCausalLM
+config = AutoConfig.from_pretrained("Qwen/Qwen3.5-4B", trust_remote_code=True)
+assert config.model_type == "qwen3_5"  # must not fail
+```
+
+**Architecture note**: Qwen3.5 is a **decoder-only hybrid** (75% Gated DeltaNet + 25% standard attention), NOT encoder-decoder. The `ForConditionalGeneration` name refers to multimodal capability (integrated ViT), not enc-dec architecture. Loaded via `AutoModelForCausalLM` per official HuggingFace docs.
 
 ### Phase 1 Evaluation
 
