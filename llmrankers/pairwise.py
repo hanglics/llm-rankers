@@ -120,7 +120,7 @@ Output Passage A or Passage B:"""
                                            top_p=None,
                                            max_new_tokens=1)
 
-            self.total_completion_tokens += output_ids.shape[0] * output_ids.shape[1]
+            self.total_completion_tokens += output_ids.shape[0] * (output_ids.shape[1] - input_ids.shape[1])
 
             output0 = self.tokenizer.decode(output_ids[0][input_ids.shape[1]:],
                                             skip_special_tokens=True).strip().upper()

@@ -11,9 +11,11 @@
 #SBATCH --account=a_ai_collab
 
 module load anaconda3/2023.09-0
+# module load java/21.0.8
 source $EBROOTANACONDA3/etc/profile.d/conda.sh
 module load cuda/12.2
 conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+# conda activate /scratch/project/neural_ir/hang/llm-rankers/qwen35_env
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"Qwen/Qwen3-4B"}

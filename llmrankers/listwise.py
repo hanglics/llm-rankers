@@ -266,7 +266,7 @@ class ListwiseLlmRanker(OpenAiListwiseLlmRanker):
                 self.total_prompt_tokens += input_ids.shape[1]
 
                 output_ids = self.llm.generate(input_ids)[0]
-                self.total_completion_tokens += output_ids.shape[0]
+                self.total_completion_tokens += output_ids.shape[0] - input_ids.shape[1]
                 output = self.tokenizer.decode(output_ids[input_ids.shape[1]:],
                                                skip_special_tokens=True).strip()
 
