@@ -376,6 +376,17 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 8 methods × 2 datasets = **16 runs**.
 
 **Prerequisite**: Requires transformers dev build with `qwen3_5` model type support:
+
+Also need to run:
+```bash
+mv pyserini pyserini_src
+```
+
+After experiments finished, run:
+```bash
+mv pyserini_src pyserini
+```
+
 ```bash
 pip install "transformers @ git+https://github.com/huggingface/transformers.git@main"
 ```
