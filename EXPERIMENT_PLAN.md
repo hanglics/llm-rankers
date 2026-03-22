@@ -372,8 +372,10 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 | Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
 |-------|----------------|----------------|-----|
 | `Qwen/Qwen3.5-4B` | `results/qwen3.5-4b-dl19` | `results/qwen3.5-4b-dl20` | 512 |
+| `Qwen/Qwen3.5-9B` | `results/qwen3.5-9b-dl19` | `results/qwen3.5-9b-dl20` | 512 |
+| `Qwen/Qwen3.5-27B` | `results/qwen3.5-27b-dl19` | `results/qwen3.5-27b-dl20` | 512 |
 
-8 methods × 2 datasets = **16 runs**.
+3 models × 8 methods × 2 datasets = **48 runs**.
 
 **Prerequisite**: Requires transformers dev build with `qwen3_5` model type support:
 
