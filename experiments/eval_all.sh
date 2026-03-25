@@ -33,6 +33,7 @@ for DIR in ${DIRS}; do
     fi
 
     RESULTS_FILE="${DIR}/results.txt"
+    > "${RESULTS_FILE}"
 
     {
     echo ""
@@ -77,8 +78,8 @@ for DIR in ${DIRS}; do
         echo "-------------------------------------------"
         for f in ${DIR}/*.log; do
             name=$(basename $f .log)
-            unexpected=$(grep -c "Unexpected output" $f 2>/dev/null || echo 0)
-            dual_parse=$(grep -c "Could not reliably parse dual" $f 2>/dev/null || echo 0)
+            unexpected=$(grep -c "Unexpected output" $f 2>/dev/null || true)
+            dual_parse=$(grep -c "Could not reliably parse dual" $f 2>/dev/null || true)
             if [ "${unexpected}" -gt 0 ] || [ "${dual_parse}" -gt 0 ]; then
                 echo "  ${name}: unexpected=${unexpected}, dual_parse_fail=${dual_parse}"
             fi
