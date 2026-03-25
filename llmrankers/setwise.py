@@ -321,6 +321,8 @@ class SetwiseLlmRanker(LlmRanker):
                         max_new_tokens=2,
                         decoder_input_ids=self.decoder_input_ids.repeat(inputs.input_ids.shape[0], 1),
                     )
+                    self.total_completion_tokens += output_ids.shape[0] * (output_ids.shape[1] - self.decoder_input_ids.shape[1])
+
                     output = self.tokenizer.batch_decode(output_ids[:, self.decoder_input_ids.shape[1]:],
                                                          skip_special_tokens=True)
 
