@@ -1,8 +1,8 @@
 # Experiment Plan: Beyond Best Selection
 
 **Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
-**Last Updated:** 2026-03-18
-**Status:** Pre-experiment (no results yet)
+**Last Updated:** 2026-03-25
+**Status:** Phase 1 COMPLETE, Phase 2 IN PROGRESS (permutation voting p=2 running)
 
 ---
 
@@ -41,7 +41,7 @@ The paper addresses three research questions. Every experiment must map to at le
 
 | Issue | Paper Says | Code/Scripts Say | Impact | Status |
 |-------|-----------|-----------------|--------|--------|
-| **Models** | Flan-T5-XL/XXL, Vicuna | SLURM defaults to Qwen3-4B | **HIGH** | ✅ Plan updated: use 7 models (3 T5, 3 Qwen3, 1 Qwen3.5) |
+| **Models** | Flan-T5-XL/XXL, Vicuna | SLURM defaults to Qwen3-4B | **HIGH** | ✅ Plan updated: use 9 models (3 T5, 3 Qwen3, 3 Qwen3.5) |
 | **passage_length** | 128 tokens | Scripts use 512 | **HIGH** | ✅ Plan clarifies: **128 for T5** (matches original paper), 512 for Qwen; ablation added |
 | **Likelihood scoring** | Tab 1 has likelihood rows | No script | **HIGH** | ✅ `run_likelihood.sh` created |
 | **Permutation voting** | §5.3 compares BiDir vs. p=2 | No script | **HIGH** | ✅ `run_permvote_p2.sh` created |
@@ -88,7 +88,11 @@ Decoder-Only / Causal (Qwen3 family — generation only, thinking models):
 
 Hybrid Causal (Qwen3.5 — requires transformers dev build with qwen3_5 support):
   - Qwen/Qwen3.5-4B           (4B, loaded via AutoModelForCausalLM)
+  - Qwen/Qwen3.5-9B           (9B, loaded via AutoModelForCausalLM)
+  - Qwen/Qwen3.5-27B          (27B, loaded via AutoModelForCausalLM)
 ```
+
+**Total: 9 models** (3 T5 + 3 Qwen3 + 3 Qwen3.5)
 
 ### Datasets
 
@@ -175,7 +179,7 @@ c=9 → PL=45  → 10×45 = 450
 
 | Scope | Models | Datasets | Methods | Runs |
 |-------|--------|----------|---------|------|
-| **Phase 1: Core (DL19+DL20)** | 7 models | 2 datasets | 8 methods | 112 |
+| **Phase 1: Core (DL19+DL20)** | 9 models | 2 datasets | 8 methods | 144 |
 | **Phase 1B: Likelihood (T5 only)** | 3 T5 models | 2 datasets | 2 methods | 12 |
 | **Phase 2: Baselines** | 2-3 models | 2 datasets | 1 method | 4-6 |
 | **Phase 3: Ablations** | 1-2 models | 1 dataset | varies | ~20 |
@@ -375,7 +379,7 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 | `Qwen/Qwen3.5-9B` | `results/qwen3.5-9b-dl19` | `results/qwen3.5-9b-dl20` | 512 |
 | `Qwen/Qwen3.5-27B` | `results/qwen3.5-27b-dl19` | `results/qwen3.5-27b-dl20` | 512 |
 
-3 models × 8 methods × 2 datasets = **48 runs**.
+3 models × 8 methods × 2 datasets = **48 runs**. ✅ COMPLETE
 
 **Prerequisite**: Requires transformers dev build with `qwen3_5` model type support:
 
@@ -413,6 +417,38 @@ Or evaluate all at once:
 ```bash
 bash experiments/eval_all.sh results/*/
 ```
+
+### Phase 1 Interim Results Summary (as of 2026-03-25)
+
+**Status**: Phase 1 COMPLETE for all 9 models × 2 datasets × 8 methods = 144 runs. Likelihood experiments (12 runs) also complete.
+
+**Key finding — DualEnd-Bubblesort (Cocktail Shaker) is the winner:**
+
+| Model | DL19 Best Method | NDCG@10 | DL20 Best Method | NDCG@10 |
+|-------|-----------------|---------|-----------------|---------|
+| flan-t5-large | topdown_bubblesort | 0.6874 | dualend_bubblesort | 0.6308 |
+| flan-t5-xl | topdown_bubblesort | 0.6980 | topdown_bubblesort | 0.6868 |
+| flan-t5-xxl | **dualend_bubblesort** | **0.7137** | topdown_bubblesort | 0.6959 |
+| Qwen3-4B | **dualend_selection** | **0.7234** | **dualend_selection** | **0.6735** |
+| Qwen3-8B | **dualend_bubblesort** | **0.7136** | **dualend_bubblesort** | **0.6812** |
+| Qwen3-14B | **dualend_bubblesort** | **0.7503** | **dualend_bubblesort** | **0.7028** |
+| Qwen3.5-4B | **dualend_bubblesort** | **0.7161** | **dualend_bubblesort** | **0.6768** |
+| Qwen3.5-9B | **dualend_bubblesort** | **0.7370** | **dualend_bubblesort** | **0.6984** |
+| Qwen3.5-27B | **dualend_bubblesort** | **0.7475** | **dualend_bubblesort** | **0.7186** |
+
+**Observations that may affect claims:**
+
+1. **DualEnd dominates for capable models (≥ Flan-T5-XXL and all Qwen)**: DualEnd-Bubblesort (cocktail shaker) is the best or near-best method in 14/18 model×dataset combinations. This strongly supports the paper's core thesis.
+
+2. **For weaker T5 models, topdown_bubblesort remains competitive**: The DualEnd advantage emerges more clearly with stronger models, suggesting model quality matters for dual-prompt effectiveness.
+
+3. **Bottom-up methods are consistently the worst**: bottomup_heapsort underperforms topdown_heapsort in ALL cases; bottomup_bubblesort is always the worst method AND uses the most comparisons (1665 per query). This needs honest discussion in the paper.
+
+4. **Bidirectional (TopDown + BottomUp fusion) is mediocre**: Never beats DualEnd, and usually loses to plain topdown. The fusion methods (RRF, weighted) cannot compensate for bottom-up's poor quality. The paper should reframe the bidirectional contribution.
+
+5. **Likelihood scoring = Generation for T5**: TopDown-Heap with likelihood produces identical NDCG to generation (as expected — same model, same prompt). DualEnd-Heap likelihood is also identical to TopDown-Heap likelihood because heapsort only uses the "best" selection (the "worst" is extracted but never used by heapsort).
+
+6. **DualEnd-Selection is surprisingly strong for Qwen3-4B**: The double-ended selection sort beats cocktail shaker for the smallest Qwen model, suggesting smaller models may benefit from the simpler selection protocol.
 
 ---
 
@@ -754,23 +790,25 @@ For each model below, all 8 methods on both DL19 and DL20:
 
 | Model | DL19 (8 methods) | DL20 (8 methods) |
 |-------|:-:|:-:|
-| Flan-T5-large | ☐ | ☐ |
-| Flan-T5-xl | ☐ | ☐ |
-| Flan-T5-xxl | ☐ | ☐ |
-| Qwen3-4B | ☐ | ☐ |
-| Qwen3-8B | ☐ | ☐ |
-| Qwen3-14B | ☐ | ☐ |
-| Qwen3.5-4B | ☐ | ☐ |
+| Flan-T5-large | ✅ | ✅ |
+| Flan-T5-xl | ✅ | ✅ |
+| Flan-T5-xxl | ✅ | ✅ |
+| Qwen3-4B | ✅ | ✅ |
+| Qwen3-8B | ✅ | ✅ |
+| Qwen3-14B | ✅ | ✅ |
+| Qwen3.5-4B | ✅ | ✅ |
+| Qwen3.5-9B | ✅ | ✅ |
+| Qwen3.5-27B | ✅ | ✅ |
 
 #### Likelihood Scoring (T5 models only)
 | Model | DL19 (2 methods) | DL20 (2 methods) |
 |-------|:-:|:-:|
-| Flan-T5-large | ☐ | ☐ |
-| Flan-T5-xl | ☐ | ☐ |
-| Flan-T5-xxl | ☐ | ☐ |
+| Flan-T5-large | ✅ | ✅ |
+| Flan-T5-xl | ✅ | ✅ |
+| Flan-T5-xxl | ✅ | ✅ |
 
 ### Table 3: Efficiency
-☐ Extract from Phase 1 logs (no new runs)
+✅ Extract from Phase 1 logs (no new runs) — data available in results.txt files
 
 ### Table 4: num_child Ablation
 | c | DL19 NDCG@10 | #Comps | Parse% |
@@ -800,7 +838,7 @@ For each model below, all 8 methods on both DL19 and DL20:
 ### Permutation Voting Baseline
 | | DL19 | DL20 |
 |--|:---:|:---:|
-| PermVote (p=2) | ☐ | ☐ |
+| PermVote (p=2) | 🔄 running | 🔄 running |
 
 ### Analysis Sections
 - ☐ Position bias analysis (§5.4) — requires code changes
@@ -875,5 +913,9 @@ Phase 5: BEIR evaluation (64 runs with 2 representative models)
   → After Phase 5: can fill BEIR generalizability table
 ```
 
-**Total estimated runs**: ~220-250 (can run in parallel on cluster)
+**Total estimated runs**: ~280-310 (can run in parallel on cluster)
+
+Phase 1 complete: 144 (main) + 12 (likelihood) = 156 runs done
+Phase 2: in progress (permutation voting p=2)
+Phase 3-5: pending
 **Total estimated GPU-hours**: ~200-400 hours (varies widely by model size; H100 is fast).
