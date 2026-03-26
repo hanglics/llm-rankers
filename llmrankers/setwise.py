@@ -385,6 +385,8 @@ class SetwiseLlmRanker(LlmRanker):
             if self.config.model_type == 't5':
                 inputs = self._tokenize_inputs(input_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
+                # Completion tokens = 0: likelihood reads logits from a single forward
+                # pass — no tokens are generated (no autoregressive decoding).
                 with torch.no_grad():
                     logits = self.llm(
                         input_ids=inputs.input_ids,

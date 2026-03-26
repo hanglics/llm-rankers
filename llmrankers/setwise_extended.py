@@ -369,6 +369,8 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 )
                 inputs = self._tokenize_inputs(likelihood_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
+                # Completion tokens = 0: likelihood reads logits from a single forward
+                # pass — no tokens are generated (no autoregressive decoding).
                 with torch.no_grad():
                     logits = self.llm(
                         input_ids=inputs.input_ids,
@@ -417,6 +419,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 )
                 inputs = self._tokenize_inputs(likelihood_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
+                # Completion tokens = 0: same likelihood approach as above.
                 with torch.no_grad():
                     logits = self.llm(
                         input_ids=inputs.input_ids,

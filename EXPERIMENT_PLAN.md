@@ -867,6 +867,20 @@ For each model below, all 8 methods on both DL19 and DL20:
 
 7. **DualEnd Qwen3 uses `max_new_tokens=512`**: Thinking models need a large token budget because `<think>...</think>` blocks can consume 200+ tokens before the answer. The answer itself is only ~10 tokens. If you still see truncated outputs, increase further. Non-Qwen causal models use `max_new_tokens=64`.
 
+### Completion Token Reporting for DualEnd T5
+
+**DualEnd Cocktail Shaker (bubblesort) with T5 reports completion tokens = 0.** This is correct and expected. The cocktail shaker sort exclusively calls `compare_both()`, which for T5 uses an internal likelihood forward pass (reading logits, no autoregressive decoding). Since no tokens are generated, completion tokens = 0 is the accurate count.
+
+**DualEnd Selection Sort with T5 reports completion tokens > 0.** This is also correct. Selection sort has a two-stage architecture:
+- **Stage 1 — Group comparisons**: Calls `compare_both()` → likelihood forward pass → 0 completion tokens (same as cocktail shaker)
+- **Stage 2 — Tournament tiebreakers**: Calls `self.compare()` (parent's T5 generation) for best-of-winners and `_tournament_select_worst()` (T5 generation) for worst-of-losers → these DO generate tokens via autoregressive decoding → non-zero completion tokens
+
+This is a meaningful architectural difference for the paper's efficiency analysis:
+- **Cocktail shaker** is purely likelihood-based for T5 — no autoregressive decoding at all, making it computationally cheaper per comparison (single forward pass vs. multi-step generation)
+- **Selection sort** mixes likelihood (`compare_both` in groups) with generation (tournament rounds), so it has both forward-pass and decoding costs
+
+When reporting efficiency in the paper, completion tokens should be presented alongside a note explaining that 0 completion tokens for DualEnd cocktail reflects the use of likelihood scoring (single forward pass reading the full label distribution), not a counting error.
+
 ### Medium
 
 8. **SLURM log paths are hardcoded**: The individual SLURM scripts have hardcoded `-o` and `-e` paths for qwen3-4b-dl20. Update these when running different models/datasets.
