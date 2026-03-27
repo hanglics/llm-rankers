@@ -1,8 +1,8 @@
 # Experiment Plan: Beyond Best Selection
 
 **Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
-**Last Updated:** 2026-03-25
-**Status:** Phase 1 COMPLETE, Phase 2 IN PROGRESS (permutation voting p=2 running)
+**Last Updated:** 2026-03-27
+**Status:** Phase 1-3 COMPLETE, Phase 4 READY TO RUN
 
 ---
 
@@ -606,11 +606,41 @@ Total: ~14 runs.
 
 **Goal**: Fill position bias analysis (§5.4), query difficulty (Tab 6), and ranking agreement metrics.
 **RQs**: All three.
-**Status**: IMPLEMENTED — all scripts and code changes are ready.
+**Status**: IMPLEMENTED — all scripts, SLURM jobs, and code changes are ready.
 
-### Master Script
+### SLURM Submission (Recommended)
 
-Run all Phase 4 analyses with a single command:
+Submit all Phase 4 jobs at once:
+```bash
+# Creates logs/ directory, submits 7 GPU jobs (4A) + 1 CPU job (4B-4E)
+bash experiments/submit_phase4.sh
+```
+
+This submits:
+- **7 GPU jobs** (`slurm_phase4a_position_bias.sh`): One per model, re-runs 3 methods on DL19 with `--log_comparisons` then analyzes position bias. ~20h each.
+- **1 CPU job** (`slurm_phase4bce_posthoc.sh`): All post-hoc analyses (4B/C/D/E) from existing Phase 1-3 results. ~1h.
+
+#### Individual SLURM submissions:
+```bash
+# Phase 4A — Position bias for a specific model (GPU required):
+sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xl 128
+sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-4B 512
+
+# Phase 4B/C/D/E — Post-hoc analyses (CPU only):
+sbatch experiments/slurm_phase4bce_posthoc.sh
+```
+
+#### Qwen3.5-4B special note:
+Edit `slurm_phase4a_position_bias.sh` line 17 to use `qwen35_env`:
+```bash
+# Comment out ranker_env, uncomment qwen35_env:
+# conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+conda activate /scratch/project/neural_ir/hang/llm-rankers/qwen35_env
+```
+
+### Local Execution (Alternative)
+
+Run all Phase 4 analyses with a single command (no SLURM):
 ```bash
 # Runs 4A (with model re-runs for logging), 4B-4E (post-hoc from existing results)
 bash experiments/run_phase4_analysis.sh google/flan-t5-xl cuda
@@ -618,6 +648,32 @@ bash experiments/run_phase4_analysis.sh google/flan-t5-xl cuda
 # For Qwen models:
 bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 ```
+
+### Phase 4 Scripts Reference
+
+| Script | Purpose | GPU? | Time |
+|--------|---------|------|------|
+| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs | — | Instant |
+| `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with comparison logging + analyze | Yes (H100) | ~20h/model |
+| `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses | No (CPU) | ~1h |
+| `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ~1h/model |
+| `analysis/position_bias.py` | 4A: Chi-squared position bias from comparison logs | No | <1min |
+| `analysis/query_difficulty.py` | 4B: Stratify queries by BM25 difficulty | No | <1min |
+| `analysis/ranking_agreement.py` | 4C: TopDown vs BottomUp overlap@k | No | <1min |
+| `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | No | <1min |
+| `analysis/parse_success_rate.sh` | 4E: DualEnd parse warnings from logs | No | <1min |
+
+### Phase 4A Job Matrix (7 GPU jobs)
+
+| Model | `sbatch` Command | PL | Output Dir |
+|-------|------------------|----|------------|
+| `google/flan-t5-large` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-large 128` | 128 | `results/analysis/flan-t5-large-dl19/` |
+| `google/flan-t5-xl` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xl 128` | 128 | `results/analysis/flan-t5-xl-dl19/` |
+| `google/flan-t5-xxl` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xxl 128` | 128 | `results/analysis/flan-t5-xxl-dl19/` |
+| `Qwen/Qwen3-4B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-4B 512` | 512 | `results/analysis/qwen3-4b-dl19/` |
+| `Qwen/Qwen3-8B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-8B 512` | 512 | `results/analysis/qwen3-8b-dl19/` |
+| `Qwen/Qwen3-14B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-14B 512` | 512 | `results/analysis/qwen3-14b-dl19/` |
+| `Qwen/Qwen3.5-4B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-4B 512` | 512 | `results/analysis/qwen3.5-4b-dl19/` |
 
 ### Analysis 4A: Position Bias (§5.4) — IMPLEMENTED
 
@@ -772,7 +828,7 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 | `experiments/run_bidirectional_rrf.sh` | Single method SLURM job | Yes |
 | `experiments/run_bidirectional_weighted.sh` | Single method SLURM job | Yes |
 
-### Scripts Created (this session)
+### Phase 2-3 Scripts
 
 | Script | Purpose | Status |
 |--------|---------|--------|
@@ -782,10 +838,25 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 | `experiments/run_ablation_alpha.sh` | Alpha ablation (α=0.3,0.5,0.9) + CombSUM | ✅ Created |
 | `experiments/run_ablation_passage_length.sh` | Passage length ablation (pl=64,128,256,512) | ✅ Created |
 | `experiments/eval_all.sh` | Evaluate all results directories | ✅ Created |
-| `analysis/query_difficulty.py` | Table 6 analysis | ✅ Created |
-| `analysis/ranking_agreement.py` | Ranking agreement metrics | ✅ Created |
-| `analysis/per_query_analysis.py` | Per-query win/loss analysis | ✅ Created |
-| `analysis/parse_success_rate.sh` | Dual-end parse success % | ✅ Created |
+
+### Phase 4 Scripts
+
+| Script | Purpose | GPU? | Status |
+|--------|---------|------|--------|
+| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (7 GPU + 1 CPU) | — | ✅ Created |
+| `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with `--log_comparisons` + analyze | Yes (H100) | ✅ Created |
+| `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses on existing results | No (CPU) | ✅ Created |
+| `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ✅ Created |
+
+### Analysis Scripts
+
+| Script | Purpose | Status |
+|--------|---------|--------|
+| `analysis/position_bias.py` | 4A: Chi-squared position bias from comparison logs | ✅ Created |
+| `analysis/query_difficulty.py` | 4B: Table 6 — stratify by BM25 difficulty | ✅ Created |
+| `analysis/ranking_agreement.py` | 4C: TopDown vs BottomUp overlap@k | ✅ Created |
+| `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | ✅ Created |
+| `analysis/parse_success_rate.sh` | 4E: Dual-end parse warnings from logs | ✅ Created |
 
 ---
 
