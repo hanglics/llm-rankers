@@ -551,17 +551,24 @@ python run.py \
 
 ### Ablation 3D: Passage Length — Table 5b (NEW)
 
-Test `passage_length ∈ {64, 100, 128, 256, 512}` to understand the effect of passage truncation on ranking quality.
+Test `passage_length ∈ {64, 128, 256, 512}` to understand the effect of passage truncation on ranking quality.
 
-**Motivation**: Different model families have different context limits. Flan-T5 has a 512-token limit; with `num_child=3` (4 passages), `passage_length=100` is the safe max. Qwen3 models have 32k+ context, so `passage_length=512` is feasible. This ablation answers: does more passage text help ranking quality, and does the answer differ for TopDown vs. BottomUp vs. DualEnd?
+**Motivation**: Different model families have different context limits. Flan-T5 has a 512-token limit; with `num_child=3` (4 passages), `passage_length=128` is the original paper's setting (at the limit). Qwen3 models have 32k+ context, so `passage_length=512` is feasible. This ablation answers: does more passage text help ranking quality, and does the answer differ for TopDown vs. DualEnd?
 
-**Note for T5**: `passage_length=128` with `num_child=3` will cause input truncation (4×128+70=582 > 512). This is still interesting to test — it shows the effect of truncation. `passage_length=256` will truncate even more severely. Include these but note the truncation in the table.
+**Note on defaults**: Phase 1 already provides results at the default PL for each model family:
+- Flan-T5: PL=128 (from Phase 1 — matches original paper)
+- Qwen3/Qwen3.5: PL=512 (from Phase 1)
+
+These can be reused in the ablation table — no need to re-run. The ablation script (`run_ablation_passage_length.sh`) tests `PL ∈ {64, 128, 256, 512}`, so it will re-run the default PL as a sanity check and add the non-default values.
+
+**Note for T5**: `passage_length=128` with `num_child=3` is at the 512-token limit (matches original paper methodology). `passage_length=256` will truncate severely — include but note truncation. `passage_length=512` will truncate most of the prompt — included for completeness but may produce garbage results.
 
 **Test on 2 representative models** (one T5, one Qwen3) with TopDown-Heap on DL19:
 
 ```bash
-# Flan-T5-XL: test pl={64, 128, 256}
-# Note: pl=512 may cause truncation warnings for Flan-T5 (512-token limit)
+# Flan-T5-XL: tests pl={64, 128, 256, 512}
+# PL=128 result already exists from Phase 1 (this re-runs for consistency)
+# PL=256/512 will show increasing truncation effects
 bash experiments/run_ablation_passage_length.sh \
     google/flan-t5-xl \
     msmarco-passage/trec-dl-2019/judged \
@@ -569,7 +576,8 @@ bash experiments/run_ablation_passage_length.sh \
     results/ablation-pl/flan-t5-xl-dl19 \
     cuda generation 3 10 100 topdown heapsort
 
-# Qwen3-4B: test pl={64, 128, 256, 512}
+# Qwen3-4B: tests pl={64, 128, 256, 512}
+# PL=512 result already exists from Phase 1 (this re-runs for consistency)
 bash experiments/run_ablation_passage_length.sh \
     Qwen/Qwen3-4B \
     msmarco-passage/trec-dl-2019/judged \
@@ -593,12 +601,11 @@ bash experiments/run_ablation_passage_length.sh \
 | PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
 |----|:---:|:---:|:---:|
 | 64 | ☐ | ☐ | ☐ |
-| 100 | ☐ | ☐ | ☐ |
-| 128 | ☐ (our default, matches paper) | ☐ | ☐ |
-| 256 | ☐ (heavy truncation) | ☐ | ☐ |
-| 512 | N/A | ☐ | ☐ |
+| 128 | ☐ (**default**, matches paper) | ☐ | ☐ |
+| 256 | ☐ (heavy truncation for T5) | ☐ | ☐ |
+| 512 | ☐ (severe truncation for T5) | ☐ (**default**) | ☐ (**default**) |
 
-Total: ~14 runs.
+Total: ~12 runs (8 from ablation script + 4 reusable from Phase 1).
 
 ---
 
@@ -907,10 +914,9 @@ For each model below, all 8 methods on both DL19 and DL20:
 | PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
 |----|:---:|:---:|:---:|
 | 64 | ☐ | ☐ | ☐ |
-| 100 | ☐ | ☐ | ☐ |
-| 128 | ☐ (default, matches paper) | ☐ | ☐ |
+| 128 | from Phase 1 (**default**) | ☐ | ☐ |
 | 256 | ☐ (heavy truncation) | ☐ | ☐ |
-| 512 | N/A | ☐ | ☐ |
+| 512 | ☐ (severe truncation) | from Phase 1 (**default**) | from Phase 1 (**default**) |
 
 ### Table 6: Query Difficulty
 ☐ Post-hoc analysis from Phase 1
