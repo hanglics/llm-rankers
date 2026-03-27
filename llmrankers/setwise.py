@@ -107,6 +107,23 @@ class SetwiseLlmRanker(LlmRanker):
     def _is_supported_causal_model(self):
         return self.config.model_type in CAUSAL_MODEL_TYPES
 
+    def _log_comparison(self, comp_type: str, positions: list, selected: str, docs: list = None):
+        """Log a comparison for position bias analysis."""
+        log_path = getattr(self, '_comparison_log_path', None)
+        if not log_path:
+            return
+        import json as _json
+        entry = {
+            "qid": getattr(self, '_current_qid', None),
+            "type": comp_type,
+            "positions": positions,
+            "selected": selected,
+        }
+        if docs is not None:
+            entry["docids"] = [d.docid for d in docs]
+        with open(log_path, 'a') as f:
+            f.write(_json.dumps(entry) + "\n")
+
     def _chat_template_kwargs(self):
         if self.config.model_type in QWEN_MODEL_TYPES:
             return {"enable_thinking": False}
@@ -402,7 +419,7 @@ class SetwiseLlmRanker(LlmRanker):
                 raise NotImplementedError
 
         if len(output) == 1 and output in self.CHARACTERS:
-            pass
+            self._log_comparison("best", self.CHARACTERS[:len(docs)], output, docs)
         else:
             print(f"Unexpected output: {output}")
 

@@ -448,6 +448,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                     worst = c
                     break
 
+        self._log_comparison("dual_best", self.CHARACTERS[:len(docs)], best, docs)
+        self._log_comparison("dual_worst", self.CHARACTERS[:len(docs)], worst, docs)
+
         return best, worst
 
     def _compare_worst_single(self, query: str, docs: List) -> str:
@@ -491,6 +494,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         if output:
             for char in reversed(output):
                 if char in self.CHARACTERS[:len(docs)]:
+                    self._log_comparison("worst", self.CHARACTERS[:len(docs)], char, docs)
                     return char
         return self.CHARACTERS[len(docs) - 1]
 

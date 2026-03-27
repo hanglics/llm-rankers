@@ -606,84 +606,93 @@ Total: ~14 runs.
 
 **Goal**: Fill position bias analysis (§5.4), query difficulty (Tab 6), and ranking agreement metrics.
 **RQs**: All three.
+**Status**: IMPLEMENTED — all scripts and code changes are ready.
 
-### Analysis 4A: Position Bias (§5.4)
+### Master Script
 
-**Requires code modification** — need to log per-comparison selections.
-
-The analysis needs:
-- For each comparison call, record: (query_id, position_labels [A,B,C,D], which was selected, true relevance labels from qrels)
-- Aggregate selection frequency by position across all comparisons and queries
-
-**Implementation plan**:
-1. Add a `--log_comparisons <path>` flag to `run.py`
-2. In `SetwiseLlmRanker.compare()` and `BottomUpSetwiseLlmRanker.compare_worst()`, log each comparison as a JSON line:
-   ```json
-   {"qid": "...", "type": "best|worst|dual", "positions": ["A","B","C","D"], "selected": "B", "doc_relevances": [3, 2, 0, 1]}
-   ```
-3. Write a Python analysis script that reads the log and computes:
-   - Selection frequency per position for best, worst, dual-best, dual-worst
-   - Accuracy (whether selected doc matches qrel-optimal choice)
-   - Per-model, per-dataset breakdowns
-
-**Runs needed**: Re-run TopDown-Heap, BottomUp-Heap, DualEnd-Cocktail on DL19 with Flan-T5-XL with comparison logging enabled. (3 runs)
-
-**Note**: This is a **code change** task, not just a script task. Defer until Phase 1 confirms the methods work.
-
-### Analysis 4B: Query Difficulty Stratification (Table 6)
-
-Post-hoc analysis — no new model runs needed. Uses Phase 1 results.
-
-**Script**:
-```python
-# Pseudocode for difficulty analysis
-# 1. Compute BM25 NDCG@10 per query (from qrels + BM25 run)
-# 2. Split queries into terciles by BM25 NDCG@10
-# 3. For each tercile, compute mean NDCG@10 for TopDown and BottomUp
-# 4. Report delta (BottomUp - TopDown) per tercile
-```
-
-Will create `analysis/query_difficulty.py` script.
-
-### Analysis 4C: Ranking Agreement
-
-Post-hoc analysis using Phase 1 results:
-- **Top-10 overlap**: How many of TopDown's top-10 docs also appear in BottomUp's top-10?
-- **Kendall's τ**: Rank correlation over the full 100-doc list between TopDown and BottomUp rankings
-
-```python
-# Pseudocode
-# For each query:
-#   td_top10 = set of top-10 docids from TopDown results
-#   bu_top10 = set of top-10 docids from BottomUp results
-#   overlap = len(td_top10 & bu_top10)
-#   tau = kendall_tau(td_ranking, bu_ranking)
-```
-
-Will create `analysis/ranking_agreement.py` script.
-
-### Analysis 4D: Per-Query Wins Analysis
-
-Post-hoc analysis:
-- Count queries where BottomUp > TopDown (by NDCG@10) and vice versa
-- For BiDir: count queries where fusion helps vs. hurts
-- Characterize winning queries
-
-Will create `analysis/per_query_analysis.py` script.
-
-### Analysis 4E: Dual-End Parsing Success Rate
-
-Extract from Phase 1 logs:
+Run all Phase 4 analyses with a single command:
 ```bash
-# Count dual parse warnings
-grep -c "Could not reliably parse dual output" results/flan-t5-xl-dl19/dualend_bubblesort.log
-grep -c "Could not reliably parse dual output" results/flan-t5-xl-dl19/dualend_selection.log
+# Runs 4A (with model re-runs for logging), 4B-4E (post-hoc from existing results)
+bash experiments/run_phase4_analysis.sh google/flan-t5-xl cuda
 
-# Total comparisons
-grep "Avg comparisons" results/flan-t5-xl-dl19/dualend_bubblesort.log
+# For Qwen models:
+bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 ```
 
-Parse success % = 1 - (warnings / total comparisons across all queries).
+### Analysis 4A: Position Bias (§5.4) — IMPLEMENTED
+
+**Code changes made**:
+1. `run.py`: Added `--log_comparisons <path>` flag
+2. `setwise.py`: Added `_log_comparison()` method, called in `compare()` for "best" selections
+3. `setwise_extended.py`: Added logging in `compare_both()` for "dual_best"/"dual_worst", and in `_compare_worst()` for "worst" selections
+
+**Log format** (JSONL, one line per comparison):
+```json
+{"qid": "1037798", "type": "best", "positions": ["A","B","C","D"], "selected": "B", "docids": ["doc1","doc2","doc3","doc4"]}
+```
+
+**Runs needed**: Re-run 3 methods on DL19 with comparison logging enabled (per model):
+```bash
+# Example for Flan-T5-XL:
+python run.py run --model_name_or_path google/flan-t5-xl \
+    --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
+    --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    --save_path results/analysis/flan-t5-xl-dl19/topdown_heapsort.txt \
+    --scoring generation --hits 100 --passage_length 128 \
+    --log_comparisons results/analysis/flan-t5-xl-dl19/topdown_heapsort_comparisons.jsonl \
+    setwise --num_child 3 --method heapsort --k 10 --direction topdown
+```
+
+**Analysis script**: `analysis/position_bias.py`
+```bash
+python analysis/position_bias.py \
+    --log results/analysis/flan-t5-xl-dl19/*_comparisons.jsonl \
+    --output results/analysis/flan-t5-xl-dl19/position_bias_results.txt
+```
+
+### Analysis 4B: Query Difficulty Stratification (Table 6) — IMPLEMENTED
+
+Post-hoc analysis — no new model runs needed. Script: `analysis/query_difficulty.py`
+
+```bash
+python analysis/query_difficulty.py \
+    --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
+    --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt \
+    --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    --qrels dl19-passage
+```
+
+### Analysis 4C: Ranking Agreement — IMPLEMENTED
+
+Post-hoc analysis. Script: `analysis/ranking_agreement.py`
+
+```bash
+python analysis/ranking_agreement.py \
+    --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
+    --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt
+```
+
+### Analysis 4D: Per-Query Wins Analysis — IMPLEMENTED
+
+Post-hoc analysis. Script: `analysis/per_query_analysis.py`
+
+```bash
+python analysis/per_query_analysis.py \
+    --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
+    --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt \
+    --bidir_rrf results/flan-t5-xl-dl19/bidirectional_rrf.txt \
+    --permvote results/flan-t5-xl-dl19/permvote_p2_heapsort.txt \
+    --qrels dl19-passage
+```
+
+### Analysis 4E: Dual-End Parsing Success Rate — IMPLEMENTED
+
+Extracts from Phase 1 logs. Script: `analysis/parse_success_rate.sh`
+
+```bash
+bash analysis/parse_success_rate.sh results/flan-t5-xl-dl19
+bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
+```
 
 ---
 

@@ -167,6 +167,14 @@ def main(args):
     else:
         raise ValueError('Must specify either --pointwise, --setwise, --pairwise or --listwise.')
 
+    # Set up comparison logging for position bias analysis
+    if args.run.log_comparisons:
+        ranker._comparison_log_path = args.run.log_comparisons
+        # Clear the log file
+        open(args.run.log_comparisons, 'w').close()
+    else:
+        ranker._comparison_log_path = None
+
     query_map = {}
     if args.run.ir_dataset_name is not None:
         dataset = ir_datasets.load(args.run.ir_dataset_name)
@@ -224,6 +232,7 @@ def main(args):
                 ranking = ranking[::-1]
             else:
                 raise ValueError(f'Invalid shuffle ranking method: {args.run.shuffle_ranking}.')
+        ranker._current_qid = qid
         reranked_results.append((qid, query, ranker.rerank(query, ranking)))
         total_comparisons += ranker.total_compare
         total_prompt_tokens += ranker.total_prompt_tokens
@@ -259,6 +268,8 @@ if __name__ == '__main__':
     run_parser.add_argument('--openai_key', type=str, default=None)
     run_parser.add_argument('--scoring', type=str, default='generation', choices=['generation', 'likelihood'])
     run_parser.add_argument('--shuffle_ranking', type=str, default=None, choices=['inverse', 'random'])
+    run_parser.add_argument('--log_comparisons', type=str, default=None,
+                            help='Path to write per-comparison JSONL log for position bias analysis')
 
     pointwise_parser = commands.add_parser('pointwise')
     pointwise_parser.add_argument('--method', type=str, default='yes_no',
