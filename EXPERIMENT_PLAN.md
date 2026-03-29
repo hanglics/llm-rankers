@@ -635,8 +635,8 @@ bash experiments/submit_phase4.sh
 ```
 
 This submits:
-- **7 GPU jobs** (`slurm_phase4a_position_bias.sh`): One per model, re-runs 3 methods on DL19 with `--log_comparisons` then analyzes position bias. ~20h each.
-- **1 CPU job** (`slurm_phase4bce_posthoc.sh`): All post-hoc analyses (4B/C/D/E) from existing Phase 1-3 results. ~1h.
+- **Phase 4A is now merged into Phase 1** — no separate GPU jobs needed. Comparison logs are produced automatically during Phase 1 runs.
+- **1 CPU job** (`slurm_phase4bce_posthoc.sh`): All post-hoc analyses (4A analysis + 4B/C/D/E) from existing Phase 1-3 results. ~1h.
 
 #### Individual SLURM submissions:
 ```bash
@@ -671,7 +671,7 @@ bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 
 | Script | Purpose | GPU? | Time |
 |--------|---------|------|------|
-| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs | — | Instant |
+| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU) | — | Instant |
 | `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with comparison logging + analyze | Yes (H100) | ~20h/model |
 | `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses | No (CPU) | ~1h |
 | `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ~1h/model |
@@ -681,7 +681,7 @@ bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 | `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | No | <1min |
 | `analysis/parse_success_rate.sh` | 4E: DualEnd parse warnings from logs | No | <1min |
 
-### Phase 4A Job Matrix (7 GPU jobs)
+### Phase 4A Job Matrix (9 GPU jobs — all models)
 
 | Model | `sbatch` Command | PL | Output Dir |
 |-------|------------------|----|------------|
@@ -692,20 +692,51 @@ bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 | `Qwen/Qwen3-8B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-8B 512` | 512 | `results/analysis/qwen3-8b-dl19/` |
 | `Qwen/Qwen3-14B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-14B 512` | 512 | `results/analysis/qwen3-14b-dl19/` |
 | `Qwen/Qwen3.5-4B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-4B 512` | 512 | `results/analysis/qwen3.5-4b-dl19/` |
+| `Qwen/Qwen3.5-9B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-9B 512` | 512 | `results/analysis/qwen3.5-9b-dl19/` |
+| `Qwen/Qwen3.5-27B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-27B 512` | 512 | `results/analysis/qwen3.5-27b-dl19/` |
 
-### Analysis 4A: Position Bias (§5.4) — IMPLEMENTED
+> **Note on Bidirectional**: Not included in 4A. Bidirectional runs TopDown + BottomUp
+> independently, so its position bias is just the union of the TopDown and BottomUp logs.
+> No separate run needed — combine the existing logs for analysis.
+> Additionally, `BidirectionalEnsembleRanker` has a known bug where `_comparison_log_path`
+> is not propagated to sub-rankers (see audit issue #1).
+
+### Analysis 4A: Position Bias (§5.4) — MERGED INTO PHASE 1
+
+**No separate GPU runs needed.** All Phase 1 scripts now include `--log_comparisons` by
+default, writing comparison logs to `results/analysis/<model>-<dataset>/`. This is purely
+observational — adding `--log_comparisons` does not affect ranking results (logging is
+called after selection decisions).
+
+**Directory structure**:
+- Phase 1 ranking results: `results/<model>-<dataset>/<method>.txt`
+- Phase 4A comparison logs: `results/analysis/<model>-<dataset>/<method>_comparisons.jsonl`
 
 **Code changes made**:
 1. `run.py`: Added `--log_comparisons <path>` flag
 2. `setwise.py`: Added `_log_comparison()` method, called in `compare()` for "best" selections
-3. `setwise_extended.py`: Added logging in `compare_both()` for "dual_best"/"dual_worst", and in `_compare_worst()` for "worst" selections
+3. `setwise_extended.py`: Added logging in `compare_both()` for "dual_best"/"dual_worst", and in `compare_worst()` for "worst" selections
+4. All 6 Phase 1 scripts (topdown/bottomup/dualend × heapsort/bubblesort + dualend selection) now include `--log_comparisons`
+5. Bidirectional scripts do NOT log (known bug: log path not propagated to sub-rankers; use TopDown + BottomUp logs separately)
 
 **Log format** (JSONL, one line per comparison):
 ```json
 {"qid": "1037798", "type": "best", "positions": ["A","B","C","D"], "selected": "B", "docids": ["doc1","doc2","doc3","doc4"]}
 ```
 
-**Runs needed**: Re-run 3 methods on DL19 with comparison logging enabled (per model):
+**Comparison types logged per method**:
+- TopDown (Heap/Bubble) → `type="best"` (selects most relevant)
+- BottomUp (Heap/Bubble) → `type="worst"` (selects least relevant)
+- DualEnd (Cocktail/Selection) → `type="dual_best"` + `type="dual_worst"` (selects both)
+
+**After Phase 1 completes**, run the analysis script (CPU only, <1 min per model):
+```bash
+python analysis/position_bias.py \
+    --log results/analysis/<model>-dl19/*_comparisons.jsonl \
+    --output results/analysis/<model>-dl19/position_bias_results.txt
+```
+
+Note: bubblesort variants use the same prompts as heapsort, so bias patterns should be similar. The sorting algorithm only affects *which* documents appear together, not the selection prompt. Having logs for ALL methods gives a richer analysis.
 ```bash
 # Example for Flan-T5-XL:
 python run.py run --model_name_or_path google/flan-t5-xl \
@@ -724,36 +755,45 @@ python analysis/position_bias.py \
     --output results/analysis/flan-t5-xl-dl19/position_bias_results.txt
 ```
 
-### Analysis 4B: Query Difficulty Stratification (Table 6) — IMPLEMENTED
+### Analysis 4B: Query Difficulty Stratification (Table 6) — UPDATED
 
 Post-hoc analysis — no new model runs needed. Script: `analysis/query_difficulty.py`
+
+Now includes `--dualend` argument. Compares all 3 methods per difficulty tercile with deltas vs TopDown baseline.
 
 ```bash
 python analysis/query_difficulty.py \
     --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
     --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt \
+    --dualend results/flan-t5-xl-dl19/dualend_bubblesort.txt \
     --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
     --qrels dl19-passage
 ```
 
-### Analysis 4C: Ranking Agreement — IMPLEMENTED
+### Analysis 4C: Ranking Agreement — UPDATED
 
 Post-hoc analysis. Script: `analysis/ranking_agreement.py`
+
+Now includes `--dualend` (and optional `--bidir_rrf`). Compares all pairs: TD vs BU, TD vs DE, BU vs DE. Shows whether DualEnd rankings are more similar to TopDown or BottomUp.
 
 ```bash
 python analysis/ranking_agreement.py \
     --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
-    --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt
+    --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt \
+    --dualend results/flan-t5-xl-dl19/dualend_bubblesort.txt
 ```
 
-### Analysis 4D: Per-Query Wins Analysis — IMPLEMENTED
+### Analysis 4D: Per-Query Wins Analysis — UPDATED
 
 Post-hoc analysis. Script: `analysis/per_query_analysis.py`
+
+Now includes `--dualend` argument. Full pairwise comparisons: TD vs BU, TD vs DE, BU vs DE, plus fusion/permvote analysis with DualEnd as the main method.
 
 ```bash
 python analysis/per_query_analysis.py \
     --topdown results/flan-t5-xl-dl19/topdown_heapsort.txt \
     --bottomup results/flan-t5-xl-dl19/bottomup_heapsort.txt \
+    --dualend results/flan-t5-xl-dl19/dualend_bubblesort.txt \
     --bidir_rrf results/flan-t5-xl-dl19/bidirectional_rrf.txt \
     --permvote results/flan-t5-xl-dl19/permvote_p2_heapsort.txt \
     --qrels dl19-passage
@@ -861,7 +901,7 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 
 | Script | Purpose | GPU? | Status |
 |--------|---------|------|--------|
-| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (7 GPU + 1 CPU) | — | ✅ Created |
+| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU) | — | ✅ Updated |
 | `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with `--log_comparisons` + analyze | Yes (H100) | ✅ Created |
 | `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses on existing results | No (CPU) | ✅ Created |
 | `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ✅ Created |
@@ -1017,7 +1057,7 @@ Phase 3: Ablations (~32 runs)
   3C: passage_length (pl=64,128,256,512) → Tab 5b (NEW)
   → After Phase 3: can fill Tab 4, Tab 5, Tab 5b
 
-Phase 4: Analysis (mostly post-hoc, except position bias code changes)
+Phase 4: Analysis (ALL post-hoc — 4A merged into Phase 1, 4B-4E use Phase 1 results)
   → After Phase 4: can fill Tab 6, §5.4, all analysis sections
 
 Phase 5: BEIR evaluation (64 runs with 2 representative models)
@@ -1039,3 +1079,36 @@ Phase 5: BEIR evaluation (64 runs with 2 representative models)
 - Phase 4A (position bias): re-run bottomup logs
 Phase 3-5: pending
 **Total estimated GPU-hours**: ~200-400 hours (varies widely by model size; H100 is fast).
+
+---
+
+## Coverage Gap Analysis (2026-03-29)
+
+Cross-referencing IDEA_REPORT hypotheses (H1-H6), research questions (RQ1-RQ3), and paper framing against the experiment plan:
+
+### Must-Have (before submission)
+
+| Gap | IDEA_REPORT Reference | Status | Action |
+|-----|----------------------|--------|--------|
+| **Statistical significance tests** | Paper framing claims "comparable effectiveness" | ❌ Missing | Add paired bootstrap / permutation test to all main result comparisons. Can be post-hoc on Phase 1 runs. |
+| **Dual selection accuracy** (Key Measurement 1 for Idea 2) | "How often does dual agree with separate best-only and worst-only?" | ❌ Missing | New Phase 4F: For 1-2 models, run same queries with TopDown, BottomUp, and DualEnd; compare whether DualEnd's best matches TopDown's best and DualEnd's worst matches BottomUp's worst. Post-hoc from comparison logs. |
+| **Efficiency claim validation** (H4) | "~50% fewer LLM calls" | ⚠️ Partial | Phase 2 logs raw counts. Need explicit table showing DualEnd calls / TopDown calls ratio per method. Easy post-hoc. |
+| **MAP@100 metric** | §4.1 "also report MAP@100" | ⚠️ In eval scripts but not checked | Verify eval_all.sh includes `-m map_cut.100` and results are collected. |
+
+### Should-Have (strengthens paper)
+
+| Gap | IDEA_REPORT Reference | Status | Action |
+|-----|----------------------|--------|--------|
+| **CombMNZ fusion** | Idea 3 lists 4 fusion methods | ❌ Missing (only RRF, CombSUM, Weighted) | Low priority — mention in limitations or add as one-line code change + re-run. |
+| **Permutation voting for more models** | RQ3: BiDir vs PermVote(p=2) | ⚠️ Only Flan-T5-XL | Extend to at least 1 Qwen model for cross-family comparison. |
+| **Position bias interaction** (H3/Key Measurement 3) | "Does asking for both change bias?" | ⚠️ Phase 4A covers it | Ensure analysis script compares dual-end bias pattern vs. TopDown+BottomUp combined. Already in position_bias.py (separate type analysis). |
+
+### Nice-to-Have (time permitting)
+
+| Gap | IDEA_REPORT Reference | Status | Action |
+|-----|----------------------|--------|--------|
+| Per-call information gain (bits) | Key Measurement 2 | ❌ Missing | Complex to compute. Could approximate via ranking quality / #calls ratio. |
+| BottomUp likelihood scoring | H1 | ❌ Not in Phase 1B | Add BottomUp-Heap likelihood for T5 to compare with TopDown-Heap likelihood. |
+| num_child ablation cross-method | Idea 2 experimental design | ⚠️ Only DualEnd | Could add TopDown and BottomUp for 1-2 models if time allows. |
+| BEIR evaluation scripts | Phase 5 | ⚠️ Specified but no scripts yet | Create run scripts when Phase 1-4 are done. |
+| Error analysis (qualitative) | Analysis checklist | ❌ No methodology | Define what to analyze: failure modes, query types where DualEnd helps/hurts. |

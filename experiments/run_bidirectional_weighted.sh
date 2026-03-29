@@ -37,6 +37,8 @@ export HF_DATASETS_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf
 export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
 export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
 
+# NOTE: Bidirectional does not support --log_comparisons (log path is not
+# propagated to sub-rankers). Use TopDown + BottomUp logs separately instead.
 python run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \

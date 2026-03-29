@@ -43,15 +43,14 @@ for RESULTS_DIR in results/*-dl19; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        echo "    ${MODEL_NAME}: TD vs BU (DL19)"
-        python analysis/query_difficulty.py \
-            --topdown "${TD}" \
-            --bottomup "${BU}" \
-            --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-            --qrels dl19-passage \
-            > "${DIFF_DIR}/${MODEL_NAME}_td_vs_bu_dl19.txt" 2>&1
+        CMD="python analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${CMD} --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt --qrels dl19-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME} (DL19)"
+        eval ${CMD} > "${DIFF_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
     fi
 done
 
@@ -61,15 +60,14 @@ for RESULTS_DIR in results/*-dl20; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        echo "    ${MODEL_NAME}: TD vs BU (DL20)"
-        python analysis/query_difficulty.py \
-            --topdown "${TD}" \
-            --bottomup "${BU}" \
-            --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
-            --qrels dl20-passage \
-            > "${DIFF_DIR}/${MODEL_NAME}_td_vs_bu_dl20.txt" 2>&1
+        CMD="python analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${CMD} --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt --qrels dl20-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME} (DL20)"
+        eval ${CMD} > "${DIFF_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
     fi
 done
 
@@ -90,13 +88,13 @@ for RESULTS_DIR in results/*-dl19; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        echo "    ${MODEL_NAME}: TopDown vs BottomUp overlap (DL19)"
-        python analysis/ranking_agreement.py \
-            --topdown "${TD}" \
-            --bottomup "${BU}" \
-            > "${AGREE_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
+        CMD="python analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME}: pairwise agreement (DL19)"
+        eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
     fi
 done
 
@@ -106,13 +104,13 @@ for RESULTS_DIR in results/*-dl20; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        echo "    ${MODEL_NAME}: TopDown vs BottomUp overlap (DL20)"
-        python analysis/ranking_agreement.py \
-            --topdown "${TD}" \
-            --bottomup "${BU}" \
-            > "${AGREE_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
+        CMD="python analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME}: pairwise agreement (DL20)"
+        eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
     fi
 done
 
@@ -133,11 +131,13 @@ for RESULTS_DIR in results/*-dl19; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
     BIDIR="${RESULTS_DIR}/bidirectional_rrf.txt"
     PV="${RESULTS_DIR}/permvote_p2_heapsort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
         CMD="python analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl19-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         [ -f "${BIDIR}" ] && CMD="${CMD} --bidir_rrf ${BIDIR}"
         [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"
         echo "    ${MODEL_NAME} (DL19)"
@@ -151,11 +151,13 @@ for RESULTS_DIR in results/*-dl20; do
 
     TD="${RESULTS_DIR}/topdown_heapsort.txt"
     BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
     BIDIR="${RESULTS_DIR}/bidirectional_rrf.txt"
     PV="${RESULTS_DIR}/permvote_p2_heapsort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
         CMD="python analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl20-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         [ -f "${BIDIR}" ] && CMD="${CMD} --bidir_rrf ${BIDIR}"
         [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"
         echo "    ${MODEL_NAME} (DL20)"

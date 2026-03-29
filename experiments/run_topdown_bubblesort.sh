@@ -32,6 +32,10 @@ BIDIRECTION_WEIGHTED_ALPHA=${11:-0.7}
 
 mkdir -p ${OUTPUT_DIR}
 
+# Comparison logging for position bias analysis (Phase 4A)
+ANALYSIS_DIR="results/analysis/$(basename ${OUTPUT_DIR})"
+mkdir -p ${ANALYSIS_DIR}
+
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf
 export HF_DATASETS_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf
 export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
@@ -46,6 +50,7 @@ python run.py \
         --scoring ${SCORING} \
         --hits ${HITS} \
         --passage_length ${PASSAGE_LENGTH} \
+        --log_comparisons ${ANALYSIS_DIR}/topdown_bubblesort_comparisons.jsonl \
     setwise --num_child ${NUM_CHILD} \
             --method bubblesort \
             --k ${K} \
