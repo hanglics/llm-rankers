@@ -1,8 +1,8 @@
 # Experiment Plan: Beyond Best Selection
 
 **Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
-**Last Updated:** 2026-03-27
-**Status:** Phase 1-3 COMPLETE, Phase 4 READY TO RUN
+**Last Updated:** 2026-03-29
+**Status:** ⚠️ REQUIRES RE-RUN — BottomUp bugs fixed (2026-03-29), all phases need re-execution
 
 ---
 
@@ -53,6 +53,9 @@ The paper addresses three research questions. Every experiment must map to at le
 | **BM25 baseline** | Tab 1 has BM25 row | Not computed | **LOW** | ✅ Phase 0 instructions added |
 | **Position bias analysis** | §5.4 detailed analysis | No logging code | **HIGH** | ⚠️ Requires code changes (Phase 4) |
 | **Query difficulty analysis** | Tab 6 stratified by difficulty | No analysis code | **MEDIUM** | ✅ `analysis/query_difficulty.py` created |
+| **BottomUp bubblesort bug** | Top-k should be sorted | Top-k was UNSORTED (n-k passes only) | **CRITICAL** | ✅ Fixed 2026-03-29: now does n-1 passes for full sort |
+| **BottomUp heapsort mixed prompts** | BottomUp should only use "worst" | Used "best" prompts for top-k sort phase | **HIGH** | ✅ Fixed 2026-03-29: now uses min-heap extraction throughout |
+| **BottomUp compare_worst no logging** | Should log for position bias | `compare_worst` had `pass` instead of logging | **HIGH** | ✅ Fixed 2026-03-29: now logs as `type="worst"` |
 
 ### Code Implementation Status ✅
 
@@ -420,7 +423,15 @@ bash experiments/eval_all.sh results/*/
 
 ### Phase 1 Interim Results Summary (as of 2026-03-25)
 
-**Status**: Phase 1 COMPLETE for all 9 models × 2 datasets × 8 methods = 144 runs. Likelihood experiments (12 runs) also complete.
+> **⚠️ INVALIDATED (2026-03-29)**: Three bugs were found in `BottomUpSetwiseLlmRanker`:
+> 1. **BottomUp bubblesort top-k not sorted**: Only did n-k passes (placed worst n-k correctly but left top-k unsorted). Fixed: now does n-1 passes for full sort.
+> 2. **BottomUp heapsort mixed "best"/"worst" prompts**: After n-k min-heap extractions, switched to max-heapsort with "best" prompts for the remaining top-k. Fixed: now continues min-heap extraction for all n-1 rounds using "worst" prompts only.
+> 3. **`compare_worst` did not log comparisons**: Position bias analysis would get no data for bottomup. Fixed: now logs as `type="worst"`.
+>
+> **Impact**: All bottomup results are invalid. Bidirectional ensemble (which uses bottomup) is also invalid. TopDown and DualEnd results are unaffected.
+> **Action**: Re-run all bottomup and bidirectional experiments. TopDown-only and DualEnd-only runs can be kept.
+
+**Status**: ~~Phase 1 COMPLETE~~ Needs partial re-run (bottomup + bidirectional methods).
 
 **Key finding — DualEnd-Bubblesort (Cocktail Shaker) is the winner:**
 
@@ -442,9 +453,9 @@ bash experiments/eval_all.sh results/*/
 
 2. **For weaker T5 models, topdown_bubblesort remains competitive**: The DualEnd advantage emerges more clearly with stronger models, suggesting model quality matters for dual-prompt effectiveness.
 
-3. **Bottom-up methods are consistently the worst**: bottomup_heapsort underperforms topdown_heapsort in ALL cases; bottomup_bubblesort is always the worst method AND uses the most comparisons (1665 per query). This needs honest discussion in the paper.
+3. **⚠️ Bottom-up methods are consistently the worst** *(INVALIDATED — bubblesort had unsorted top-k, heapsort mixed "best"/"worst" prompts)*: These results cannot be trusted. Need re-run with fixed code to determine the true bottomup performance.
 
-4. **Bidirectional (TopDown + BottomUp fusion) is mediocre**: Never beats DualEnd, and usually loses to plain topdown. The fusion methods (RRF, weighted) cannot compensate for bottom-up's poor quality. The paper should reframe the bidirectional contribution.
+4. **⚠️ Bidirectional (TopDown + BottomUp fusion) is mediocre** *(INVALIDATED — depends on bottomup results)*: Need re-run after bottomup fix.
 
 5. **Likelihood scoring = Generation for T5**: TopDown-Heap with likelihood produces identical NDCG to generation (as expected — same model, same prompt). DualEnd-Heap likelihood is also identical to TopDown-Heap likelihood because heapsort only uses the "best" selection (the "worst" is extracted but never used by heapsort).
 
@@ -1015,7 +1026,16 @@ Phase 5: BEIR evaluation (64 runs with 2 representative models)
 
 **Total estimated runs**: ~280-310 (can run in parallel on cluster)
 
-Phase 1 complete: 144 (main) + 12 (likelihood) = 156 runs done
-Phase 2: in progress (permutation voting p=2)
+⚠️ **Re-run needed (2026-03-29 bug fix)**:
+- TopDown results: VALID (keep)
+- DualEnd results: VALID (keep)
+- BottomUp results: INVALID (re-run — bubblesort unsorted top-k + heapsort mixed prompts)
+- Bidirectional results: INVALID (re-run — depends on bottomup)
+- Affected methods per model×dataset: bottomup_heapsort, bottomup_bubblesort, bidirectional_rrf, bidirectional_weighted (4 of 8 methods)
+- Re-runs needed: 9 models × 2 datasets × 4 methods = **72 runs**
+- Phase 2 (permutation voting): VALID (uses topdown only)
+- Phase 3A (num_child ablation): partial re-run if bottomup was tested
+- Phase 3B (alpha ablation): re-run (uses bidirectional)
+- Phase 4A (position bias): re-run bottomup logs
 Phase 3-5: pending
 **Total estimated GPU-hours**: ~200-400 hours (varies widely by model size; H100 is fast).

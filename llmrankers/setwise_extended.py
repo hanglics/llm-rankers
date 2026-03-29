@@ -156,7 +156,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 raise NotImplementedError
 
         if len(output) == 1 and output in self.CHARACTERS:
-            pass
+            self._log_comparison("worst", self.CHARACTERS[:len(docs)], output, docs)
         else:
             print(f"Unexpected output: {output}")
 
@@ -181,40 +181,28 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 self.heapify_min(arr, n, smallest, query)
 
     def heapSort(self, arr, query, k):
-        """Bottom-up heapsort: build min-heap, extract n-k minimums.
-        The remaining k documents are the top-k, then sorted with standard max-heapsort.
+        """Bottom-up heapsort: build min-heap, extract all minimums.
 
-        Total work: n-k min-extractions + k max-extractions = n extractions.
-        For k=10, n=100: 90 + 10 = 100 extractions (vs. 10 for standard top-down).
+        Each extraction removes the least relevant (worst) document and places
+        it at the end. After all extractions, the array is sorted best-first
+        (best at position 0, worst at position n-1).
+
+        Total work: n-1 extractions using compare_worst only.
+        For k=10, n=100: 99 extractions (vs. 10 for standard top-down).
         """
         n = len(arr)
-        if k >= n:
-            # If k >= n, just do full standard heapsort
-            super().heapSort(arr, query, k)
-            return
-
-        n_to_remove = n - k
 
         # Build min-heap (worst at root)
         for i in range(n // self.num_child, -1, -1):
             self.heapify_min(arr, n, i, query)
 
-        # Extract n-k minimums (worst documents go to end)
-        effective_n = n
-        for _ in range(n_to_remove):
-            if effective_n <= 1:
-                break
+        # Extract all minimums: each step removes the worst remaining document
+        # After all extractions, arr is sorted best-first
+        for i in range(n - 1, 0, -1):
             # Swap root (worst) with last unsorted element
-            arr[effective_n - 1], arr[0] = arr[0], arr[effective_n - 1]
-            effective_n -= 1
+            arr[i], arr[0] = arr[0], arr[i]
             # Re-heapify remaining elements
-            self.heapify_min(arr, effective_n, 0, query)
-
-        # Now arr[0..k-1] contains the top-k in min-heap order (unsorted)
-        # Sort them using standard max-heapsort (best selection)
-        top_k = arr[:k]
-        self._sort_top_k(top_k, query)
-        arr[:k] = top_k
+            self.heapify_min(arr, i, 0, query)
 
     def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
         original_ranking = copy.deepcopy(ranking)
@@ -224,16 +212,14 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
 
         if self.method == "heapsort":
             self.heapSort(ranking, query, self.k)
-            # After _sort_top_k, the top-k are in standard heapsort order (best at end)
-            # Reverse to get best-first
-            ranking[:self.k] = list(reversed(ranking[:self.k]))
+            # heapSort produces best-first order, no reversal needed
 
         elif self.method == "bubblesort":
             # Bottom-up bubblesort: sink worst documents to the bottom
+            # Do n-1 passes to fully sort (each pass places one more doc correctly)
             n = len(ranking)
-            n_to_remove = n - self.k
 
-            for i in range(n_to_remove):
+            for i in range(n - 1):
                 # Sink worst to position n-1-i
                 target_pos = n - 1 - i
                 start_ind = 0
@@ -276,38 +262,6 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
 
         return results
 
-    def _sort_top_k(self, arr, query):
-        """Sort the top-k documents using standard best-selection max-heapsort.
-        After this, arr is in ascending order (best at end), caller must reverse.
-        """
-        n = len(arr)
-        if n <= 1:
-            return
-        # Build max-heap
-        for i in range(n // self.num_child, -1, -1):
-            self._heapify_standard(arr, n, i, query)
-        # Extract all elements
-        for i in range(n - 1, 0, -1):
-            arr[i], arr[0] = arr[0], arr[i]
-            self._heapify_standard(arr, i, 0, query)
-
-    def _heapify_standard(self, arr, n, i, query):
-        """Standard max-heapify using parent class compare (best selection)."""
-        if self.num_child * i + 1 < n:
-            docs = [arr[i]] + arr[self.num_child * i + 1: min((self.num_child * (i + 1) + 1), n)]
-            inds = [i] + list(range(self.num_child * i + 1, min((self.num_child * (i + 1) + 1), n)))
-            output = self.compare(query, docs)  # Uses parent's compare (best selection)
-            try:
-                best_ind = self.CHARACTERS.index(output)
-            except ValueError:
-                best_ind = 0
-            try:
-                largest = inds[best_ind]
-            except IndexError:
-                largest = i
-            if largest != i:
-                arr[i], arr[largest] = arr[largest], arr[i]
-                self._heapify_standard(arr, n, largest, query)
 
 
 class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
