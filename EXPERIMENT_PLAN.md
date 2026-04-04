@@ -528,7 +528,7 @@ done
 
 ### Ablation 3B: Fusion Weight (alpha) — Table 5
 
-Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B.
+Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL, Qwen3-8B, (**Qwen3.5-9B Not Started Yet**).
 
 α=0.7 is already done in Phase 1. Need α=0.3, 0.5, 0.9. Total 3 models on 1 dataset, 9 runs total:
 
@@ -548,18 +548,18 @@ done
 
 ### Ablation 3C: CombSUM Fusion (for §5.3 discussion)
 
-Test with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B models on DL19, total 3 runs.
+Test with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B models on DL19, total 3 runs (This is included in `run_ablation_alpha.sh` script).
 
 ```bash
 python run.py \
     run --model_name_or_path google/flan-t5-xl \
         --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
         --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-        --save_path results/ablation-combsum/flan-t5-xl-dl19/bidirectional_combsum.txt \
+        --save_path results/ablation-alpha/flan-t5-xl-dl19/bidir_combsum.txt \
         --scoring generation --hits 100 --passage_length 128 \
     setwise --num_child 3 --method heapsort --k 10 \
             --direction bidirectional --fusion combsum \
-    2>&1 | tee results/ablation-combsum/flan-t5-xl-dl19/bidirectional_combsum.log
+    2>&1 | tee results/ablation-alpha/flan-t5-xl-dl19/bidir_combsum.log
 ```
 
 ### Ablation 3D: Passage Length — Table 5b (NEW)
