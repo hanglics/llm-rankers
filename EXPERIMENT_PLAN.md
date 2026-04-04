@@ -528,7 +528,7 @@ done
 
 ### Ablation 3B: Fusion Weight (alpha) — Table 5
 
-Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL, Qwen3-8B, (**Qwen3.5-9B Not Started Yet**).
+Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B.
 
 α=0.7 is already done in Phase 1. Need α=0.3, 0.5, 0.9. Total 3 models on 1 dataset, 9 runs total:
 
