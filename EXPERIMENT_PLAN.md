@@ -496,7 +496,7 @@ python run.py \
     2>&1 | tee results/flan-t5-xl-dl19/permvote_p2_heapsort.log
 ```
 
-Repeat for DL20. (Total: 2 runs for Flan-T5-XL, optionally 2 for Flan-T5-XXL)
+Repeat for DL20. (Total: 2 runs for Flan-T5-XL, 2 for Flan-T5-XXL, 2 for Qwen3-4B, 2 for Qwen3-8B, 2 for Qwen3.5-4B, 2 for Qwen3.5-9B, total 12 runs.)
 
 ---
 
@@ -507,9 +507,9 @@ Repeat for DL20. (Total: 2 runs for Flan-T5-XL, optionally 2 for Flan-T5-XXL)
 
 ### Ablation 3A: Window Size (num_child) — Table 4
 
-Test `c ∈ {2, 3, 5, 7}` for DualEnd-Cocktail on DL19 with Flan-T5-XL.
+Test `c ∈ {2, 3, 5, 7}` for DualEnd-Cocktail on DL19 with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B.
 
-c=3 is already done in Phase 1. Need c=2, 5, 7:
+c=3 is already done in Phase 1. Need c=2, 5, 7. Total 3 models on 1 dataset, 9 runs total:
 
 ```bash
 for NC in 2 5 7; do
@@ -517,10 +517,10 @@ for NC in 2 5 7; do
         run --model_name_or_path google/flan-t5-xl \
             --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
             --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-            --save_path results/ablation-nc/dualend_cocktail_nc${NC}.txt \
+            --save_path results/ablation-nc/flan-t5-dl19/dualend_cocktail_nc${NC}.txt \
             --scoring generation --hits 100 --passage_length 128 \
         setwise --num_child ${NC} --method bubblesort --k 10 --direction dualend \
-        2>&1 | tee results/ablation-nc/dualend_cocktail_nc${NC}.log
+        2>&1 | tee results/ablation-nc/flan-t5-dl19/dualend_cocktail_nc${NC}.log
 done
 ```
 
@@ -528,9 +528,9 @@ done
 
 ### Ablation 3B: Fusion Weight (alpha) — Table 5
 
-Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL.
+Test `α ∈ {0.3, 0.5, 0.7, 0.9}` for BiDir-Weighted on DL19 with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B.
 
-α=0.7 is already done in Phase 1. Need α=0.3, 0.5, 0.9:
+α=0.7 is already done in Phase 1. Need α=0.3, 0.5, 0.9. Total 3 models on 1 dataset, 9 runs total:
 
 ```bash
 for ALPHA in 0.3 0.5 0.9; do
@@ -538,26 +538,28 @@ for ALPHA in 0.3 0.5 0.9; do
         run --model_name_or_path google/flan-t5-xl \
             --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
             --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-            --save_path results/ablation-alpha/bidir_weighted_a${ALPHA}.txt \
+            --save_path results/ablation-alpha/flan-t5-xl-dl19/bidir_weighted_a${ALPHA}.txt \
             --scoring generation --hits 100 --passage_length 128 \
         setwise --num_child 3 --method heapsort --k 10 \
                 --direction bidirectional --fusion weighted --alpha ${ALPHA} \
-        2>&1 | tee results/ablation-alpha/bidir_weighted_a${ALPHA}.log
+        2>&1 | tee results/ablation-alpha/flan-t5-xl-dl19/bidir_weighted_a${ALPHA}.log
 done
 ```
 
 ### Ablation 3C: CombSUM Fusion (for §5.3 discussion)
+
+Test with Flan-T5-XL, Qwen3-8B, Qwen3.5-9B models on DL19, total 3 runs.
 
 ```bash
 python run.py \
     run --model_name_or_path google/flan-t5-xl \
         --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
         --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-        --save_path results/flan-t5-xl-dl19/bidirectional_combsum.txt \
+        --save_path results/ablation-combsum/flan-t5-xl-dl19/bidirectional_combsum.txt \
         --scoring generation --hits 100 --passage_length 128 \
     setwise --num_child 3 --method heapsort --k 10 \
             --direction bidirectional --fusion combsum \
-    2>&1 | tee results/flan-t5-xl-dl19/bidirectional_combsum.log
+    2>&1 | tee results/ablation-combsum/flan-t5-xl-dl19/bidirectional_combsum.log
 ```
 
 ### Ablation 3D: Passage Length — Table 5b (NEW)
@@ -574,7 +576,7 @@ These can be reused in the ablation table — no need to re-run. The ablation sc
 
 **Note for T5**: `passage_length=128` with `num_child=3` is at the 512-token limit (matches original paper methodology). `passage_length=256` will truncate severely — include but note truncation. `passage_length=512` will truncate most of the prompt — included for completeness but may produce garbage results.
 
-**Test on 2 representative models** (one T5, one Qwen3) with TopDown-Heap on DL19:
+**Test on 3 representative models** (one T5, one Qwen3, one Qwen3.5) with TopDown-Heap on DL19:
 
 ```bash
 # Flan-T5-XL: tests pl={64, 128, 256, 512}
@@ -587,36 +589,59 @@ bash experiments/run_ablation_passage_length.sh \
     results/ablation-pl/flan-t5-xl-dl19 \
     cuda generation 3 10 100 topdown heapsort
 
-# Qwen3-4B: tests pl={64, 128, 256, 512}
+# Qwen3-8B: tests pl={64, 128, 256, 512}
 # PL=512 result already exists from Phase 1 (this re-runs for consistency)
 bash experiments/run_ablation_passage_length.sh \
-    Qwen/Qwen3-4B \
+    Qwen/Qwen3-8B \
     msmarco-passage/trec-dl-2019/judged \
     runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-    results/ablation-pl/qwen3-4b-dl19 \
+    results/ablation-pl/qwen3-8b-dl19 \
+    cuda generation 3 10 100 topdown heapsort
+
+# Qwen3.5-9B: tests pl={64, 128, 256, 512}
+# PL=512 result already exists from Phase 1 (this re-runs for consistency)
+bash experiments/run_ablation_passage_length.sh \
+    Qwen/Qwen3.5-9B \
+    msmarco-passage/trec-dl-2019/judged \
+    runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    results/ablation-pl/qwen3.5-9b-dl19 \
     cuda generation 3 10 100 topdown heapsort
 ```
 
 **Extended**: Also test DualEnd-Cocktail to see if passage length interacts with dual-end parsing:
 ```bash
 bash experiments/run_ablation_passage_length.sh \
-    Qwen/Qwen3-4B \
+    google/flan-t5-xl \
     msmarco-passage/trec-dl-2019/judged \
     runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-    results/ablation-pl/qwen3-4b-dl19-dualend \
+    results/ablation-pl/flan-t5-xl-dl19-dualend \
+    cuda generation 3 10 100 dualend bubblesort
+
+bash experiments/run_ablation_passage_length.sh \
+    Qwen/Qwen3-8B \
+    msmarco-passage/trec-dl-2019/judged \
+    runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    results/ablation-pl/qwen3-8b-dl19-dualend \
+    cuda generation 3 10 100 dualend bubblesort
+
+bash experiments/run_ablation_passage_length.sh \
+    Qwen/Qwen3.5-9B \
+    msmarco-passage/trec-dl-2019/judged \
+    runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+    results/ablation-pl/qwen3.5-9b-dl19-dualend \
     cuda generation 3 10 100 dualend bubblesort
 ```
 
 **What to report** (Table 5b):
 
-| PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
-|----|:---:|:---:|:---:|
-| 64 | ☐ | ☐ | ☐ |
-| 128 | ☐ (**default**, matches paper) | ☐ | ☐ |
-| 256 | ☐ (heavy truncation for T5) | ☐ | ☐ |
-| 512 | ☐ (severe truncation for T5) | ☐ (**default**) | ☐ (**default**) |
+| PL | Flan-T5-XL TD-Heap | Flan-T5-XL DE-Cocktail | Qwen3-8B TD-Heap | Qwen3-8B DE-Cocktail | Qwen3.5-9B TD-Heap | Qwen3.5-9B DE-Cocktail |
+|----|:---:|:---:|:---:|:---:|:---:|:---:|
+| 64 | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
+| 128 | ☐ (**default**, matches paper) | ☐ | ☐ | ☐ | ☐ | ☐ |
+| 256 | ☐ (heavy truncation for T5) | ☐ | ☐ | ☐ | ☐ | ☐ |
+| 512 | ☐ (severe truncation for T5) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) |
 
-Total: ~12 runs (8 from ablation script + 4 reusable from Phase 1).
+Total: ~24 runs (18 from ablation script + 6 reusable from Phase 1).
 
 ---
 
