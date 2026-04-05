@@ -857,18 +857,20 @@ bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
 
 Run a **subset of methods** on BEIR (not all 8 — too expensive):
 1. TopDown-Heap (baseline)
-2. BottomUp-Heap (RQ1 comparison)
-3. DualEnd-Cocktail (RQ2 primary method)
-4. BiDir-RRF (RQ3 primary method)
+2. TopDown-Bubble (baseline)
+3. BottomUp-Heap (RQ1 comparison)
+4. BottomUp-Bubble (RQ1 comparison)
+5. DualEnd-Cocktail (RQ2 primary method)
+6. BiDir-RRF (RQ3 primary method)
 
-= 4 methods × 8 datasets = 32 runs per model.
+= 6 methods × 8 datasets = 48 runs per model.
 
 **Recommended models for BEIR**: Start with 2 models:
 - `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
 - `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
 
-Total: **96 runs** for BEIR.
+Total: **144 runs** for BEIR.
 
 ### BEIR Evaluation
 
