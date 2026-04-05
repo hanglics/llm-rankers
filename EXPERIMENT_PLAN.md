@@ -865,9 +865,10 @@ Run a **subset of methods** on BEIR (not all 8 — too expensive):
 
 **Recommended models for BEIR**: Start with 2 models:
 - `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
-- `Qwen/Qwen3-4B` (passage_length=512) — representative decoder-only
+- `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
+- `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
 
-Total: **64 runs** for BEIR.
+Total: **96 runs** for BEIR.
 
 ### BEIR Evaluation
 
