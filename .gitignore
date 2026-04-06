@@ -165,7 +165,6 @@ research_pipeline_setwise/
 results/
 pyserini/
 ranker_env/
-runs/bm25/*.txt
 logs/
 pyserini_src/
 qwen35_env/

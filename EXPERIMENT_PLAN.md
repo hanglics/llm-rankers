@@ -849,9 +849,9 @@ bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
 | SciFact | `runs/bm25/run.beir.bm25-flat.scifact.txt` | `beir/scifact/test` |
 | TREC-COVID | `runs/bm25/run.beir.bm25-flat.trec-covid.txt` | `beir/trec-covid` |
 | Touche2020 | `runs/bm25/run.beir.bm25-flat.webis-touche2020.txt` | `beir/webis-touche2020/v2` |
-| HotpotQA | `runs/bm25/run.beir.bm25-flat.hotpotqa.txt` | `beir/hotpotqa/test` |
-| Quora | `runs/bm25/run.beir.bm25-flat.quora.txt` | `beir/quora/test` |
-| FEVER | `runs/bm25/run.beir.bm25-flat.fever.txt` | `beir/fever/test` |
+| ArguAna | `runs/bm25/run.beir.bm25-flat.arguana.txt` | `beir/arguana` |
+| FiQA-2018 | `runs/bm25/run.beir.bm25-flat.fiqa.txt` | `beir/fiqa/test` |
+| SCIDOCS | `runs/bm25/run.beir.bm25-flat.scidocs.txt` | `beir/scidocs` |
 
 ### BEIR Evaluation Strategy
 
