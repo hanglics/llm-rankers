@@ -2,7 +2,7 @@
 
 **Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
 **Last Updated:** 2026-03-29
-**Status:** ⚠️ REQUIRES RE-RUN — BottomUp bugs fixed (2026-03-29), all phases need re-execution
+**Status:** Phase 1-4 COMPLETE (all re-runs done after 2026-03-29 bug fixes). Phase 5 (BEIR) pending.
 
 ---
 
@@ -421,43 +421,39 @@ Or evaluate all at once:
 bash experiments/eval_all.sh results/*/
 ```
 
-### Phase 1 Interim Results Summary (as of 2026-03-25)
+### Phase 1 Final Results (updated 2026-04-07, all bug fixes applied)
 
-> **⚠️ INVALIDATED (2026-03-29)**: Three bugs were found in `BottomUpSetwiseLlmRanker`:
-> 1. **BottomUp bubblesort top-k not sorted**: Only did n-k passes (placed worst n-k correctly but left top-k unsorted). Fixed: now does n-1 passes for full sort.
-> 2. **BottomUp heapsort mixed "best"/"worst" prompts**: After n-k min-heap extractions, switched to max-heapsort with "best" prompts for the remaining top-k. Fixed: now continues min-heap extraction for all n-1 rounds using "worst" prompts only.
-> 3. **`compare_worst` did not log comparisons**: Position bias analysis would get no data for bottomup. Fixed: now logs as `type="worst"`.
->
-> **Impact**: All bottomup results are invalid. Bidirectional ensemble (which uses bottomup) is also invalid. TopDown and DualEnd results are unaffected.
-> **Action**: Re-run all bottomup and bidirectional experiments. TopDown-only and DualEnd-only runs can be kept.
+> **Bug fixes applied (2026-03-29)**: BottomUp bubblesort now does n-1 passes (full sort),
+> BottomUp heapsort uses pure "worst" prompts throughout, compare_worst logs comparisons.
+> All results below reflect the corrected code.
 
-**Status**: ~~Phase 1 COMPLETE~~ Needs partial re-run (bottomup + bidirectional methods).
+**Status**: Phase 1 COMPLETE — all 9 models × 2 datasets × 8 methods re-run with corrected code.
 
-**Key finding — DualEnd-Bubblesort (Cocktail Shaker) is the winner:**
+**Key finding — DualEnd-Cocktail is the top performer for capable models:**
 
 | Model | DL19 Best Method | NDCG@10 | DL20 Best Method | NDCG@10 |
 |-------|-----------------|---------|-----------------|---------|
-| flan-t5-large | topdown_bubblesort | 0.6874 | dualend_bubblesort | 0.6308 |
+| flan-t5-large | topdown_bubblesort | 0.6874 | **dualend_bubblesort** | **0.6308** |
 | flan-t5-xl | topdown_bubblesort | 0.6980 | topdown_bubblesort | 0.6868 |
 | flan-t5-xxl | **dualend_bubblesort** | **0.7137** | topdown_bubblesort | 0.6959 |
-| Qwen3-4B | **dualend_selection** | **0.7234** | **dualend_selection** | **0.6735** |
-| Qwen3-8B | **dualend_bubblesort** | **0.7136** | **dualend_bubblesort** | **0.6812** |
-| Qwen3-14B | **dualend_bubblesort** | **0.7503** | **dualend_bubblesort** | **0.7028** |
+| Qwen3-4B | **dualend_selection** | **0.7220** | **dualend_selection** | **0.6627** |
+| Qwen3-8B | **dualend_selection** | **0.7158** | **dualend_bubblesort** | **0.6678** |
+| Qwen3-14B | **dualend_bubblesort** | **0.7519** | **dualend_bubblesort** | **0.7051** |
 | Qwen3.5-4B | **dualend_bubblesort** | **0.7161** | **dualend_bubblesort** | **0.6768** |
 | Qwen3.5-9B | **dualend_bubblesort** | **0.7370** | **dualend_bubblesort** | **0.6984** |
 | Qwen3.5-27B | **dualend_bubblesort** | **0.7475** | **dualend_bubblesort** | **0.7186** |
 
-**Observations that may affect claims:**
+**Observations (post-fix):**
 
-1. **DualEnd dominates for capable models (≥ Flan-T5-XXL and all Qwen)**: DualEnd-Bubblesort (cocktail shaker) is the best or near-best method in 14/18 model×dataset combinations. This strongly supports the paper's core thesis.
+1. **DualEnd dominates for capable models**: DualEnd (cocktail or selection) achieves best NDCG@10 in 14/18 model×dataset configurations.
 
-2. **For weaker T5 models, topdown_bubblesort remains competitive**: The DualEnd advantage emerges more clearly with stronger models, suggesting model quality matters for dual-prompt effectiveness.
+2. **For T5 models, TopDown-Bubble is competitive**: The DualEnd advantage is smaller for encoder-decoder models. TopDown-Bubble wins on T5-XL (both datasets) and T5-XXL DL20.
 
-3. **⚠️ Bottom-up methods are consistently the worst** *(INVALIDATED — bubblesort had unsorted top-k, heapsort mixed "best"/"worst" prompts)*: These results cannot be trusted. Need re-run with fixed code to determine the true bottomup performance.
+3. **BottomUp is consistently weaker than TopDown** (post-fix): BU-Heap underperforms TD-Heap in all configs. Gap is catastrophic for T5-Large (BU-Heap .2888 vs TD-Heap .6541 on DL19), moderate for larger models (Q3.5-27B: .7135 vs .7449). BU-Bubble is slightly better than BU-Heap for larger models but still weaker than TD.
 
-4. **⚠️ Bidirectional (TopDown + BottomUp fusion) is mediocre** *(INVALIDATED — depends on bottomup results)*: Need re-run after bottomup fix.
+4. **Bidirectional ensemble never beats TopDown**: BiDir-RRF/Weighted always scores below TD-Heap. Weighted with α=0.9 (heavily favoring TopDown) is the best BiDir variant, confirming BottomUp hurts rather than helps.
 
-5. **Likelihood scoring = Generation for T5**: TopDown-Heap with likelihood produces identical NDCG to generation (as expected — same model, same prompt). DualEnd-Heap likelihood is also identical to TopDown-Heap likelihood because heapsort only uses the "best" selection (the "worst" is extracted but never used by heapsort).
+5. **Position bias differs by selection type**: Best-selection shows strong primacy+recency U-shaped bias. Worst-selection shows strong recency bias. Dual-end shows more uniform patterns, especially for dual_best. This suggests dual prompts partially mitigate position bias.
 
 6. **DualEnd-Selection is surprisingly strong for Qwen3-4B**: The double-ended selection sort beats cocktail shaker for the smallest Qwen model, suggesting smaller models may benefit from the simpler selection protocol.
 
@@ -856,21 +852,19 @@ bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
 ### BEIR Evaluation Strategy
 
 Run a **subset of methods** on BEIR (not all 8 — too expensive):
-1. TopDown-Heap (baseline)
-2. TopDown-Bubble (baseline)
-3. BottomUp-Heap (RQ1 comparison)
-4. BottomUp-Bubble (RQ1 comparison)
-5. DualEnd-Cocktail (RQ2 primary method)
-6. BiDir-RRF (RQ3 primary method)
+1. TopDown-Bubble (baseline)
+2. BottomUp-Bubble (RQ1 comparison)
+3. DualEnd-Cocktail (RQ2 primary method)
+4. BiDir-RRF (RQ3 primary method)
 
-= 6 methods × 8 datasets = 48 runs per model.
+= 4 methods × 8 datasets = 32 runs per model.
 
-**Recommended models for BEIR**: Start with 2 models:
-- `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
+**Recommended models for BEIR**: Start with 3 models:
+- `google/flan-t5-large` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
 - `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
 
-Total: **144 runs** for BEIR.
+Total: **96 runs** for BEIR.
 
 ### BEIR Evaluation
 

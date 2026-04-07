@@ -3,7 +3,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=512G
-#SBATCH --job-name=bebb
+#SBATCH --job-name=debb
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
