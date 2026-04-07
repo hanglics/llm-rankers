@@ -860,7 +860,7 @@ Run a **subset of methods** on BEIR (not all 8 — too expensive):
 = 4 methods × 8 datasets = 32 runs per model.
 
 **Recommended models for BEIR**: Start with 3 models:
-- `google/flan-t5-large` (passage_length=128) — representative encoder-decoder
+- `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
 - `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
 
