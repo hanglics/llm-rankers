@@ -74,6 +74,24 @@ for DIR in ${DIRS}; do
         echo "----------------------------------------------------------------------------------------------------------------"
     fi
 
+    if ls ${DIR}/*.log 1>/dev/null 2>&1; then
+        echo ""
+        echo "Method-Specific Counters (Avg per query):"
+        echo "--------------------------------------------------------------------------------------------------------------------------------"
+        printf "%-32s %-10s %-10s %-14s %-14s %-14s\n" "Method" "Dual" "Single" "RobustWin" "ExtraOrd" "RegWorst"
+        echo "--------------------------------------------------------------------------------------------------------------------------------"
+        for f in ${DIR}/*.log; do
+            name=$(basename $f .log)
+            dual=$(grep "Avg dual invocations" $f 2>/dev/null | awk '{print $4}')
+            single=$(grep "Avg single invocations" $f 2>/dev/null | awk '{print $4}')
+            robust=$(grep "Avg order-robust windows" $f 2>/dev/null | awk '{print $4}')
+            extra=$(grep "Avg extra orderings" $f 2>/dev/null | awk '{print $4}')
+            regworst=$(grep "Avg regularized worst moves" $f 2>/dev/null | awk '{print $5}')
+            printf "%-32s %-10s %-10s %-14s %-14s %-14s\n" "${name}" "${dual:-0}" "${single:-0}" "${robust:-0}" "${extra:-0}" "${regworst:-0}"
+        done
+        echo "--------------------------------------------------------------------------------------------------------------------------------"
+    fi
+
     # Parse warnings count
     if ls ${DIR}/*.log 1>/dev/null 2>&1; then
         echo ""

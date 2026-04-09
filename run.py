@@ -5,7 +5,14 @@ from pyserini.search._base import get_topics
 from llmrankers.rankers import SearchResult
 from llmrankers.pointwise import PointwiseLlmRanker, MonoT5LlmRanker
 from llmrankers.setwise import SetwiseLlmRanker, OpenAiSetwiseLlmRanker
-from llmrankers.setwise_extended import BottomUpSetwiseLlmRanker, DualEndSetwiseLlmRanker, BidirectionalEnsembleRanker
+from llmrankers.setwise_extended import (
+    BiasAwareDualEndSetwiseLlmRanker,
+    BidirectionalEnsembleRanker,
+    BottomUpSetwiseLlmRanker,
+    DualEndSetwiseLlmRanker,
+    SameCallRegularizedSetwiseLlmRanker,
+    SelectiveDualEndSetwiseLlmRanker,
+)
 from llmrankers.pairwise import PairwiseLlmRanker, DuoT5LlmRanker, OpenAiPairwiseLlmRanker
 from llmrankers.listwise import OpenAiListwiseLlmRanker, ListwiseLlmRanker
 from tqdm import tqdm
@@ -105,6 +112,43 @@ def main(args):
                                              method=args.setwise.method,
                                              num_permutation=args.setwise.num_permutation,
                                              k=args.setwise.k)
+        elif args.setwise.direction == 'selective_dualend':
+            ranker = SelectiveDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
+                                                      tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                                      device=args.run.device,
+                                                      cache_dir=args.run.cache_dir,
+                                                      num_child=args.setwise.num_child,
+                                                      scoring=args.run.scoring,
+                                                      method=args.setwise.method,
+                                                      num_permutation=args.setwise.num_permutation,
+                                                      k=args.setwise.k,
+                                                      gate_strategy=args.setwise.gate_strategy,
+                                                      shortlist_size=args.setwise.shortlist_size,
+                                                      margin_threshold=args.setwise.margin_threshold)
+        elif args.setwise.direction == 'bias_aware_dualend':
+            ranker = BiasAwareDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
+                                                      tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                                      device=args.run.device,
+                                                      cache_dir=args.run.cache_dir,
+                                                      num_child=args.setwise.num_child,
+                                                      scoring=args.run.scoring,
+                                                      method=args.setwise.method,
+                                                      num_permutation=args.setwise.num_permutation,
+                                                      k=args.setwise.k,
+                                                      gate_strategy=args.setwise.gate_strategy,
+                                                      shortlist_size=args.setwise.shortlist_size,
+                                                      margin_threshold=args.setwise.margin_threshold,
+                                                      order_robust_orderings=args.setwise.order_robust_orderings)
+        elif args.setwise.direction == 'samecall_regularized':
+            ranker = SameCallRegularizedSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
+                                                         tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                                                         device=args.run.device,
+                                                         cache_dir=args.run.cache_dir,
+                                                         num_child=args.setwise.num_child,
+                                                         scoring=args.run.scoring,
+                                                         method=args.setwise.method,
+                                                         num_permutation=args.setwise.num_permutation,
+                                                         k=args.setwise.k)
         elif args.setwise.direction == 'bidirectional':
             ranker = BidirectionalEnsembleRanker(model_name_or_path=args.run.model_name_or_path,
                                                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -222,6 +266,16 @@ def main(args):
     total_comparisons = 0
     total_prompt_tokens = 0
     total_completion_tokens = 0
+    optional_stat_labels = {
+        "total_dual_invocations": "dual invocations",
+        "total_single_invocations": "single invocations",
+        "total_order_robust_windows": "order-robust windows",
+        "total_extra_orderings": "extra orderings",
+        "total_regularized_worst_moves": "regularized worst moves",
+    }
+    optional_stat_totals = {
+        attr: 0.0 for attr in optional_stat_labels if hasattr(ranker, attr)
+    }
 
     tic = time.time()
     for qid, query, ranking in tqdm(first_stage_rankings):
@@ -237,12 +291,16 @@ def main(args):
         total_comparisons += ranker.total_compare
         total_prompt_tokens += ranker.total_prompt_tokens
         total_completion_tokens += ranker.total_completion_tokens
+        for attr in optional_stat_totals:
+            optional_stat_totals[attr] += getattr(ranker, attr, 0.0)
     toc = time.time()
 
     print(f'Avg comparisons: {total_comparisons/len(reranked_results)}')
     print(f'Avg prompt tokens: {total_prompt_tokens/len(reranked_results)}')
     print(f'Avg completion tokens: {total_completion_tokens/len(reranked_results)}')
     print(f'Avg time per query: {(toc-tic)/len(reranked_results)}')
+    for attr, total in optional_stat_totals.items():
+        print(f'Avg {optional_stat_labels[attr]}: {total/len(reranked_results)}')
 
     write_run_file(args.run.save_path, reranked_results, 'LLMRankers')
 
@@ -289,14 +347,27 @@ if __name__ == '__main__':
     setwise_parser.add_argument('--k', type=int, default=10)
     setwise_parser.add_argument('--num_permutation', type=int, default=1)
     setwise_parser.add_argument('--direction', type=str, default='topdown',
-                                choices=['topdown', 'bottomup', 'dualend', 'bidirectional'],
+                                choices=['topdown', 'bottomup', 'dualend', 'selective_dualend',
+                                         'bias_aware_dualend', 'samecall_regularized', 'bidirectional'],
                                 help='Ranking direction: topdown (standard), bottomup (reverse), '
-                                     'dualend (simultaneous best-worst), bidirectional (ensemble)')
+                                     'dualend (simultaneous best-worst), selective_dualend '
+                                     '(TopDown with selective joint prompting), bias_aware_dualend '
+                                     '(order-robust joint prompting), samecall_regularized '
+                                     '(TopDown with worst-signal regularization), bidirectional (ensemble)')
     setwise_parser.add_argument('--fusion', type=str, default='rrf',
                                 choices=['rrf', 'combsum', 'weighted'],
                                 help='Fusion method for bidirectional ensemble')
     setwise_parser.add_argument('--alpha', type=float, default=0.5,
                                 help='Weight for top-down in weighted fusion (bidirectional only)')
+    setwise_parser.add_argument('--gate_strategy', type=str, default='hybrid',
+                                choices=['off', 'shortlist', 'uncertain', 'hybrid'],
+                                help='When to invoke extra DualEnd logic for selective/bias-aware variants')
+    setwise_parser.add_argument('--shortlist_size', type=int, default=20,
+                                help='Prefix depth treated as near the top-k boundary for selective/bias-aware variants')
+    setwise_parser.add_argument('--margin_threshold', type=float, default=0.15,
+                                help='Relative BM25 window spread threshold below which a window is considered uncertain')
+    setwise_parser.add_argument('--order_robust_orderings', type=int, default=3,
+                                help='Number of controlled orderings for bias-aware DualEnd windows')
 
     listwise_parser = commands.add_parser('listwise')
     listwise_parser.add_argument('--window_size', type=int, default=3)

@@ -7,7 +7,7 @@ Extended Setwise Ranking Strategies:
 Reference: Extends the setwise approach from Zhuang et al. (SIGIR 2024)
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 from .rankers import LlmRanker, SearchResult
 from .setwise import SetwiseLlmRanker, QWEN_MODEL_TYPES
 import copy
@@ -264,6 +264,72 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
 
 
 
+class _DualEndRoutingMixin:
+    """Shared gating and accounting helpers for DualEnd refinements."""
+
+    def _init_joint_signal_routing(
+        self,
+        gate_strategy: str = "hybrid",
+        shortlist_size: int = 20,
+        margin_threshold: float = 0.15,
+    ) -> None:
+        self.gate_strategy = gate_strategy
+        self.shortlist_size = shortlist_size
+        self.margin_threshold = margin_threshold
+        self._reset_joint_signal_stats()
+
+    def _reset_joint_signal_stats(self) -> None:
+        self.total_dual_invocations = 0
+        self.total_single_invocations = 0
+        self.total_order_robust_windows = 0
+        self.total_extra_orderings = 0
+        self.total_regularized_worst_moves = 0
+
+    def _window_relative_score_spread(self, docs: Sequence[SearchResult]) -> Optional[float]:
+        scores = [doc.score for doc in docs if getattr(doc, "score", None) is not None]
+        if len(scores) < 2:
+            return None
+        max_score = max(scores)
+        min_score = min(scores)
+        denom = max(abs(max_score), abs(min_score), 1e-6)
+        return (max_score - min_score) / denom
+
+    def _should_use_joint_signal(
+        self,
+        start_ind: int,
+        end_ind: int,
+        total_docs: int,
+        docs: Sequence[SearchResult],
+    ) -> bool:
+        gate_strategy = getattr(self, "gate_strategy", "off")
+        if gate_strategy == "off":
+            return False
+
+        shortlist_size = max(0, min(getattr(self, "shortlist_size", 0), total_docs))
+        overlaps_shortlist = start_ind < shortlist_size
+
+        relative_spread = self._window_relative_score_spread(docs)
+        is_uncertain = relative_spread is not None and relative_spread <= getattr(self, "margin_threshold", 0.0)
+
+        if gate_strategy == "shortlist":
+            return overlaps_shortlist
+        if gate_strategy == "uncertain":
+            return is_uncertain
+        if gate_strategy == "hybrid":
+            return overlaps_shortlist or is_uncertain
+        raise ValueError(f"Unsupported gate strategy: {gate_strategy}")
+
+    def _resolve_label_index(self, label: str, window_len: int, default: int) -> int:
+        try:
+            return min(self.CHARACTERS.index(label), window_len - 1)
+        except ValueError:
+            return default
+
+    def _remap_window_label(self, original_indices: List[int], local_label: str, default: int) -> int:
+        local_index = self._resolve_label_index(local_label, len(original_indices), default)
+        return original_indices[local_index]
+
+
 class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
     """
     Dual-End Setwise Ranker: selects BOTH the most and least relevant documents
@@ -280,6 +346,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def _compare_both_window(self, query: str, ranking: List[SearchResult], start_ind: int, end_ind: int) -> Tuple[str, str]:
+        """Hook for window-aware DualEnd variants."""
+        return self.compare_both(query, ranking[start_ind:end_ind])
 
     def compare_both(self, query: str, docs: List) -> Tuple[str, str]:
         """Select both the MOST and LEAST relevant documents from the candidate set.
@@ -647,19 +717,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 if len(window) < 2:
                     break
 
-                best_label, worst_label = self.compare_both(query, window)
+                best_label, worst_label = self._compare_both_window(query, ranking, start_ind, end_ind)
 
-                try:
-                    best_ind = self.CHARACTERS.index(best_label)
-                except ValueError:
-                    best_ind = 0
-                try:
-                    worst_ind = self.CHARACTERS.index(worst_label)
-                except ValueError:
-                    worst_ind = len(window) - 1
-
-                best_ind = min(best_ind, len(window) - 1)
-                worst_ind = min(worst_ind, len(window) - 1)
+                best_ind = min(self.CHARACTERS.index(best_label), len(window) - 1) if best_label in self.CHARACTERS else 0
+                worst_ind = min(self.CHARACTERS.index(worst_label), len(window) - 1) if worst_label in self.CHARACTERS else len(window) - 1
 
                 # Handle the case where best and worst swap with each other
                 if best_ind != 0 or worst_ind != len(window) - 1:
@@ -711,19 +772,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 if len(window) < 2:
                     break
 
-                best_label, worst_label = self.compare_both(query, window)
+                best_label, worst_label = self._compare_both_window(query, ranking, start_ind, end_ind)
 
-                try:
-                    best_ind = self.CHARACTERS.index(best_label)
-                except ValueError:
-                    best_ind = 0
-                try:
-                    worst_ind = self.CHARACTERS.index(worst_label)
-                except ValueError:
-                    worst_ind = len(window) - 1
-
-                best_ind = min(best_ind, len(window) - 1)
-                worst_ind = min(worst_ind, len(window) - 1)
+                best_ind = min(self.CHARACTERS.index(best_label), len(window) - 1) if best_label in self.CHARACTERS else 0
+                worst_ind = min(self.CHARACTERS.index(worst_label), len(window) - 1) if worst_label in self.CHARACTERS else len(window) - 1
 
                 actual_best = start_ind + best_ind
                 actual_worst = start_ind + worst_ind
@@ -778,15 +830,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             if unsorted_len <= self.num_child + 1:
                 # Can compare all remaining in one call
                 window = ranking[top_idx:bottom_idx + 1]
-                best_label, worst_label = self.compare_both(query, window)
-                try:
-                    best_pos = min(self.CHARACTERS.index(best_label), len(window) - 1)
-                except ValueError:
-                    best_pos = 0
-                try:
-                    worst_pos = min(self.CHARACTERS.index(worst_label), len(window) - 1)
-                except ValueError:
-                    worst_pos = len(window) - 1
+                best_label, worst_label = self._compare_both_window(query, ranking, top_idx, bottom_idx + 1)
+                best_pos = min(self.CHARACTERS.index(best_label), len(window) - 1) if best_label in self.CHARACTERS else 0
+                worst_pos = min(self.CHARACTERS.index(worst_label), len(window) - 1) if worst_label in self.CHARACTERS else len(window) - 1
 
                 # Convert to absolute indices
                 abs_best = top_idx + best_pos
@@ -822,15 +868,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                         group_bests.append((g_start, group[0]))
                         continue
 
-                    best_label, worst_label = self.compare_both(query, group)
-                    try:
-                        b_idx = min(self.CHARACTERS.index(best_label), len(group) - 1)
-                    except ValueError:
-                        b_idx = 0
-                    try:
-                        w_idx = min(self.CHARACTERS.index(worst_label), len(group) - 1)
-                    except ValueError:
-                        w_idx = len(group) - 1
+                    best_label, worst_label = self._compare_both_window(query, ranking, g_start, g_end)
+                    b_idx = min(self.CHARACTERS.index(best_label), len(group) - 1) if best_label in self.CHARACTERS else 0
+                    w_idx = min(self.CHARACTERS.index(worst_label), len(group) - 1) if worst_label in self.CHARACTERS else len(group) - 1
 
                     group_bests.append((g_start + b_idx, ranking[g_start + b_idx]))
                     group_worsts.append((g_start + w_idx, ranking[g_start + w_idx]))
@@ -955,6 +995,325 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 next_round.append(group_indices[worst_idx])
             current_indices = next_round
         return current_indices[0]
+
+
+class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRanker):
+    """Top-down setwise ranking that upgrades selected windows to joint best-worst prompts.
+
+    The core idea is to keep the cheaper TopDown sorting procedure, but to replace the
+    single best-selection prompt with a DualEnd prompt only on windows that are likely
+    to be ambiguous or close to the top-k decision boundary.
+    """
+
+    def __init__(
+        self,
+        *args,
+        gate_strategy: str = "hybrid",
+        shortlist_size: int = 20,
+        margin_threshold: float = 0.15,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self._init_joint_signal_routing(
+            gate_strategy=gate_strategy,
+            shortlist_size=shortlist_size,
+            margin_threshold=margin_threshold,
+        )
+
+    def _select_best_window(self, query: str, ranking: List[SearchResult], start_ind: int, end_ind: int) -> str:
+        window = ranking[start_ind:end_ind]
+        if len(window) < 2:
+            return self.CHARACTERS[0]
+
+        if self._should_use_joint_signal(start_ind, end_ind, len(ranking), window):
+            self.total_dual_invocations += 1
+            best_label, _ = self.compare_both(query, window)
+            return best_label
+
+        self.total_single_invocations += 1
+        return self.compare(query, window)
+
+    def _heapify_selective(self, arr: List[SearchResult], n: int, i: int, query: str) -> None:
+        if self.num_child * i + 1 >= n:
+            return
+
+        child_end = min((self.num_child * (i + 1) + 1), n)
+        docs = [arr[i]] + arr[self.num_child * i + 1:child_end]
+        inds = [i] + list(range(self.num_child * i + 1, child_end))
+        if self._should_use_joint_signal(i, child_end, n, docs):
+            self.total_dual_invocations += 1
+            label, _ = self.compare_both(query, docs)
+        else:
+            self.total_single_invocations += 1
+            label = self.compare(query, docs)
+        best_ind = self._resolve_label_index(label, len(docs), 0)
+        largest = inds[best_ind]
+
+        if largest != i:
+            arr[i], arr[largest] = arr[largest], arr[i]
+            self._heapify_selective(arr, n, largest, query)
+
+    def _heap_sort_selective(self, arr: List[SearchResult], query: str) -> None:
+        n = len(arr)
+        ranked = 0
+        for i in range(n // self.num_child, -1, -1):
+            self._heapify_selective(arr, n, i, query)
+        for i in range(n - 1, 0, -1):
+            arr[i], arr[0] = arr[0], arr[i]
+            ranked += 1
+            if ranked == self.k:
+                break
+            self._heapify_selective(arr, i, 0, query)
+
+    def _bubble_sort_selective(self, ranking: List[SearchResult], query: str) -> None:
+        last_start = len(ranking) - (self.num_child + 1)
+
+        for i in range(self.k):
+            if last_start < i:
+                last_start = i
+            start_ind = last_start
+            end_ind = min(last_start + (self.num_child + 1), len(ranking))
+            is_change = False
+            while True:
+                if start_ind < i:
+                    start_ind = i
+                if end_ind - start_ind < 2:
+                    break
+
+                output = self._select_best_window(query, ranking, start_ind, end_ind)
+                best_ind = self._resolve_label_index(output, len(ranking[start_ind:end_ind]), 0)
+                if best_ind != 0:
+                    ranking[start_ind], ranking[start_ind + best_ind] = ranking[start_ind + best_ind], ranking[start_ind]
+                    if not is_change:
+                        is_change = True
+                        if last_start != len(ranking) - (self.num_child + 1) and best_ind == len(ranking[start_ind:end_ind]) - 1:
+                            last_start += len(ranking[start_ind:end_ind]) - 1
+
+                if start_ind == i:
+                    break
+
+                if not is_change:
+                    last_start -= self.num_child
+
+                start_ind -= self.num_child
+                end_ind -= self.num_child
+
+    def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
+        original_ranking = copy.deepcopy(ranking)
+        self.total_compare = 0
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
+        self._reset_joint_signal_stats()
+
+        if self.method == "heapsort":
+            self._heap_sort_selective(ranking, query)
+            ranking = list(reversed(ranking))
+        elif self.method == "bubblesort":
+            self._bubble_sort_selective(ranking, query)
+        else:
+            raise NotImplementedError(
+                f"Selective DualEnd currently supports heapsort and bubblesort, got {self.method}."
+            )
+
+        results = []
+        top_doc_ids = set()
+        rank = 1
+
+        for doc in ranking[:self.k]:
+            top_doc_ids.add(doc.docid)
+            results.append(SearchResult(docid=doc.docid, score=-rank, text=None))
+            rank += 1
+        for doc in original_ranking:
+            if doc.docid not in top_doc_ids:
+                results.append(SearchResult(docid=doc.docid, score=-rank, text=None))
+                rank += 1
+
+        return results
+
+
+class BiasAwareDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRanker):
+    """DualEnd variant that uses a small set of controlled orderings on hard windows.
+
+    This targets the measured position-bias asymmetry directly: only windows that are
+    likely to be uncertain or near the top-k boundary receive extra order-robust calls.
+    """
+
+    def __init__(
+        self,
+        *args,
+        gate_strategy: str = "hybrid",
+        shortlist_size: int = 20,
+        margin_threshold: float = 0.15,
+        order_robust_orderings: int = 3,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.order_robust_orderings = max(1, order_robust_orderings)
+        self._init_joint_signal_routing(
+            gate_strategy=gate_strategy,
+            shortlist_size=shortlist_size,
+            margin_threshold=margin_threshold,
+        )
+
+    def _controlled_orderings(self, n_docs: int) -> List[List[int]]:
+        base = list(range(n_docs))
+        candidates = [base, list(reversed(base))]
+        for shift in range(1, n_docs):
+            candidates.append(base[shift:] + base[:shift])
+
+        unique = []
+        seen = set()
+        for ordering in candidates:
+            key = tuple(ordering)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(ordering)
+            if len(unique) >= self.order_robust_orderings:
+                break
+        return unique
+
+    def _compare_both_window(self, query: str, ranking: List[SearchResult], start_ind: int, end_ind: int) -> Tuple[str, str]:
+        window = ranking[start_ind:end_ind]
+        if len(window) < 2:
+            return self.CHARACTERS[0], self.CHARACTERS[0]
+
+        if not self._should_use_joint_signal(start_ind, end_ind, len(ranking), window):
+            self.total_dual_invocations += 1
+            return super()._compare_both_window(query, ranking, start_ind, end_ind)
+
+        orderings = self._controlled_orderings(len(window))
+        if len(orderings) <= 1:
+            self.total_dual_invocations += 1
+            return super()._compare_both_window(query, ranking, start_ind, end_ind)
+
+        self.total_order_robust_windows += 1
+        self.total_dual_invocations += len(orderings)
+        self.total_extra_orderings += len(orderings) - 1
+
+        best_votes = []
+        worst_votes = []
+        fallback_best = 0
+        fallback_worst = len(window) - 1
+
+        for idx, ordering in enumerate(orderings):
+            permuted_docs = [window[pos] for pos in ordering]
+            best_label, worst_label = super().compare_both(query, permuted_docs)
+            best_original = self._remap_window_label(ordering, best_label, 0)
+            worst_original = self._remap_window_label(ordering, worst_label, len(ordering) - 1)
+            if idx == 0:
+                fallback_best = best_original
+                fallback_worst = worst_original
+            best_votes.append(best_original)
+            worst_votes.append(worst_original)
+
+        best_index = self._majority_vote(best_votes)
+        worst_index = self._majority_vote(worst_votes)
+        if best_index == worst_index:
+            best_index = fallback_best
+            worst_index = fallback_worst
+            if best_index == worst_index:
+                worst_index = len(window) - 1 if best_index != len(window) - 1 else 0
+
+        return self.CHARACTERS[best_index], self.CHARACTERS[worst_index]
+
+    def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
+        self._reset_joint_signal_stats()
+        return super().rerank(query, ranking)
+
+
+class SameCallRegularizedSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRanker):
+    """Top-down bubblesort regularized by the same-call worst signal.
+
+    Unlike DualEnd-Cocktail, this method keeps a head-focused TopDown pass structure.
+    The best output still drives promotions, while the worst output only acts as a
+    local negative constraint by pushing a clearly bad candidate to the end of the
+    current window.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_joint_signal_routing(gate_strategy="off", shortlist_size=0, margin_threshold=0.0)
+
+    def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
+        if self.method != "bubblesort":
+            raise NotImplementedError("Same-call regularization currently supports bubblesort only.")
+
+        original_ranking = copy.deepcopy(ranking)
+        self.total_compare = 0
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
+        self._reset_joint_signal_stats()
+
+        last_start = len(ranking) - (self.num_child + 1)
+
+        for i in range(self.k):
+            if last_start < i:
+                last_start = i
+            start_ind = last_start
+            end_ind = min(last_start + (self.num_child + 1), len(ranking))
+            is_change = False
+            while True:
+                if start_ind < i:
+                    start_ind = i
+                if end_ind - start_ind < 2:
+                    break
+
+                window = ranking[start_ind:end_ind]
+                self.total_dual_invocations += 1
+                best_label, worst_label = self.compare_both(query, window)
+
+                best_ind = self._resolve_label_index(best_label, len(window), 0)
+                worst_ind = self._resolve_label_index(worst_label, len(window), len(window) - 1)
+
+                actual_best = start_ind + best_ind
+                actual_worst = start_ind + worst_ind
+                front = start_ind
+                back = start_ind + len(window) - 1
+
+                if actual_best == back and actual_worst == front:
+                    ranking[front], ranking[back] = ranking[back], ranking[front]
+                    self.total_regularized_worst_moves += 1
+                    if not is_change:
+                        is_change = True
+                else:
+                    if actual_best != front:
+                        ranking[front], ranking[actual_best] = ranking[actual_best], ranking[front]
+                        if actual_worst == front:
+                            actual_worst = actual_best
+                        if not is_change:
+                            is_change = True
+                            if last_start != len(ranking) - (self.num_child + 1) and best_ind == len(window) - 1:
+                                last_start += len(window) - 1
+
+                    if actual_worst != back and actual_worst != front:
+                        ranking[back], ranking[actual_worst] = ranking[actual_worst], ranking[back]
+                        self.total_regularized_worst_moves += 1
+                        is_change = True
+
+                if start_ind == i:
+                    break
+
+                if not is_change:
+                    last_start -= self.num_child
+
+                start_ind -= self.num_child
+                end_ind -= self.num_child
+
+        results = []
+        top_doc_ids = set()
+        rank = 1
+
+        for doc in ranking[:self.k]:
+            top_doc_ids.add(doc.docid)
+            results.append(SearchResult(docid=doc.docid, score=-rank, text=None))
+            rank += 1
+        for doc in original_ranking:
+            if doc.docid not in top_doc_ids:
+                results.append(SearchResult(docid=doc.docid, score=-rank, text=None))
+                rank += 1
+
+        return results
 
 
 class BidirectionalEnsembleRanker(LlmRanker):

@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Beyond Best Selection · Results Display</title>
+    <meta
+      name="description"
+      content="A static research results display for the current state of Beyond Best Selection."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="page-shell">
+      <header class="hero reveal">
+        <div class="hero-topline">
+          <span class="eyebrow">Current State · April 2026</span>
+          <a class="ghost-link" href="../research_pipeline_setwise/RESULTS_REVIEW_V1.md"
+            >review memo</a
+          >
+        </div>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <h1>
+              Beyond Best Selection:
+              <br />
+              current results snapshot
+            </h1>
+            <p class="lede">
+              The project is strongest as an analysis-driven IR paper:
+              <strong>DualEnd</strong> is the best family overall,
+              <strong>BottomUp</strong> is systematically noisy, and
+              <strong>BiDir</strong> mostly imports that noise instead of fixing
+              it.
+            </p>
+            <div class="hero-chips">
+              <span class="chip">Main risk: high cost, low corrected significance</span>
+            </div>
+          </div>
+          <div class="hero-panel">
+            <div class="panel-label">Paper-safe read</div>
+            <div class="verdict-stack">
+              <div class="verdict-card">
+                <span class="verdict-kicker">Strongest claim</span>
+                <p>
+                  Setwise ranking is <strong>directionally asymmetric</strong>:
+                  worst-selection alone is weak, but worst-selection inside the
+                  same prompt can still help.
+                </p>
+              </div>
+              <div class="verdict-card">
+                <span class="verdict-kicker">What not to claim</span>
+                <p>
+                  DualEnd is <strong>not</strong> an efficiency win in the
+                  practical end-to-end sense.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section class="metrics-strip reveal">
+          <article class="metric-card">
+            <span class="metric-value count-up" data-target="14">0</span>
+            <span class="metric-suffix">/18</span>
+            <p>DualEnd wins overall</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-value count-up" data-target="12">0</span>
+            <span class="metric-suffix">/12</span>
+            <p>Qwen wins for DualEnd</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-value count-up" data-target="1">0</span>
+            <span class="metric-suffix">Bonferroni</span>
+            <p>corrected significant DualEnd win</p>
+          </article>
+          <article class="metric-card">
+            <span class="metric-value">5.6–8.9×</span>
+            <p>DualEnd wall-time versus <code>TD-Heap</code></p>
+          </article>
+        </section>
+      </header>
+
+      <main>
+        <section class="section reveal" id="tables">
+          <div class="section-head">
+            <span class="eyebrow">Current Tables</span>
+            <h2>Real result summaries from the current runs</h2>
+            <p>
+              These are compact paper-facing tables pulled from the current TREC
+              DL analysis and significance outputs. They are family-level
+              summaries across all 9 models rather than full 8-method dumps.
+            </p>
+          </div>
+
+          <div class="table-stack">
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Representative Main Results</span>
+                  <h3>DL19 NDCG@10 by family / best variant</h3>
+                </div>
+                <p>
+                  Family-level summary from the current narrative docs. Higher
+                  is better. Labels show the Bonferroni-corrected verdict versus
+                  the best TopDown baseline for that same model and dataset.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Method family / best variant</th>
+                      <th>flan-t5-large</th>
+                      <th>flan-t5-xl</th>
+                      <th>flan-t5-xxl</th>
+                      <th>qwen3-4b</th>
+                      <th>qwen3-8b</th>
+                      <th>qwen3-14b</th>
+                      <th>qwen3.5-4b</th>
+                      <th>qwen3.5-9b</th>
+                      <th>qwen3.5-27b</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-baseline">
+                      <td>BM25 lexical baseline</td>
+                      <td colspan="9">
+                        <div class="baseline-inline">
+                          <strong>DL19 shared first-stage anchor</strong>
+                          <span><code>nDCG@10 = 0.5058</code></span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>TopDown best</td>
+                      <td>0.6874 (<code>TD-Bubble</code>)</td>
+                      <td>0.6980 (<code>TD-Bubble</code>)</td>
+                      <td>0.7077 (<code>TD-Bubble</code>)</td>
+                      <td>0.6775 (<code>TD-Heap</code>)</td>
+                      <td>0.6819 (<code>TD-Heap</code>)</td>
+                      <td>0.7455 (<code>TD-Bubble</code>)</td>
+                      <td>0.7108 (<code>TD-Bubble</code>)</td>
+                      <td>0.7349 (<code>TD-Bubble</code>)</td>
+                      <td>0.7449 (<code>TD-Heap</code>)</td>
+                    </tr>
+                    <tr>
+                      <td>BottomUp best</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.4571 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6730 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6936 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6305 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6431 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6966 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6158 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6779 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7336 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>DualEnd best</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6708 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6884 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7137 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7220 (<code>DE-Selection</code>)</div>
+                          <span class="sig-tag sig-win">sig win</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7158 (<code>DE-Selection</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7519 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7161 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7370 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7475 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Best BiDir</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6147 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6845 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6905 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6814 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6826 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7200 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6714 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7101 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7229 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sig-legend">
+                <span class="sig-tag sig-win">sig win</span>
+                <span class="sig-tag sig-loss">sig loss</span>
+                <span class="sig-tag sig-pos-ns">+ns</span>
+                <span class="sig-tag sig-neg-ns">-ns</span>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Representative Main Results</span>
+                  <h3>DL20 NDCG@10 by family / best variant</h3>
+                </div>
+                <p>
+                  Same readout for TREC DL20 so the dataset shift is visible
+                  directly instead of inferred from the narrative.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Method family / best variant</th>
+                      <th>flan-t5-large</th>
+                      <th>flan-t5-xl</th>
+                      <th>flan-t5-xxl</th>
+                      <th>qwen3-4b</th>
+                      <th>qwen3-8b</th>
+                      <th>qwen3-14b</th>
+                      <th>qwen3.5-4b</th>
+                      <th>qwen3.5-9b</th>
+                      <th>qwen3.5-27b</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-baseline">
+                      <td>BM25 lexical baseline</td>
+                      <td colspan="9">
+                        <div class="baseline-inline">
+                          <strong>DL20 shared first-stage anchor</strong>
+                          <span><code>nDCG@10 = 0.4796</code></span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>TopDown best</td>
+                      <td>0.6264 (<code>TD-Bubble</code>)</td>
+                      <td>0.6868 (<code>TD-Bubble</code>)</td>
+                      <td>0.6959 (<code>TD-Bubble</code>)</td>
+                      <td>0.6488 (<code>TD-Heap</code>)</td>
+                      <td>0.6532 (<code>TD-Heap</code>)</td>
+                      <td>0.7044 (<code>TD-Bubble</code>)</td>
+                      <td>0.6713 (<code>TD-Bubble</code>)</td>
+                      <td>0.6950 (<code>TD-Heap</code>)</td>
+                      <td>0.7178 (<code>TD-Bubble</code>)</td>
+                    </tr>
+                    <tr>
+                      <td>BottomUp best</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.4116 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6691 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6811 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.5963 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.5963 (<code>BU-Heap</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6395 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.5963 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6677 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7004 (<code>BU-Bubble</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>DualEnd best</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6308 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6795 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6895 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6627 (<code>DE-Selection</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6678 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7051 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6768 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6984 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.7186 (<code>DE-Cocktail</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Best BiDir</td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.5805 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6528 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6673 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6376 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6600 (<code>RRF</code>)</div>
+                          <span class="sig-tag sig-pos-ns">+ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6741 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6567 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6768 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-neg-ns">-ns</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="table-cell-stack">
+                          <div class="cell-main">0.6871 (<code>Wt</code>)</div>
+                          <span class="sig-tag sig-loss">sig loss</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sig-legend">
+                <span class="sig-tag sig-win">sig win</span>
+                <span class="sig-tag sig-loss">sig loss</span>
+                <span class="sig-tag sig-pos-ns">+ns</span>
+                <span class="sig-tag sig-neg-ns">-ns</span>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">First-Stage Anchor</span>
+                  <h3>BM25 baselines on the TREC DL sets</h3>
+                </div>
+                <p>
+                  Shared lexical baseline before any setwise reranking. These
+                  values come directly from the stored BM25 eval files.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Dataset</th>
+                      <th>nDCG@10</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>DL19</td>
+                      <td>0.5058</td>
+                    </tr>
+                    <tr>
+                      <td>DL20</td>
+                      <td>0.4796</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Significance Summary</span>
+                  <h3>Family-level comparison against best TopDown</h3>
+                </div>
+                <p>
+                  From paired approximate-randomization with Bonferroni correction
+                  across the 18 TREC DL configurations.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Family</th>
+                      <th>Mean delta vs best TopDown</th>
+                      <th>Positive deltas</th>
+                      <th>Bonferroni-significant wins</th>
+                      <th>Bonferroni-significant losses</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-highlight">
+                      <td>DualEnd</td>
+                      <td>+0.0058</td>
+                      <td>14 / 18</td>
+                      <td>1</td>
+                      <td>0</td>
+                    </tr>
+                    <tr>
+                      <td>BottomUp</td>
+                      <td>-0.0616</td>
+                      <td>0 / 18</td>
+                      <td>0</td>
+                      <td>6</td>
+                    </tr>
+                    <tr>
+                      <td>BiDir</td>
+                      <td>-0.0232</td>
+                      <td>3 / 18</td>
+                      <td>0</td>
+                      <td>3</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Current Reading</span>
+                  <h3>What the tables imply right now</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Question</th>
+                      <th>Current answer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Best overall family?</td>
+                      <td><strong>DualEnd</strong>, especially on Qwen</td>
+                    </tr>
+                    <tr>
+                      <td>Most reliable efficiency baseline?</td>
+                      <td><strong>TopDown</strong>, especially <code>TD-Heap</code></td>
+                    </tr>
+                    <tr>
+                      <td>What is the lexical anchor?</td>
+                      <td><code>BM25</code> starts at 0.5058 on DL19 and 0.4796 on DL20</td>
+                    </tr>
+                    <tr>
+                      <td>Does worst-only work?</td>
+                      <td>No, BottomUp is broadly harmful</td>
+                    </tr>
+                    <tr>
+                      <td>Does independent fusion help?</td>
+                      <td>No, BiDir mostly imports BottomUp noise</td>
+                    </tr>
+                    <tr>
+                      <td>Safe paper story?</td>
+                      <td>Directional asymmetry + quality-cost tradeoff</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="theater">
+          <div class="section-head">
+            <span class="eyebrow">Algorithm Theater</span>
+            <h2>How the four strategies feel in motion</h2>
+            <p>
+              This is an explanatory illustration, not a literal replay of one
+              run. It is designed to make the current intuition legible: best
+              only is stable, worst only is brittle, DualEnd moves both edges at
+              once, and BiDir spends more compute fusing a noisy second channel.
+            </p>
+          </div>
+
+          <div class="theater-frame">
+            <div class="algo-tabs" id="algoTabs" aria-label="Algorithm selector"></div>
+
+            <div class="theater-layout">
+              <div class="stage-wrap">
+                <div id="algorithmStage" class="algorithm-stage" aria-live="polite"></div>
+                <div class="theater-controls">
+                  <button id="prevStep" class="control-btn" type="button">
+                    Previous
+                  </button>
+                  <button id="playToggle" class="control-btn is-primary" type="button">
+                    Pause
+                  </button>
+                  <button id="nextStep" class="control-btn" type="button">
+                    Next
+                  </button>
+                </div>
+              </div>
+
+              <aside class="theater-panel">
+                <div class="panel-label" id="algoKicker">Baseline</div>
+                <h3 id="algoTitle">TopDown</h3>
+                <p id="algoSummary">
+                  Ask only for the best document, keep the signal clean, and
+                  sort the rest later.
+                </p>
+                <div class="step-header">
+                  <span id="algoStepIndex">Step 1 / 4</span>
+                  <span id="algoBadge" class="algo-badge">stable baseline</span>
+                </div>
+                <p id="stepNarrative" class="step-narrative"></p>
+                <ul id="algoBullets" class="bullet-list"></ul>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="evidence">
+          <div class="section-head">
+            <span class="eyebrow">Current Evidence</span>
+            <h2>What the data supports, what it rejects, and why it still matters</h2>
+          </div>
+
+          <div class="evidence-grid">
+            <article class="insight-card support">
+              <span class="card-kicker">Supported</span>
+              <h3>DualEnd is the strongest family overall</h3>
+              <p>
+                DualEnd is positive in <strong>14/18</strong> TREC DL
+                configurations and wins all <strong>12/12</strong> Qwen
+                configurations, even though the corrected significance is still
+                limited on these small query sets.
+              </p>
+            </article>
+
+            <article class="insight-card reject">
+              <span class="card-kicker">Rejected</span>
+              <h3>Worst-only is not a mirror of best-only</h3>
+              <p>
+                BottomUp loses in all 18 configurations and has
+                <strong>6 Bonferroni-significant losses</strong>. The worst prompt is
+                not a simple symmetric inverse of the best prompt.
+              </p>
+            </article>
+
+            <article class="insight-card nuance">
+              <span class="card-kicker">Why it matters</span>
+              <h3>The interesting signal is joint elicitation</h3>
+              <p>
+                The key novelty is behavioral: asking for best and worst
+                together changes the model's bias pattern and can add a modest
+                refinement signal that does not survive when worst-selection is
+                isolated.
+              </p>
+            </article>
+          </div>
+
+          <div class="bar-board">
+            <div class="bar-card">
+              <div class="bar-meta">
+                <span>DualEnd positive deltas</span>
+                <strong>14 / 18</strong>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill is-teal" style="--fill: 77.8%"></div>
+              </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-meta">
+                <span>BottomUp Bonferroni-significant losses</span>
+                <strong>6 / 18</strong>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill is-coral" style="--fill: 38.9%"></div>
+              </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-meta">
+                <span>BiDir Bonferroni-significant losses</span>
+                <strong>3 / 18</strong>
+              </div>
+              <div class="bar-track">
+                <div class="bar-fill is-gold" style="--fill: 16.7%"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section reveal" id="mechanism">
+          <div class="section-head">
+            <span class="eyebrow">Behavioral Fingerprint</span>
+            <h2>The current mechanism story in one screen</h2>
+          </div>
+
+          <div class="fingerprint-grid">
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Agreement</span>
+              <h3>DualEnd stays close to TopDown</h3>
+              <p>
+                <strong>Overlap@10 = 7.01</strong> and
+                <strong>Kendall tau = 0.9254</strong> between TopDown and
+                DualEnd. That is much closer than TopDown vs BottomUp.
+              </p>
+            </article>
+
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Bias</span>
+              <h3><code>dual_worst</code> flips the positional pattern</h3>
+              <p>
+                Standalone worst-selection leans hard toward the last passage,
+                but <code>dual_worst</code> shifts toward primacy instead:
+                <strong>A ≈ 0.35</strong>, <strong>D ≈ 0.14</strong>.
+              </p>
+            </article>
+
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Interpretation</span>
+              <h3>Worst helps only when it shares the same prompt</h3>
+              <p>
+                Independent BottomUp hurts. Independent fusion hurts. Same-call
+                best-plus-worst is the only version that looks meaningfully
+                useful.
+              </p>
+            </article>
+          </div>
+        </section>
+
+      </main>
+
+      <footer class="footer reveal">
+        <p>
+          Built from the current project state in
+          <code>research_pipeline_setwise/</code> and <code>results/</code>.
+        </p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,8 +1,8 @@
 # Experiment Plan: Beyond Best Selection
 
 **Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
-**Last Updated:** 2026-03-29
-**Status:** Phase 1-4 COMPLETE (all re-runs done after 2026-03-29 bug fixes). Phase 5 (BEIR) pending.
+**Last Updated:** 2026-04-09
+**Status:** Phase 1-4 COMPLETE (all re-runs done after 2026-03-29 bug fixes). Significance testing complete. Phase 5 BEIR execution is delegated to the remote GPU runs; the local priority is the review-driven refinement package, paper-facing analysis, and audit.
 
 ---
 
@@ -20,6 +20,8 @@
 10. [Script Reference](#10-script-reference)
 11. [Results Checklist](#11-results-checklist)
 12. [Common Mistakes to Avoid](#12-common-mistakes-to-avoid)
+13. [Review-Driven Roadmap](#13-review-driven-roadmap)
+14. [Immediate TODO Checklist](#14-immediate-todo-checklist)
 
 ---
 
@@ -30,7 +32,7 @@ The paper addresses three research questions. Every experiment must map to at le
 | RQ | Question | Key Tables/Figures |
 |----|----------|--------------------|
 | **RQ1** | Does bottom-up (worst) selection achieve different effectiveness than top-down (best) selection? | Tab 1 (main), Tab 6 (difficulty), Position bias analysis |
-| **RQ2** | Does dual-end selection maintain effectiveness while improving efficiency? | Tab 1, Tab 3 (efficiency), Tab 4 (num_child ablation) |
+| **RQ2** | Does dual-end selection improve effectiveness enough to justify its extra compute cost, and can that quality-cost tradeoff be improved? | Tab 1, Tab 3 (efficiency), Tab 4 (num_child ablation) |
 | **RQ3** | Does bidirectional ensemble improve over individual methods? | Tab 1, Tab 5 (alpha ablation), Permutation voting comparison |
 
 ---
@@ -836,6 +838,19 @@ bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
 **Goal**: Evaluate generalizability across diverse domains.
 **Priority**: After Phase 1 results confirm the methods work on DL19/DL20.
 
+**2026-04-09 note**: The representative BEIR runs are already being handled on the remote GPU server for:
+- `TopDown-Bubble`
+- `BottomUp-Bubble`
+- `DualEnd-Cocktail`
+- `BiDir-RRF`
+
+with:
+- `google/flan-t5-xl`
+- `Qwen/Qwen3-8B`
+- `Qwen/Qwen3.5-9B`
+
+So there is **no local blocker on BEIR run scripting**. The remaining BEIR work for the paper is light-weight evaluation and synthesis once the run files land.
+
 ### BEIR Dataset-to-Run Mapping
 
 | Dataset | BM25 Run File | ir_dataset_name |
@@ -845,9 +860,9 @@ bash analysis/parse_success_rate.sh results/qwen3-4b-dl19
 | SciFact | `runs/bm25/run.beir.bm25-flat.scifact.txt` | `beir/scifact/test` |
 | TREC-COVID | `runs/bm25/run.beir.bm25-flat.trec-covid.txt` | `beir/trec-covid` |
 | Touche2020 | `runs/bm25/run.beir.bm25-flat.webis-touche2020.txt` | `beir/webis-touche2020/v2` |
-| ArguAna | `runs/bm25/run.beir.bm25-flat.arguana.txt` | `beir/arguana` |
-| FiQA-2018 | `runs/bm25/run.beir.bm25-flat.fiqa.txt` | `beir/fiqa/test` |
-| SCIDOCS | `runs/bm25/run.beir.bm25-flat.scidocs.txt` | `beir/scidocs` |
+| HotpotQA | `runs/bm25/run.beir.bm25-flat.hotpotqa.txt` | `beir/hotpotqa/test` |
+| Quora | `runs/bm25/run.beir.bm25-flat.quora.txt` | `beir/quora/test` |
+| FEVER | `runs/bm25/run.beir.bm25-flat.fever.txt` | `beir/fever/test` |
 
 ### BEIR Evaluation Strategy
 
@@ -862,9 +877,25 @@ Run a **subset of methods** on BEIR (not all 8 — too expensive):
 **Recommended models for BEIR**: Start with 3 models:
 - `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
-- `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only (**Not Started Yet**)
+- `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
 
 Total: **96 runs** for BEIR.
+
+### Minimal BEIR Extras Beyond Effectiveness
+
+Once the remote BEIR run files are available and you have manual `trec_eval` outputs, the paper only needs three additional summaries beyond raw `nDCG@10` / `MAP@10`:
+
+1. **Per-dataset deltas against TopDown-Bubble**
+   - `DualEnd-Cocktail - TopDown-Bubble`
+   - `BottomUp-Bubble - TopDown-Bubble`
+   - `BiDir-RRF - TopDown-Bubble`
+2. **Macro win-count summary**
+   - On how many of the 8 datasets does DualEnd beat TopDown for each model family?
+   - How many clear losses does BottomUp incur?
+3. **Family-consistency note**
+   - Does the DualEnd pattern hold for both encoder-decoder and causal models, or only for Qwen-style models?
+
+That is enough to support the paper's generalization story. We do **not** need to re-run position-bias analysis, qualitative error analysis, or extra BEIR-specific ablations unless a reviewer explicitly asks.
 
 ### BEIR Evaluation
 
@@ -928,6 +959,16 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 | `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses on existing results | No (CPU) | ✅ Created |
 | `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ✅ Created |
 
+### Refinement Package Scripts
+
+| Script | Purpose | Status |
+|--------|---------|--------|
+| `experiments/run_selective_dualend.sh` | Run Selective DualEnd with shortlist / uncertainty gating | ✅ Created |
+| `experiments/run_bias_aware_dualend.sh` | Run order-robust / bias-aware DualEnd with controlled orderings | ✅ Created |
+| `experiments/run_samecall_regularized.sh` | Run same-call worst-signal regularization | ✅ Created |
+| `experiments/run_quality_cost_pareto.sh` | Build the quality-cost Pareto artifacts from existing results | ✅ Created |
+| `experiments/run_when_dualend_helps.sh` | Build the qualitative DualEnd-help summary from existing artifacts or live env | ✅ Created |
+
 ### Analysis Scripts
 
 | Script | Purpose | Status |
@@ -937,6 +978,8 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 | `analysis/ranking_agreement.py` | 4C: TopDown vs BottomUp overlap@k | ✅ Created |
 | `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | ✅ Created |
 | `analysis/parse_success_rate.sh` | 4E: Dual-end parse warnings from logs | ✅ Created |
+| `analysis/quality_cost_pareto.py` | Plot / summarize NDCG@10 against calls, tokens, and time | ✅ Created |
+| `analysis/when_dualend_helps.py` | Produce model-level help/hurt summaries and, when env allows, qualitative exemplars | ✅ Created |
 
 ---
 
@@ -992,7 +1035,7 @@ For each model below, all 8 methods on both DL19 and DL20:
 | 512 | ☐ (severe truncation) | from Phase 1 (**default**) | from Phase 1 (**default**) |
 
 ### Table 6: Query Difficulty
-☐ Post-hoc analysis from Phase 1
+✅ Post-hoc analysis from Phase 1
 
 ### Permutation Voting Baseline
 | | DL19 | DL20 |
@@ -1000,10 +1043,12 @@ For each model below, all 8 methods on both DL19 and DL20:
 | PermVote (p=2) | 🔄 running | 🔄 running |
 
 ### Analysis Sections
-- ☐ Position bias analysis (§5.4) — requires code changes
-- ☐ Ranking agreement (top-10 overlap, Kendall's τ)
-- ☐ Per-query wins analysis
-- ☐ Dual-end parse success rate
+- [x] Position bias analysis (§5.4)
+- [x] Ranking agreement (top-10 overlap, Kendall's τ)
+- [x] Per-query wins analysis
+- [x] Dual-end parse success rate
+- [x] Quality-cost Pareto analysis
+- [x] "When DualEnd helps" summary analysis
 - ☐ Error analysis (qualitative)
 
 ---
@@ -1112,9 +1157,9 @@ Cross-referencing IDEA_REPORT hypotheses (H1-H6), research questions (RQ1-RQ3), 
 
 | Gap | IDEA_REPORT Reference | Status | Action |
 |-----|----------------------|--------|--------|
-| **Statistical significance tests** | Paper framing claims "comparable effectiveness" | ❌ Missing | Add paired bootstrap / permutation test to all main result comparisons. Can be post-hoc on Phase 1 runs. |
+| **Statistical significance tests** | Paper framing claims "comparable effectiveness" | ✅ Done | Added [analysis/significance_tests.py](/Users/hangli/projects/llm-rankers/analysis/significance_tests.py) and recorded results in [research_pipeline_setwise/SIGNIFICANCE_TESTS.md](/Users/hangli/projects/llm-rankers/research_pipeline_setwise/SIGNIFICANCE_TESTS.md). Use these results to keep claims conservative. |
 | **Dual selection accuracy** (Key Measurement 1 for Idea 2) | "How often does dual agree with separate best-only and worst-only?" | ❌ Missing | New Phase 4F: For 1-2 models, run same queries with TopDown, BottomUp, and DualEnd; compare whether DualEnd's best matches TopDown's best and DualEnd's worst matches BottomUp's worst. Post-hoc from comparison logs. |
-| **Efficiency claim validation** (H4) | "~50% fewer LLM calls" | ⚠️ Partial | Phase 2 logs raw counts. Need explicit table showing DualEnd calls / TopDown calls ratio per method. Easy post-hoc. |
+| **Efficiency claim validation** (H4) | Old hypothesis: "~50% fewer LLM calls" | ⚠️ Reframed | Current evidence refutes the old efficiency framing. Keep the call-count table, but use it to support a quality-cost tradeoff claim rather than any fewer-calls claim. |
 | **MAP@100 metric** | §4.1 "also report MAP@100" | ⚠️ In eval scripts but not checked | Verify eval_all.sh includes `-m map_cut.100` and results are collected. |
 
 ### Should-Have (strengthens paper)
@@ -1134,3 +1179,274 @@ Cross-referencing IDEA_REPORT hypotheses (H1-H6), research questions (RQ1-RQ3), 
 | num_child ablation cross-method | Idea 2 experimental design | ⚠️ Only DualEnd | Could add TopDown and BottomUp for 1-2 models if time allows. |
 | BEIR evaluation scripts | Phase 5 | ⚠️ Specified but no scripts yet | Create run scripts when Phase 1-4 are done. |
 | Error analysis (qualitative) | Analysis checklist | ❌ No methodology | Define what to analyze: failure modes, query types where DualEnd helps/hurts. |
+
+---
+
+## 13. Review-Driven Roadmap
+
+Post-result review changes the project emphasis. The strongest current paper is **not** "a new sorting method clearly beats the baseline." The strongest current paper is:
+
+- a study of **directional asymmetry** in setwise LLM ranking,
+- a modest but repeatable **joint best-worst elicitation** improvement,
+- a clear negative result for **standalone BottomUp** and **independent BiDir fusion**,
+- and a quality-cost tradeoff story rather than an efficiency story.
+
+### Submission Positioning
+
+- **Primary venue**: ICTIR
+- **Stretch follow-up**: later ARR only after stronger generalization or a better quality-cost method
+- **Core framing**: worst-selection alone is unreliable, but worst-selection inside a joint prompt changes model behavior and can help modestly
+- **Do not overclaim**: DualEnd is strongest overall, but only one TREC DL configuration is Bonferroni-significant and the cost is high
+
+### Prioritized Experiment Package
+
+| Priority | Experiment | Why it matters | Minimal scope | Success criterion | Deliverable |
+|---|---|---|---|---|---|
+| P0 | **Finish BEIR representative evaluation** | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets | 3 models × 8 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
+| P0 | **Quality-cost Pareto analysis** | Directly addresses the biggest reviewer concern: modest gains at high cost | Use existing TREC DL outputs first; compare NDCG@10 against calls, tokens, and wall time | Paper can show where DualEnd is or is not worthwhile under budgeted settings | New figure/table for paper and narrative |
+| P0 | **"When DualEnd helps" qualitative analysis** | Converts a weak average-gain story into a mechanism story | Inspect wins/losses for 2-3 representative models; group by query/window type | Produce a small taxonomy with concrete examples | Short analysis section + appendix table |
+| P1 | **Selective DualEnd** | Highest-leverage method refinement; may preserve quality while reducing cost | Start from best TopDown baseline and invoke DualEnd only on uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd | New method + quality-cost table |
+| P1 | **Order-robust / bias-aware DualEnd** | Converts the dual-worst bias reversal from analysis into method novelty | Use 2-3 controlled orderings only on uncertain windows | Improves robustness or average quality enough to justify extra calls | Bias-aware variant + ablation |
+| P2 | **Same-call worst-signal regularization** | Tests whether the useful signal is the joint prompt rather than independent worst ranking | Use DualEnd same-call outputs to adjust local ordering or pruning, without standalone BottomUp fusion | Small but consistent gain over vanilla DualEnd or better cost-quality tradeoff | Lightweight method note or appendix |
+
+### 2026-04-09 Status Snapshot
+
+- **P0 BEIR representative evaluation**: execution is already happening remotely; local work is now only the summary table + deltas once the run files arrive.
+- **P0 Quality-cost Pareto analysis**: implemented and run. Output: `results/analysis/pareto/QUALITY_COST_PARETO.md`.
+- **P0 "When DualEnd helps" analysis**: implemented and run in summary mode. Output: `results/analysis/dualend_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md`.
+- **P1 Selective DualEnd**: implemented, CLI wired, shell wrapper created, logging counters exposed, tests passing.
+- **P1 Order-robust / bias-aware DualEnd**: implemented, CLI wired, shell wrapper created, logging counters exposed, tests passing.
+- **P2 Same-call worst-signal regularization**: implemented, CLI wired, shell wrapper created, logging counters exposed, tests passing.
+
+### Ready-To-Run Commands
+
+#### P0. Quality-Cost Pareto Analysis
+
+Build the summary from all existing TREC DL result folders:
+
+```bash
+bash experiments/run_quality_cost_pareto.sh
+```
+
+Outputs:
+- `results/analysis/pareto/QUALITY_COST_PARETO.md`
+- `results/analysis/pareto/all_points.csv`
+- `results/analysis/pareto/method_means.csv`
+- frontier CSVs and optional plots
+
+Current paper-facing takeaway from the existing results:
+- Global comparison/token frontier: `TD-Heap`, `TD-Bubble`, `DE-Cocktail`
+- Global time frontier: `PermVote(p=2)`, `TD-Heap`, `TD-Bubble`, `DE-Cocktail`
+- This means any refined method should aim to land between `TD-Bubble` and `DE-Cocktail`, not merely beat a weak baseline.
+
+#### P0. "When DualEnd Helps" Analysis
+
+Run the qualitative analysis on the existing representative DL19 result folders:
+
+```bash
+bash experiments/run_when_dualend_helps.sh
+```
+
+The wrapper now auto-detects `./ranker_env/bin/python` when that environment is
+available, so the default command above will use the retrieval-enabled stack and
+produce passage-level exemplars in addition to the summary statistics.
+
+Outputs:
+- `rresults/analysis/topdown_heap_dualend_bubble_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md`
+- `results/analysis/topdown_heap_dualend_bubble_qualitative/when_dualend_helps_summary.json`
+- per-model markdown summaries with query text and passage snippets
+
+Current paper-facing summary from the generated artifact (tested on all models, show a few for example):
+- `flan-t5-xl-dl19`: mean delta `-0.0017`, Help/Hurt/Tie `20 / 16 / 7`
+- `qwen3-8b-dl19`: mean delta `+0.0336`, Help/Hurt/Tie `26 / 12 / 5`
+- `qwen3-14b-dl19`: mean delta `+0.0072`, Help/Hurt/Tie `19 / 15 / 9`
+...
+
+Interpretation:
+- DualEnd is **not** universally beneficial.
+- The strongest qualitative motivation is therefore **selective routing**, not unconditional replacement of TopDown.
+- In the live exemplar run, the strongest Qwen gains mostly come from **adding relevant documents** to the top-k, while the T5 hurt cases more often reflect relevant-document drops or mixed noisy set changes.
+
+#### P1. Selective DualEnd
+
+**What**: keep the cheaper TopDown sorting logic, but upgrade only selected windows to a same-call best-worst prompt.
+
+**Why**: the current evidence suggests the DualEnd gain is concentrated in ambiguous windows or near the top-k decision boundary, while full DualEnd pays that cost everywhere.
+
+**How**:
+- `--gate_strategy shortlist`: only invoke DualEnd on windows touching the top shortlist
+- `--gate_strategy uncertain`: only invoke DualEnd when BM25 score spread is small
+- `--gate_strategy hybrid`: union of the two
+- for the paper-facing first pass, prefer `bubblesort` because the routing logic is easiest to interpret near the ranking head
+
+Representative commands:
+
+```bash
+bash experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19 \
+  cuda generation 3 10 100 128 bubblesort hybrid 20 0.15
+
+bash experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19 \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+
+bash experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19 \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+```
+
+Then evaluate:
+
+```bash
+bash experiments/eval_all.sh results/flan-t5-xl-dl19 results/qwen3-8b-dl19 results/qwen3.5-9b-dl19
+```
+
+Use the new log counters in `results.txt`:
+- `Avg dual invocations`
+- `Avg single invocations`
+
+#### P1. Order-Robust / Bias-Aware DualEnd
+
+**What**: keep DualEnd, but on gated hard windows run a tiny number of controlled orderings and majority-vote the best / worst decision back into the original window.
+
+**Why**: the position-bias analysis shows a reversed `dual_worst` pattern, so the most principled refinement is to spend extra calls only where order sensitivity is most likely to matter.
+
+**How**:
+- use the same gating interface as Selective DualEnd
+- add `--order_robust_orderings 3` for base / reversed / shifted orderings
+
+Representative commands:
+
+```bash
+bash experiments/run_bias_aware_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19 \
+  cuda generation 3 10 100 128 bubblesort hybrid 20 0.15 3
+
+bash experiments/run_bias_aware_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19 \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15 3
+
+bash experiments/run_bias_aware_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19 \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15 3
+```
+
+Then evaluate:
+
+```bash
+bash experiments/eval_all.sh results/flan-t5-xl-dl19 results/qwen3-8b-dl19 results/qwen3.5-9b-dl19
+```
+
+Use the new log counters in `results.txt`:
+- `Avg order-robust windows`
+- `Avg extra orderings`
+
+#### P2. Same-Call Worst-Signal Regularization
+
+**What**: keep a head-focused TopDown bubblesort pass, but use the same-call worst output only as a local negative constraint inside each window.
+
+**Why**: BottomUp alone is too noisy, but the worst signal may still be useful **when conditioned on the same prompt and the same candidates as the winning best signal**.
+
+**How**:
+- promote the best item as usual
+- only demote the worst item locally inside the active window
+- do not run a full backward DualEnd pass
+
+Representative commands:
+
+```bash
+bash experiments/run_samecall_regularized.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19 \
+  cuda generation 3 10 100 128
+
+bash experiments/run_samecall_regularized.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19 \
+  cuda generation 3 10 100 512
+
+bash experiments/run_samecall_regularized.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19 \
+  cuda generation 3 10 100 512
+```
+
+Then evaluate:
+
+```bash
+bash experiments/eval_all.sh results/flan-t5-xl-dl19 results/qwen3-8b-dl19 results/qwen3.5-9b-dl19
+```
+
+Use the new log counter in `results.txt`:
+- `Avg regularized worst moves`
+
+### Deprioritized Work
+
+Unless a reviewer specifically demands them, the following are low leverage:
+
+- more standalone BottomUp variants,
+- more BiDir alpha or fusion sweeps,
+- more effort on information-theoretic "bits per call" without budget-aware results,
+- and making all three strategies appear equally central.
+
+The current results do not justify that allocation.
+
+### Recommended Story After This Roadmap
+
+If the next package lands well, the paper should say:
+
+1. Setwise LLM ranking is directionally asymmetric.
+2. Worst-selection alone is unreliable and biased.
+3. Joint best-worst elicitation changes model behavior and can help.
+4. The raw DualEnd method is quality-first but expensive.
+5. A selective or bias-aware DualEnd variant is the most promising refined direction.
+
+---
+
+## 14. Immediate TODO Checklist
+
+### Must Do For The Current Paper
+
+- [ ] Finish the representative BEIR subset first, before expanding any new ablation grid
+- [x] Build a quality-cost Pareto figure from existing TREC DL results
+- [x] Write a short "When DualEnd helps" taxonomy scaffold from per-query wins/losses
+- [x] Add an explicit paper-facing note that the strongest story is directional asymmetry, not raw efficiency
+- [ ] Keep BottomUp and BiDir in the paper as negative evidence, not co-equal contributions
+
+### Highest-Leverage New Experiments
+
+- [x] Implement **Selective DualEnd**: invoke DualEnd only on uncertain windows or on a final shortlist
+- [ ] Measure Selective DualEnd against best TopDown and full DualEnd on TREC DL first
+- [ ] If Selective DualEnd is promising, run the same representative BEIR subset
+- [x] Implement **Order-Robust / Bias-Aware DualEnd** if Selective DualEnd alone is not strong enough
+- [ ] Re-run significance testing for any refined method that becomes paper-central
+
+### Nice To Have After The Core Package
+
+- [x] Add same-call worst-signal regularization if it is lightweight to implement
+- [ ] Extend permutation-voting comparison to one Qwen family model only if still needed
+- [ ] Add CombMNZ only if it takes negligible effort and does not delay the main refinement package
