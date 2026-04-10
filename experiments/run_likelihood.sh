@@ -7,7 +7,7 @@
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
-#SBATCH --time=10:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --account=a_ai_collab
 
 module load anaconda3/2023.09-0
