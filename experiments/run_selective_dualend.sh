@@ -1,15 +1,24 @@
 #!/bin/bash --login
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=512G
+#SBATCH --job-name=selective-dualend
+#SBATCH --partition=gpu_cuda
+#SBATCH --qos=gpu
+#SBATCH --gres=gpu:h100:1
+#SBATCH --time=20:00:00
+#SBATCH --account=a_ai_collab
+
 # Selective DualEnd: TopDown sorting with DualEnd prompts only on uncertain / shortlist windows.
 
-set -euo pipefail
-
-if command -v module >/dev/null 2>&1; then
-    module load anaconda3/2023.09-0 || true
-    source "${EBROOTANACONDA3:-/dev/null}/etc/profile.d/conda.sh" 2>/dev/null || true
-    module load cuda/12.2 || true
-fi
-
-cd /scratch/project/neural_ir/hang/llm-rankers 2>/dev/null || cd "$(dirname "$0")/.."
+module load anaconda3/2023.09-0
+# module load java/21.0.8
+source $EBROOTANACONDA3/etc/profile.d/conda.sh
+module load cuda/12.2
+conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+# conda activate /scratch/project/neural_ir/hang/llm-rankers/qwen35_env
+cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"Qwen/Qwen3-8B"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
@@ -26,12 +35,6 @@ GATE_STRATEGY=${12:-"hybrid"}
 SHORTLIST_SIZE=${13:-20}
 MARGIN_THRESHOLD=${14:-0.15}
 
-if [ -n "${CONDA_DEFAULT_ENV:-}" ]; then
-    :
-elif [ -f /scratch/project/neural_ir/hang/llm-rankers/ranker_env/bin/activate ]; then
-    source /scratch/project/neural_ir/hang/llm-rankers/ranker_env/bin/activate
-fi
-
 mkdir -p "${OUTPUT_DIR}"
 ANALYSIS_DIR="results/analysis/selective-dualend/$(basename "${OUTPUT_DIR}")"
 mkdir -p "${ANALYSIS_DIR}"
@@ -42,9 +45,8 @@ export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserin
 export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
 
 STEM="selective_dualend_${METHOD}"
-PYTHON_BIN=${PYTHON_BIN:-$(command -v python3 || command -v python)}
 
-"${PYTHON_BIN}" run.py \
+python run.py \
     run --model_name_or_path "${MODEL}" \
         --ir_dataset_name "${DATASET}" \
         --run_path "${RUN_PATH}" \
