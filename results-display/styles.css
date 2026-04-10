@@ -166,6 +166,7 @@ body::before {
 .hero-chips,
 .metrics-strip,
 .table-stack,
+.analysis-grid,
 .evidence-grid,
 .fingerprint-grid,
 .roadmap-grid {
@@ -263,6 +264,18 @@ body::before {
 
 .table-stack {
   margin-top: 10px;
+}
+
+.analysis-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analysis-grid .table-card {
+  height: 100%;
+}
+
+.analysis-grid .table-card.is-span-two {
+  grid-column: 1 / -1;
 }
 
 .table-card {
@@ -419,6 +432,30 @@ body::before {
 
 .results-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.mini-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.mini-list strong {
+  color: var(--text);
+}
+
+.card-footnote {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .metric-value {
@@ -755,6 +792,146 @@ body::before {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.proposal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.proposal-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.proposal-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -26px -48px auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%);
+}
+
+.proposal-card.is-wide {
+  grid-column: 1 / -1;
+}
+
+.proposal-card.is-selective {
+  box-shadow: 0 0 0 1px rgba(74, 214, 194, 0.14), var(--shadow);
+}
+
+.proposal-card.is-bias {
+  box-shadow: 0 0 0 1px rgba(246, 200, 95, 0.14), var(--shadow);
+}
+
+.proposal-card.is-regularized {
+  box-shadow: 0 0 0 1px rgba(185, 167, 255, 0.14), var(--shadow);
+}
+
+.proposal-head {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.proposal-kicker,
+.block-label,
+.gate-name {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
+.proposal-kicker,
+.block-label {
+  color: var(--muted);
+}
+
+.proposal-head h3 {
+  margin: 0;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 1.7rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.proposal-summary,
+.proposal-block p,
+.gating-head p,
+.gate-card p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.proposal-summary {
+  margin: 0 0 18px;
+  max-width: 70ch;
+}
+
+.proposal-blocks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.proposal-block,
+.gate-card {
+  position: relative;
+  z-index: 1;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.proposal-card > .proposal-block + .proposal-block {
+  margin-top: 14px;
+}
+
+.proposal-block p,
+.gate-card p {
+  margin: 10px 0 0;
+}
+
+.gating-panel {
+  position: relative;
+  z-index: 1;
+  border-radius: 20px;
+  padding: 18px;
+  border: 1px solid rgba(74, 214, 194, 0.14);
+  background:
+    linear-gradient(180deg, rgba(74, 214, 194, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.gating-head {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.gating-head p {
+  margin: 0;
+}
+
+.gate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gate-name {
+  color: var(--teal);
+}
+
 .insight-card,
 .fingerprint-card,
 .roadmap-card {
@@ -944,9 +1121,13 @@ body::before {
 @media (max-width: 1100px) {
   .hero-grid,
   .theater-layout,
+  .analysis-grid,
   .evidence-grid,
   .fingerprint-grid,
-  .roadmap-grid {
+  .roadmap-grid,
+  .proposal-grid,
+  .proposal-blocks,
+  .gate-grid {
     grid-template-columns: 1fr;
   }
 

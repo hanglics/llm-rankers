@@ -6,10 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Beyond Best Selection · Results Display</title>
+    <title>Directional Asymmetry in LLM-Based Setwise Ranking · Results Display</title>
     <meta
       name="description"
-      content="A static research results display for the current state of Beyond Best Selection."
+      content="A static research results display for the current state of Directional Asymmetry in LLM-Based Setwise Ranking."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -33,9 +33,9 @@
         <div class="hero-grid">
           <div class="hero-copy">
             <h1>
-              Beyond Best Selection:
+              Directional Asymmetry in
               <br />
-              current results snapshot
+              LLM-Based Setwise Ranking
             </h1>
             <p class="lede">
               The project is strongest as an analysis-driven IR paper:
@@ -853,6 +853,1237 @@
                 best-plus-worst is the only version that looks meaningfully
                 useful.
               </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="analysis-scope">
+          <div class="section-head">
+            <span class="eyebrow">Completed Analysis</span>
+            <h2>The full non-BEIR result analysis</h2>
+            <p>
+              Everything completed is surfaced below: ablations, parse robustness, per-query behavior,
+              query difficulty, ranking agreement, position bias, Pareto
+              tradeoffs, and qualitative help/hurt analysis. BEIR is
+              intentionally excluded for now.
+            </p>
+          </div>
+
+          <div class="fingerprint-grid">
+            <article class="fingerprint-card support">
+              <span class="fingerprint-label">Ablations</span>
+              <h3>Window size and passage length are family-dependent</h3>
+              <p>
+                T5 prefers smaller windows and plateaus by 128 tokens, while
+                Qwen models tolerate larger windows and only plateau around
+                256--512 tokens.
+              </p>
+            </article>
+
+            <article class="fingerprint-card reject">
+              <span class="fingerprint-label">Fusion</span>
+              <h3>BiDir only looks good when it becomes almost TopDown</h3>
+              <p>
+                Weighted fusion is best at <code>alpha=0.9</code>, which means
+                90% of the signal still comes from TopDown. CombSUM does not
+                rescue the weaker BottomUp channel.
+              </p>
+            </article>
+
+            <article class="fingerprint-card nuance">
+              <span class="fingerprint-label">Robustness</span>
+              <h3>Parsing is not driving the story</h3>
+              <p>
+                T5 avoids parsing entirely via likelihood scoring, and the Qwen
+                family stays below a 1% partial parse rate even in the worst
+                case.
+              </p>
+            </article>
+
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Diagnostics</span>
+              <h3>Bias, agreement, and wins tell one coherent story</h3>
+              <p>
+                DualEnd stays close to TopDown, BottomUp diverges more, and the
+                divergence behaves like systematic noise rather than useful
+                complementarity.
+              </p>
+            </article>
+
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Pareto</span>
+              <h3>The quality-cost frontier is sharp, not fuzzy</h3>
+              <p>
+                On mean TREC DL tradeoffs, the frontier is basically
+                <code>TD-Heap</code>, <code>TD-Bubble</code>, and
+                <code>DE-Cocktail</code>, with <code>PermVote(p=2)</code> only
+                carving out one low-time niche.
+              </p>
+            </article>
+
+            <article class="fingerprint-card">
+              <span class="fingerprint-label">Qualitative</span>
+              <h3>DualEnd usually helps, but not in the same way everywhere</h3>
+              <p>
+                In the <code>TD-Heap</code> versus <code>DE-Cocktail</code>
+                slice used for qualitative analysis, 16 of 18 model-dataset
+                settings have positive mean delta, but the strongest gains are
+                concentrated in a smaller subset.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="ablations">
+          <div class="section-head">
+            <span class="eyebrow">Ablations</span>
+            <h2>Hyperparameters refine the method, but they do not change the story</h2>
+            <p>
+              The ablation package clarifies where the current methods are
+              stable and where they are fragile. It mostly reinforces the same
+              central message: TopDown is the reliable anchor, DualEnd is the
+              quality-first option, and BiDir never becomes compelling on its
+              own.
+            </p>
+          </div>
+
+          <div class="analysis-grid">
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Window Size</span>
+                  <h3><code>num_child</code> controls a real quality-cost tradeoff</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th><code>num_child</code></th>
+                      <th>Window</th>
+                      <th>T5-XL</th>
+                      <th>Qwen3-8B</th>
+                      <th>Qwen3.5-9B</th>
+                      <th>Avg comps</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>2</td>
+                      <td>3-way</td>
+                      <td>0.6988</td>
+                      <td>0.7187</td>
+                      <td>0.7392</td>
+                      <td>815</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>3</td>
+                      <td>4-way</td>
+                      <td>0.6884</td>
+                      <td>0.7155</td>
+                      <td>0.7370</td>
+                      <td>546</td>
+                    </tr>
+                    <tr>
+                      <td>5</td>
+                      <td>6-way</td>
+                      <td>0.6749</td>
+                      <td>0.7224</td>
+                      <td>0.7336</td>
+                      <td>333</td>
+                    </tr>
+                    <tr>
+                      <td>7</td>
+                      <td>8-way</td>
+                      <td>0.6480</td>
+                      <td>0.7249</td>
+                      <td>0.7386</td>
+                      <td>247</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                Effect of window size on DualEnd-Cocktail quality (DL19): 
+                T5 pays heavily for larger windows because of prompt pressure.
+                Qwen is far more tolerant, so larger candidate sets can reduce
+                calls without collapsing quality.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Passage Length</span>
+                  <h3>Passage length plateaus quickly for both families (DL19)</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>PL</th>
+                      <th>T5 TD-H</th>
+                      <th>T5 DE-C</th>
+                      <th>Q3-8B TD-H</th>
+                      <th>Q3-8B DE-C</th>
+                      <th>Q3.5-9B TD-H</th>
+                      <th>Q3.5-9B DE-C</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>64</td>
+                      <td>0.6821</td>
+                      <td>0.6846</td>
+                      <td>0.6772</td>
+                      <td>0.7035</td>
+                      <td>0.7207</td>
+                      <td>0.7142</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>128</td>
+                      <td>0.6901</td>
+                      <td>0.6884</td>
+                      <td>0.6934</td>
+                      <td>0.7168</td>
+                      <td>0.7378</td>
+                      <td>0.7406</td>
+                    </tr>
+                    <tr>
+                      <td>256</td>
+                      <td>0.6890</td>
+                      <td>0.6918</td>
+                      <td>0.6950</td>
+                      <td>0.7130</td>
+                      <td>0.7329</td>
+                      <td>0.7393</td>
+                    </tr>
+                    <tr>
+                      <td>512</td>
+                      <td>0.6890</td>
+                      <td>0.6879</td>
+                      <td>0.6895</td>
+                      <td>0.7122</td>
+                      <td>0.7329</td>
+                      <td>0.7370</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                T5 effectively saturates at 128 tokens, while Qwen gains most
+                of its improvement by 128--256. The relative DualEnd advantage
+                does not disappear at any tested truncation length.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Fusion Weight</span>
+                  <h3><code>alpha</code> confirms that BottomUp mostly contributes noise (DL19)</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Model (DL19)</th>
+                      <th>a=0.3</th>
+                      <th>a=0.5</th>
+                      <th>a=0.7</th>
+                      <th>a=0.9</th>
+                      <th>CombSUM</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>T5-XL</td>
+                      <td>0.6814</td>
+                      <td>0.6845</td>
+                      <td>0.6810</td>
+                      <td>0.7002</td>
+                      <td>0.6845</td>
+                    </tr>
+                    <tr>
+                      <td>Qwen3-8B</td>
+                      <td>0.6618</td>
+                      <td>0.6638</td>
+                      <td>0.6784</td>
+                      <td>0.6898</td>
+                      <td>0.6513</td>
+                    </tr>
+                    <tr>
+                      <td>Qwen3.5-9B</td>
+                      <td>0.6984</td>
+                      <td>0.7087</td>
+                      <td>0.7087</td>
+                      <td>0.7240</td>
+                      <td>0.7087</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                The best weighted fusion is always <code>alpha=0.9</code>.
+                That is the cleanest negative result in the whole BiDir story:
+                the ensemble only improves when it mostly stops listening to
+                BottomUp.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Operational Robustness</span>
+                  <h3>Parsing reliability is comfortably good enough</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Slice</th>
+                      <th>Current read</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Flan-T5 family</td>
+                      <td>0 parse failures; likelihood scoring avoids text parsing entirely</td>
+                    </tr>
+                    <tr>
+                      <td>Qwen3 / Qwen3.5 overall</td>
+                      <td>&lt;1% partial parse rate across the family</td>
+                    </tr>
+                    <tr>
+                      <td>Worst case</td>
+                      <td><code>qwen3-14b</code> DL20: 254 only-one-parsable + 218 partial dual parses over about 29K comparisons (0.9%)</td>
+                    </tr>
+                    <tr>
+                      <td>True dual failures</td>
+                      <td>None after the cascading parser; same-best-and-worst events stay below 0.1%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                Parsing is not the bottleneck behind the current ranking
+                behavior. The paper can safely treat format reliability as an
+                engineering detail rather than a central caveat.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="efficiency">
+          <div class="section-head">
+            <span class="eyebrow">Efficiency Analysis</span>
+            <h2>DualEnd carries a real budget cost, not a free information gain</h2>
+            <p>
+              The current evidence says the same thing in three different ways:
+              DualEnd extracts more information per comparison, but the
+              end-to-end ranking process still pays materially more in calls,
+              tokens, and wall time. That tradeoff needs to be shown directly,
+              not implied.
+            </p>
+          </div>
+
+          <div class="analysis-grid">
+            <article class="table-card is-span-two">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Mean TREC DL Cost</span>
+                  <h3>Method-level efficiency summary from the current Pareto inputs</h3>
+                </div>
+                <p>
+                  Mean costs are aggregated over the existing TREC DL result
+                  folders in <code>results/analysis/pareto/method_means.csv</code>.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Method</th>
+                      <th>NDCG@10</th>
+                      <th>Comparisons</th>
+                      <th>Total tokens</th>
+                      <th>Time / query</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-highlight">
+                      <td><code>TD-Heap</code></td>
+                      <td>0.6851</td>
+                      <td>76.5 (1.00x)</td>
+                      <td>32,464 (1.00x)</td>
+                      <td>28.4s (1.00x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>TD-Bubble</code></td>
+                      <td>0.6897</td>
+                      <td>300.0 (3.92x)</td>
+                      <td>126,456 (3.90x)</td>
+                      <td>110.9s (3.90x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>BU-Heap</code></td>
+                      <td>0.5985</td>
+                      <td>302.4 (3.95x)</td>
+                      <td>125,893 (3.88x)</td>
+                      <td>66.5s (2.34x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>BU-Bubble</code></td>
+                      <td>0.6282</td>
+                      <td>1,683.0 (22.00x)</td>
+                      <td>702,288 (21.63x)</td>
+                      <td>363.2s (12.78x)</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td><code>DE-Cocktail</code></td>
+                      <td>0.6962</td>
+                      <td>546.0 (7.14x)</td>
+                      <td>233,192 (7.18x)</td>
+                      <td>212.6s (7.48x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>DE-Selection</code></td>
+                      <td>0.6882</td>
+                      <td>406.0 (5.31x)</td>
+                      <td>164,644 (5.07x)</td>
+                      <td>132.7s (4.67x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>BiDir-RRF</code></td>
+                      <td>0.6637</td>
+                      <td>379.3 (4.96x)</td>
+                      <td>158,524 (4.88x)</td>
+                      <td>97.7s (3.44x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>BiDir-Weighted</code></td>
+                      <td>0.6667</td>
+                      <td>379.1 (4.96x)</td>
+                      <td>158,489 (4.88x)</td>
+                      <td>97.0s (3.41x)</td>
+                    </tr>
+                    <tr>
+                      <td><code>PermVote(p=2)</code></td>
+                      <td>0.6807</td>
+                      <td>152.4 (1.99x)</td>
+                      <td>42,942 (1.32x)</td>
+                      <td>25.4s (0.90x)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="source-links">
+                <a class="ghost-link" href="../results/analysis/pareto/method_means.csv">method means csv</a>
+                <a class="ghost-link" href="../results/analysis/pareto/all_points.csv">all points csv</a>
+                <a class="ghost-link" href="../results/analysis/pareto/QUALITY_COST_PARETO.md">pareto markdown</a>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Interpretation</span>
+                  <h3>More information per call does not mean cheaper ranking</h3>
+                </div>
+              </div>
+              <ul class="mini-list">
+                <li>For the default 4-way window, a single-direction call yields <code>log2(4)=2.0</code> bits, while DualEnd yields <code>log2(12)=3.58</code> bits, about 79% more information per comparison.</li>
+                <li><code>DE-Cocktail</code> is still a real budget jump: <strong>7.14x</strong> comparisons, <strong>7.18x</strong> tokens, and <strong>7.48x</strong> wall time versus <code>TD-Heap</code>.</li>
+                <li><code>DE-Selection</code> is the genuine middle point: cheaper than cocktail on all three axes, but also weaker than both <code>DE-Cocktail</code> and <code>TD-Bubble</code> in mean quality.</li>
+                <li><code>BU-Bubble</code> is the operational outlier: it is the most expensive method by far and still underperforms the TopDown family.</li>
+                <li>The correct paper framing is therefore quality-first, not efficiency-first: the joint signal helps, but the current algorithms do not reduce total budget.</li>
+              </ul>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Operational Notes</span>
+                  <h3>Prompt volume dominates, and model family details matter</h3>
+                </div>
+              </div>
+              <ul class="mini-list">
+                <li><strong>T5 DualEnd-Cocktail uses likelihood scoring internally</strong>: for example, <code>flan-t5-xl</code> DL19 logs about <code>224,421</code> prompt tokens, <code>0</code> completion tokens, and <code>29.9s</code> per query.</li>
+                <li><strong>Qwen DualEnd pays small completion-token overhead but large latency</strong>: <code>qwen3-8b</code> DL19 logs about <code>228,901</code> prompt tokens, <code>4,887</code> completion tokens, and <code>188.2s</code> per query.</li>
+                <li><strong>Large Qwen3.5 models amplify the time cost most sharply</strong>: <code>qwen3.5-27b</code> DL20 logs about <code>239,690</code> total tokens and <code>637.3s</code> per query for <code>DE-Cocktail</code>.</li>
+                <li>That means completion tokens are not the main story. The dominant costs are repeated window comparisons, large prompt volume, and slow causal generation on the larger models.</li>
+              </ul>
+              <p class="card-footnote">
+                This also explains why completion-token accounting needs a note: 
+                zero completion tokens for T5 DualEnd cocktail is
+                a design consequence of likelihood scoring, not a counting bug.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="diagnostics">
+          <div class="section-head">
+            <span class="eyebrow">Diagnostics</span>
+            <h2>Bias, agreement, and query-level behavior all point to the same mechanism</h2>
+            <p>
+              The diagnostic package is where the project becomes more than a
+              sorting tweak. These analyses explain why worst-only selection
+              fails, why DualEnd stays credible, and why independent fusion does
+              not inherit the useful part of the joint signal.
+            </p>
+          </div>
+
+          <div class="analysis-grid">
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Position Bias</span>
+                  <h3>The prompt changes which position gets blamed</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>A</th>
+                      <th>B</th>
+                      <th>C</th>
+                      <th>D</th>
+                      <th>Pattern</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>best</code></td>
+                      <td>0.33</td>
+                      <td>0.13</td>
+                      <td>0.13</td>
+                      <td>0.41</td>
+                      <td>U-shaped primacy + recency</td>
+                    </tr>
+                    <tr>
+                      <td><code>worst</code></td>
+                      <td>0.24</td>
+                      <td>0.10</td>
+                      <td>0.13</td>
+                      <td>0.50</td>
+                      <td>strong recency for worst</td>
+                    </tr>
+                    <tr>
+                      <td><code>dual_best</code></td>
+                      <td>0.27</td>
+                      <td>0.24</td>
+                      <td>0.16</td>
+                      <td>0.33</td>
+                      <td>more uniform</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td><code>dual_worst</code></td>
+                      <td>0.35</td>
+                      <td>0.22</td>
+                      <td>0.28</td>
+                      <td>0.13</td>
+                      <td>reversed: primacy for worst</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                Representative raw slice:
+                <code>qwen3-14b</code> DL19 shifts from
+                <code>best: A=0.351, D=0.411</code> to
+                <code>dual_worst: A=0.413, D=0.124</code>. That reversal is the
+                cleanest current clue that same-call prompting changes the
+                comparison process itself.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Query Difficulty</span>
+                  <h3>DualEnd helps least on the hardest queries</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Tercile</th>
+                      <th>BU - TD</th>
+                      <th>DE - TD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Easy</td>
+                      <td>-0.0904</td>
+                      <td>+0.0155</td>
+                    </tr>
+                    <tr>
+                      <td>Medium</td>
+                      <td>-0.0803</td>
+                      <td>+0.0157</td>
+                    </tr>
+                    <tr>
+                      <td>Hard</td>
+                      <td>-0.0897</td>
+                      <td>+0.0021</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>Overall</td>
+                      <td>-0.0866</td>
+                      <td>+0.0111</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                The aggregate trend is modest rather than universal. In the
+                representative <code>qwen3-14b</code> DL19 slice,
+                <code>DE-Cocktail</code> is negative on easy queries
+                (-0.006) but positive on medium (+0.019) and hard (+0.009).
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Ranking Agreement</span>
+                  <h3>DualEnd stays much closer to TopDown than BottomUp does</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Pair</th>
+                      <th>Overlap@10</th>
+                      <th>Kendall tau</th>
+                      <th>Agreement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-highlight">
+                      <td>TopDown vs DualEnd</td>
+                      <td>7.01</td>
+                      <td>0.9254</td>
+                      <td>high</td>
+                    </tr>
+                    <tr>
+                      <td>TopDown vs BottomUp</td>
+                      <td>5.04</td>
+                      <td>0.8589</td>
+                      <td>high but noisier</td>
+                    </tr>
+                    <tr>
+                      <td>BottomUp vs DualEnd</td>
+                      <td>5.24</td>
+                      <td>0.8767</td>
+                      <td>moderate-high</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                This is the agreement version of the same mechanism claim:
+                DualEnd mostly preserves TopDown's useful front-of-ranking
+                behavior while adding a weaker auxiliary constraint from the
+                worst side.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Per-Query Wins</span>
+                  <h3>DualEnd wins more queries than TopDown, BottomUp rarely does</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Comparison</th>
+                      <th>First wins</th>
+                      <th>Second wins</th>
+                      <th>Ties</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>TopDown vs BottomUp</td>
+                      <td>31.78</td>
+                      <td>13.33</td>
+                      <td>3.39</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>TopDown vs DualEnd</td>
+                      <td>18.50</td>
+                      <td>23.89</td>
+                      <td>6.11</td>
+                    </tr>
+                    <tr>
+                      <td>BottomUp vs DualEnd</td>
+                      <td>11.50</td>
+                      <td>33.39</td>
+                      <td>3.61</td>
+                    </tr>
+                    <tr>
+                      <td>DualEnd vs BiDir-RRF</td>
+                      <td>28.67</td>
+                      <td>16.00</td>
+                      <td>3.83</td>
+                    </tr>
+                    <tr>
+                      <td>BiDir-RRF vs best(TD,BU)</td>
+                      <td>helps 11.78</td>
+                      <td>hurts 10.06</td>
+                      <td>between 26.67</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                Representative slices match the aggregate:
+                <code>flan-t5-xl</code> DL19 has
+                <code>TD 16 / DE 20 / ties 7</code>, while
+                <code>qwen3-14b</code> DL19 has
+                <code>TD 15 / DE 19 / ties 9</code>.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="synthesis">
+          <div class="section-head">
+            <span class="eyebrow">Synthesis</span>
+            <h2>Pareto tradeoffs and qualitative help-hurt patterns</h2>
+            <p>
+              The remaining analyses show where DualEnd sits on the budget
+              frontier and what its query-level improvements actually look like.
+              Together they explain why the current project points toward
+              selective or bias-aware refinement rather than unconditional
+              expansion.
+            </p>
+          </div>
+
+          <div class="analysis-grid">
+            <article class="table-card is-span-two">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Quality-Cost Pareto</span>
+                  <h3>Mean TREC DL tradeoffs across all current methods</h3>
+                </div>
+                <p>
+                  Frontier membership is reported on the mean comparison, token,
+                  and time axes from
+                  <code>results/analysis/pareto/</code>.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Method</th>
+                      <th>NDCG@10</th>
+                      <th>Comparisons</th>
+                      <th>Total tokens</th>
+                      <th>Time(s)</th>
+                      <th>Frontier status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="row-highlight">
+                      <td><code>TD-Heap</code></td>
+                      <td>0.6851</td>
+                      <td>76.5</td>
+                      <td>32464</td>
+                      <td>28.41</td>
+                      <td>frontier on comparisons, tokens, time</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td><code>TD-Bubble</code></td>
+                      <td>0.6897</td>
+                      <td>300.0</td>
+                      <td>126456</td>
+                      <td>110.93</td>
+                      <td>frontier on comparisons, tokens, time</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td><code>DE-Cocktail</code></td>
+                      <td>0.6962</td>
+                      <td>546.0</td>
+                      <td>233192</td>
+                      <td>212.62</td>
+                      <td>frontier on comparisons, tokens, time</td>
+                    </tr>
+                    <tr>
+                      <td><code>DE-Selection</code></td>
+                      <td>0.6882</td>
+                      <td>406.0</td>
+                      <td>164644</td>
+                      <td>132.66</td>
+                      <td>dominated on the mean frontier</td>
+                    </tr>
+                    <tr>
+                      <td><code>PermVote(p=2)</code></td>
+                      <td>0.6807</td>
+                      <td>152.4</td>
+                      <td>42942</td>
+                      <td>25.43</td>
+                      <td>time frontier only</td>
+                    </tr>
+                    <tr>
+                      <td><code>BiDir-Weighted</code></td>
+                      <td>0.6667</td>
+                      <td>379.1</td>
+                      <td>158489</td>
+                      <td>96.96</td>
+                      <td>dominated</td>
+                    </tr>
+                    <tr>
+                      <td><code>BiDir-RRF</code></td>
+                      <td>0.6637</td>
+                      <td>379.3</td>
+                      <td>158524</td>
+                      <td>97.72</td>
+                      <td>dominated</td>
+                    </tr>
+                    <tr>
+                      <td><code>BU-Heap</code></td>
+                      <td>0.5985</td>
+                      <td>302.4</td>
+                      <td>125893</td>
+                      <td>66.52</td>
+                      <td>dominated</td>
+                    </tr>
+                    <tr>
+                      <td><code>BU-Bubble</code></td>
+                      <td>0.6282</td>
+                      <td>1683.0</td>
+                      <td>702288</td>
+                      <td>363.18</td>
+                      <td>dominated and most expensive</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="source-links">
+                <a class="ghost-link" href="../results/analysis/pareto/QUALITY_COST_PARETO.md">pareto markdown</a>
+                <a class="ghost-link" href="../results/analysis/pareto/method_means.csv">method means csv</a>
+                <a class="ghost-link" href="../results/analysis/pareto/frontier_avg_time_per_query.csv">time frontier csv</a>
+              </div>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Qualitative Rollup</span>
+                  <h3><code>DE-Cocktail</code> versus <code>TD-Heap</code> is usually positive, but not evenly so</h3>
+                </div>
+              </div>
+              <ul class="mini-list">
+                <li>Across the 18 qualitative summary configs, 16 have positive mean delta and only 2 are negative.</li>
+                <li>The mean delta across configs is <strong>+0.0111</strong>.</li>
+                <li>The strongest slice is <code>qwen3-8b</code> DL19 at <strong>+0.0336</strong> with <code>26 / 12 / 5</code> help/hurt/tie.</li>
+                <li>The two negative slices are <code>qwen3-4b</code> DL20 (-0.0034) and <code>flan-t5-xl</code> DL19 (-0.0016).</li>
+                <li>At query level, the totals are <strong>430 help</strong>, <strong>333 hurt</strong>, and <strong>110 ties</strong> across DL19/20 and 9 models.</li>
+              </ul>
+              <p class="card-footnote">
+                This slice is narrower than the family-level significance table:
+                it specifically compares <code>topdown_heapsort</code> against
+                <code>dualend_bubblesort</code> to study the current strongest
+                joint-prompt variant.
+              </p>
+            </article>
+
+            <article class="table-card">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Help / Hurt Structure</span>
+                  <h3>The good cases mostly add relevant material; the bad cases mostly drop it</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table results-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Pattern</th>
+                      <th>Help count</th>
+                      <th>Hurt count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>adds relevant documents</td>
+                      <td>196</td>
+                      <td>31</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>mixed set change</td>
+                      <td>199</td>
+                      <td>154</td>
+                    </tr>
+                    <tr>
+                      <td>drops relevant documents</td>
+                      <td>16</td>
+                      <td>129</td>
+                    </tr>
+                    <tr>
+                      <td>same-set reordering</td>
+                      <td>19</td>
+                      <td>19</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="card-footnote">
+                Difficulty skew matters too: help counts are led by
+                <strong>medium</strong> queries (158), while hurt counts are led
+                by <strong>hard</strong> queries (131). That is one more reason
+                the next method should route the expensive joint prompt instead
+                of spending it everywhere.
+              </p>
+            </article>
+
+            <article class="table-card is-span-two">
+              <div class="table-head">
+                <div>
+                  <span class="table-kicker">Qualitative Config Summary</span>
+                  <h3>Current help-hurt summary for every model-dataset slice</h3>
+                </div>
+                <p>
+                  Sourced from the combined summary in
+                  <code>results/analysis/topdown_heap_dualend_bubble_qualitative/</code>.
+                </p>
+              </div>
+              <div class="table-wrap">
+                <table class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Config</th>
+                      <th>Mean delta</th>
+                      <th>Help</th>
+                      <th>Hurt</th>
+                      <th>Tie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>flan-t5-large DL19</td>
+                      <td>+0.0167</td>
+                      <td>24</td>
+                      <td>14</td>
+                      <td>5</td>
+                    </tr>
+                    <tr>
+                      <td>flan-t5-large DL20</td>
+                      <td>+0.0208</td>
+                      <td>34</td>
+                      <td>17</td>
+                      <td>3</td>
+                    </tr>
+                    <tr>
+                      <td>flan-t5-xl DL19</td>
+                      <td>-0.0016</td>
+                      <td>20</td>
+                      <td>16</td>
+                      <td>7</td>
+                    </tr>
+                    <tr>
+                      <td>flan-t5-xl DL20</td>
+                      <td>+0.0115</td>
+                      <td>28</td>
+                      <td>20</td>
+                      <td>6</td>
+                    </tr>
+                    <tr>
+                      <td>flan-t5-xxl DL19</td>
+                      <td>+0.0291</td>
+                      <td>22</td>
+                      <td>14</td>
+                      <td>7</td>
+                    </tr>
+                    <tr>
+                      <td>flan-t5-xxl DL20</td>
+                      <td>+0.0104</td>
+                      <td>24</td>
+                      <td>23</td>
+                      <td>7</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3-4b DL19</td>
+                      <td>+0.0022</td>
+                      <td>24</td>
+                      <td>16</td>
+                      <td>3</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3-4b DL20</td>
+                      <td>-0.0034</td>
+                      <td>23</td>
+                      <td>29</td>
+                      <td>2</td>
+                    </tr>
+                    <tr class="row-highlight">
+                      <td>qwen3-8b DL19</td>
+                      <td>+0.0336</td>
+                      <td>26</td>
+                      <td>12</td>
+                      <td>5</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3-8b DL20</td>
+                      <td>+0.0146</td>
+                      <td>30</td>
+                      <td>19</td>
+                      <td>5</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3-14b DL19</td>
+                      <td>+0.0071</td>
+                      <td>19</td>
+                      <td>15</td>
+                      <td>9</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3-14b DL20</td>
+                      <td>+0.0090</td>
+                      <td>25</td>
+                      <td>20</td>
+                      <td>9</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-4b DL19</td>
+                      <td>+0.0074</td>
+                      <td>18</td>
+                      <td>19</td>
+                      <td>6</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-4b DL20</td>
+                      <td>+0.0247</td>
+                      <td>28</td>
+                      <td>22</td>
+                      <td>4</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-9b DL19</td>
+                      <td>+0.0042</td>
+                      <td>23</td>
+                      <td>13</td>
+                      <td>7</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-9b DL20</td>
+                      <td>+0.0034</td>
+                      <td>23</td>
+                      <td>25</td>
+                      <td>6</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-27b DL19</td>
+                      <td>+0.0026</td>
+                      <td>15</td>
+                      <td>18</td>
+                      <td>10</td>
+                    </tr>
+                    <tr>
+                      <td>qwen3.5-27b DL20</td>
+                      <td>+0.0082</td>
+                      <td>24</td>
+                      <td>21</td>
+                      <td>9</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="source-links">
+                <a class="ghost-link" href="../results/analysis/topdown_heap_dualend_bubble_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md">qualitative markdown</a>
+                <a class="ghost-link" href="../results/analysis/topdown_heap_dualend_bubble_qualitative/when_dualend_helps_summary.json">qualitative json</a>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section reveal" id="proposals">
+          <div class="section-head">
+            <span class="eyebrow">Proposed Refinements</span>
+            <h2>Three concrete follow-up methods suggested by the current evidence</h2>
+            <p>
+              The data does not suggest "more BottomUp." It suggests spending
+              the joint best-worst signal more carefully, making it less
+              order-sensitive, or using the worst output only as a local
+              constraint instead of a full second ranking channel.
+            </p>
+          </div>
+
+          <div class="proposal-grid">
+            <article class="proposal-card is-selective is-wide">
+              <div class="proposal-head">
+                <span class="proposal-kicker">P1 · Main refinement</span>
+                <h3>Selective TopDown-DualEnd</h3>
+              </div>
+              <p class="proposal-summary">
+                Keep the cheaper TopDown ranking backbone, but upgrade only
+                selected windows to a same-call best-worst prompt.
+              </p>
+
+              <div class="proposal-blocks">
+                <div class="proposal-block">
+                  <span class="block-label">What</span>
+                  <p>
+                    The algorithm still behaves like TopDown most of the time.
+                    A window is switched to DualEnd only when the current local
+                    decision looks important or ambiguous, so the expensive
+                    joint signal is not paid everywhere.
+                  </p>
+                </div>
+
+                <div class="proposal-block">
+                  <span class="block-label">Why</span>
+                  <p>
+                    Full DualEnd is the best family overall, but the quality
+                    gain is modest relative to its cost. The qualitative and
+                    model-level results suggest that the gain is concentrated
+                    near hard decisions, especially close to the ranking head.
+                  </p>
+                </div>
+
+                <div class="proposal-block">
+                  <span class="block-label">Intuition</span>
+                  <p>
+                    Use cheap best-only ranking when the answer is already
+                    obvious. Spend joint best-worst reasoning only where the
+                    model might otherwise make an expensive mistake near top-k.
+                  </p>
+                </div>
+              </div>
+
+              <div class="gating-panel">
+                <div class="gating-head">
+                  <span class="block-label">Gating Strategies</span>
+                  <p>
+                    The implementation already exposes three interpretable
+                    routing rules through <code>--gate_strategy</code>.
+                  </p>
+                </div>
+                <div class="gate-grid">
+                  <div class="gate-card">
+                    <span class="gate-name">Shortlist gate</span>
+                    <p>
+                      Trigger DualEnd only on windows that overlap the current
+                      top shortlist, for example the top 20 candidates. This
+                      spends compute where a wrong decision can still affect the
+                      final answer.
+                    </p>
+                  </div>
+                  <div class="gate-card">
+                    <span class="gate-name">Uncertainty gate</span>
+                    <p>
+                      Trigger DualEnd only when the BM25 score spread inside the
+                      active window is small, using a margin threshold such as
+                      <code>0.15</code>. This targets windows where lexical
+                      evidence alone does not cleanly separate candidates.
+                    </p>
+                  </div>
+                  <div class="gate-card">
+                    <span class="gate-name">Hybrid gate</span>
+                    <p>
+                      Use the union of shortlist overlap and uncertainty. This
+                      is the most paper-friendly default because it matches two
+                      intuitive ideas at once: top-k sensitivity and local
+                      ambiguity.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="proposal-card is-bias">
+              <div class="proposal-head">
+                <span class="proposal-kicker">P1 · Robustness refinement</span>
+                <h3>Order-Robust, Bias-Aware DualEnd</h3>
+              </div>
+              <p class="proposal-summary">
+                Run DualEnd on a small set of controlled window orderings and
+                majority-vote the best/worst decisions back into the original
+                order.
+              </p>
+
+              <div class="proposal-block">
+                <span class="block-label">What</span>
+                <p>
+                  On gated hard windows, compare the same candidate set in the
+                  base order, reversed order, and a small shifted order. Then
+                  remap the answers and vote on the final best and worst labels.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Why</span>
+                <p>
+                  The measured <code>dual_worst</code> pattern suggests that the
+                  joint signal is useful but still exposed to order effects.
+                  Extra calls should therefore be spent only on windows where
+                  presentation bias is most likely to matter.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Intuition</span>
+                <p>
+                  If the same best/worst choice survives small reorderings, it
+                  is more likely to reflect the document set itself rather than
+                  an accidental left-to-right bias.
+                </p>
+              </div>
+            </article>
+
+            <article class="proposal-card is-regularized">
+              <div class="proposal-head">
+                <span class="proposal-kicker">P2 · Lightweight constraint</span>
+                <h3>Same-Call Worst-Signal Regularization</h3>
+              </div>
+              <p class="proposal-summary">
+                Keep a head-focused TopDown bubblesort pass, but use the
+                same-call worst output only as a local negative constraint.
+              </p>
+
+              <div class="proposal-block">
+                <span class="block-label">What</span>
+                <p>
+                  The best output still drives promotion toward the ranking
+                  front. The worst output only pushes one clearly bad document
+                  to the back of the current window instead of launching a full
+                  backward ranking process.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Why</span>
+                <p>
+                  Standalone BottomUp is too noisy to trust globally, but the
+                  worst signal may still be informative when it is conditioned on
+                  the same query, the same candidates, and the same call as the
+                  winning best signal.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Intuition</span>
+                <p>
+                  Treat worst as a brake, not as a second driver. The goal is to
+                  regularize local mistakes without importing a whole noisy
+                  BottomUp channel into the final ranking.
+                </p>
+              </div>
             </article>
           </div>
         </section>

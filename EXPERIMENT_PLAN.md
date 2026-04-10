@@ -1,6 +1,6 @@
-# Experiment Plan: Beyond Best Selection
+# Experiment Plan: Directional Asymmetry in LLM-Based Setwise Ranking
 
-**Paper:** "Beyond Best Selection: Bidirectional Strategies for Efficient LLM-Based Setwise Ranking"
+**Paper:** "Directional Asymmetry in LLM-Based Setwise Ranking: Evidence from Worst-Only, Joint, and Fused Signals"
 **Last Updated:** 2026-04-09
 **Status:** Phase 1-4 COMPLETE (all re-runs done after 2026-03-29 bug fixes). Significance testing complete. Phase 5 BEIR execution is delegated to the remote GPU runs; the local priority is the review-driven refinement package, paper-facing analysis, and audit.
 

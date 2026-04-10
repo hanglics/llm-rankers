@@ -1,6 +1,6 @@
 #!/bin/bash
 # Extended Setwise Ranking Experiments
-# Paper: "Beyond Best Selection: Bidirectional Strategies for LLM-Based Setwise Ranking"
+# Paper: "Directional Asymmetry in LLM-Based Setwise Ranking: Evidence from Worst-Only, Joint, and Fused Signals"
 #
 # Usage: bash experiments/run_extended_setwise.sh <model> <dataset> <run_path> <output_dir>
 # Example: bash experiments/run_extended_setwise.sh google/flan-t5-xl msmarco-passage/trec-dl-2019 runs/bm25_dl19.txt results/
