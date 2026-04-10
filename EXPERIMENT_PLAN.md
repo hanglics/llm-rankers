@@ -1325,6 +1325,28 @@ First comparison targets:
 - `--gate_strategy hybrid`: union of the two
 - for the paper-facing first pass, prefer `bubblesort` because the routing logic is easiest to interpret near the ranking head
 
+Configs:
+| Model | Dataset | Method | Sorting | Gating Strategy |
+|---|---|---|---|---|
+| `google/glan-t5-xl` | DL19 | generation | bubblesort | uncertain |
+| `google/glan-t5-xl` | DL19 | likelihood | bubblesort | uncertain |
+| `google/glan-t5-xl` | DL19 | generation | bubblesort | shortlist |
+| `google/glan-t5-xl` | DL19 | likelihood | bubblesort | shortlist |
+| `google/glan-t5-xl` | DL19/20 | generation | bubblesort | hybrid |
+| `google/glan-t5-xl` | DL19/20 | likelihood | bubblesort | hybrid |
+| `Qwen/Qwen3-8B` | DL19 | generation | bubblesort | uncertain |
+| `Qwen/Qwen3-8B` | DL19 | likelihood | bubblesort | uncertain |
+| `Qwen/Qwen3-8B` | DL19 | generation | bubblesort | shortlist |
+| `Qwen/Qwen3-8B` | DL19 | likelihood | bubblesort | shortlist |
+| `Qwen/Qwen3-8B` | DL19/20 | generation | bubblesort | hybrid |
+| `Qwen/Qwen3-8B` | DL19/20 | likelihood | bubblesort | hybrid |
+| `Qwen/Qwen3.5-9B` | DL19 | generation | bubblesort | uncertain |
+| `Qwen/Qwen3.5-9B` | DL19 | likelihood | bubblesort | uncertain |
+| `Qwen/Qwen3.5-9B` | DL19 | generation | bubblesort | shortlist |
+| `Qwen/Qwen3.5-9B` | DL19 | likelihood | bubblesort | shortlist |
+| `Qwen/Qwen3.5-9B` | DL19/20 | generation | bubblesort | hybrid |
+| `Qwen/Qwen3.5-9B` | DL19/20 | likelihood | bubblesort | hybrid |
+
 Representative commands: (**TODO: Qwen3.5-9B Not Started Yet**)
 
 ```bash
