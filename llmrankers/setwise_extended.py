@@ -37,9 +37,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
         """Select the LEAST relevant document from the candidate set."""
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
 
-        passages = "\n\n".join([f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs)])
-        input_text = f'Given a query "{query}", which of the following passages is the least relevant one to the query?\n\n' \
-                     + passages + '\n\nOutput only the passage label of the least relevant passage:'
+        input_text = self._build_worst_prompt(query, docs)
 
         if self.scoring == 'generation':
             if self.config.model_type == 't5':
@@ -138,22 +136,15 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                     output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
-            if self.config.model_type == 't5':
-                inputs = self._tokenize_inputs(input_text)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                with torch.no_grad():
-                    logits = self.llm(
-                        input_ids=inputs.input_ids,
-                        attention_mask=inputs.attention_mask,
-                        decoder_input_ids=self.decoder_input_ids,
-                    ).logits[0][-1]
-                    distributions = torch.softmax(logits, dim=0)
-                    scores = distributions[self.target_token_ids[:len(docs)]]
-                    # For bottom-up with "least relevant" prompt: select highest likelihood
-                    ranked = sorted(zip(self.CHARACTERS[:len(docs)], scores), key=lambda x: x[1], reverse=True)
-                    output = ranked[0][0]
-            else:
-                raise NotImplementedError
+            scores = self._score_label_candidates(input_text, len(docs))
+            # For bottom-up with the explicit "least relevant" prompt, the highest-
+            # scoring label is the model's predicted worst document.
+            ranked = sorted(
+                zip(self.CHARACTERS[:len(docs)], scores),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            output = ranked[0][0]
 
         if len(output) == 1 and output in self.CHARACTERS:
             self._log_comparison("worst", self.CHARACTERS[:len(docs)], output, docs)
@@ -362,7 +353,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         if len(docs) < 2:
             return self.CHARACTERS[0], self.CHARACTERS[0]
 
-        passages = "\n\n".join([f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs)])
+        passages = self._format_passages(docs)
         input_text = (
             f'Given a query "{query}", which of the following passages is the most relevant '
             f'and which is the least relevant to the query?\n\n'
@@ -385,30 +376,15 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 # - Exactly ONE forward pass (satisfies the single-call constraint)
                 # - No parsing needed (reads directly from logits)
                 # - Uses the shorter "most relevant" prompt (fits within 512 tokens)
-                likelihood_text = (
-                    f'Given a query "{query}", which of the following passages is the most '
-                    f'relevant one to the query?\n\n'
-                    + passages +
-                    '\n\nOutput only the passage label of the most relevant passage:'
+                likelihood_text = self._build_best_prompt(query, docs)
+                scores = self._score_label_candidates(likelihood_text, len(docs))
+                ranked = sorted(
+                    zip(self.CHARACTERS[:len(docs)], scores),
+                    key=lambda x: x[1],
+                    reverse=True,
                 )
-                inputs = self._tokenize_inputs(likelihood_text)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                # Completion tokens = 0: likelihood reads logits from a single forward
-                # pass — no tokens are generated (no autoregressive decoding).
-                with torch.no_grad():
-                    logits = self.llm(
-                        input_ids=inputs.input_ids,
-                        attention_mask=inputs.attention_mask,
-                        decoder_input_ids=self.decoder_input_ids,
-                    ).logits[0][-1]
-                    distributions = torch.softmax(logits, dim=0)
-                    scores = distributions[self.target_token_ids[:len(docs)]]
-                    ranked = sorted(
-                        zip(self.CHARACTERS[:len(docs)], scores),
-                        key=lambda x: x[1], reverse=True,
-                    )
-                    best = ranked[0][0]
-                    worst = ranked[-1][0]
+                best = ranked[0][0]
+                worst = ranked[-1][0]
 
             elif self._is_supported_causal_model():
                 conversation = [{"role": "user", "content": input_text}]
@@ -432,37 +408,18 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 best, worst = self._parse_dual_output(output, len(docs))
 
         elif self.scoring == 'likelihood':
-            if self.config.model_type == 't5':
-                # Explicit likelihood mode — same single-forward-pass approach as the
-                # T5 generation path above (which also uses likelihood internally).
-                likelihood_text = (
-                    f'Given a query "{query}", which of the following passages is the most '
-                    f'relevant one to the query?\n\n'
-                    + passages +
-                    '\n\nOutput only the passage label of the most relevant passage:'
-                )
-                inputs = self._tokenize_inputs(likelihood_text)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                # Completion tokens = 0: same likelihood approach as above.
-                with torch.no_grad():
-                    logits = self.llm(
-                        input_ids=inputs.input_ids,
-                        attention_mask=inputs.attention_mask,
-                        decoder_input_ids=self.decoder_input_ids,
-                    ).logits[0][-1]
-                    distributions = torch.softmax(logits, dim=0)
-                    scores = distributions[self.target_token_ids[:len(docs)]]
-                    ranked = sorted(
-                        zip(self.CHARACTERS[:len(docs)], scores),
-                        key=lambda x: x[1], reverse=True,
-                    )
-                    best = ranked[0][0]
-                    worst = ranked[-1][0]
-            else:
-                raise NotImplementedError(
-                    "Likelihood scoring for dual-end is only supported for T5 models. "
-                    "Use scoring='generation' for other model types."
-                )
+            # Explicit likelihood mode uses the same single-forward-pass shortcut
+            # as the T5 generation path above. We score the best-only prompt once,
+            # then reuse argmax/argmin as the DualEnd heuristic.
+            likelihood_text = self._build_best_prompt(query, docs)
+            scores = self._score_label_candidates(likelihood_text, len(docs))
+            ranked = sorted(
+                zip(self.CHARACTERS[:len(docs)], scores),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            best = ranked[0][0]
+            worst = ranked[-1][0]
 
         # Safety check: ensure best and worst are different
         if best == worst:
@@ -480,13 +437,17 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
     def _compare_worst_single(self, query: str, docs: List) -> str:
         """Fallback path for models that fail to emit both labels reliably."""
         self.total_compare += 1
-        passages = "\n\n".join([f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs)])
-        input_text = (
-            f'Given a query "{query}", which of the following passages is the least relevant one to the query?\n\n'
-            + passages + '\n\nOutput only the passage label of the least relevant passage:'
-        )
+        input_text = self._build_worst_prompt(query, docs)
 
-        if self.config.model_type == 't5':
+        if self.scoring == 'likelihood':
+            scores = self._score_label_candidates(input_text, len(docs))
+            ranked = sorted(
+                zip(self.CHARACTERS[:len(docs)], scores),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            output = ranked[0][0]
+        elif self.config.model_type == 't5':
             inputs = self._tokenize_inputs(input_text)
             self.total_prompt_tokens += inputs.input_ids.shape[1]
             output_ids = self._generate(
@@ -943,11 +904,17 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         if len(docs_list) <= self.num_child + 1:
             # Use worst-selection prompt
             self.total_compare += 1
-            passages = "\n\n".join([f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs_list)])
-            worst_text = f'Given a query "{query}", which of the following passages is the least relevant one to the query?\n\n' \
-                         + passages + '\n\nOutput only the passage label of the least relevant passage:'
+            worst_text = self._build_worst_prompt(query, docs_list)
 
-            if self.config.model_type == 't5':
+            if self.scoring == 'likelihood':
+                scores = self._score_label_candidates(worst_text, len(docs_list))
+                ranked = sorted(
+                    zip(self.CHARACTERS[:len(docs_list)], scores),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )
+                output = ranked[0][0]
+            elif self.config.model_type == 't5':
                 inputs = self._tokenize_inputs(worst_text)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
                 output_ids = self._generate(

@@ -281,7 +281,7 @@ ndcg_cut_10             all     0.6697
 
 `--num_child 2` means comparing two child node documents + one parent node document = 3 documents in total to compare in the prompt.
 increasing `--num_child` will give more efficiency gain, but you may need to truncate documents more by setting a small `--passage_length`, otherwise prompt may exceed input limitation.
-You can also set `--scoring likelihood` for faster inference.
+You can also set `--scoring likelihood` for faster inference. This now works for Flan-T5 and for the causal Qwen/Qwen3.5 setwise rankers; the causal path scores short teacher-forced label continuations instead of generating text, so completion tokens remain zero.
 
 We also have Openai API implementation for Setwise method:
 
@@ -414,8 +414,9 @@ CUDA_VISIBLE_DEVICES=0 python3 run.py \
 Notes:
 
 - For Flan-T5 models, prefer a smaller `--passage_length` such as `64`, otherwise the prompt may exceed the encoder limit and be truncated.
-- For Qwen3-family models, thinking is disabled in the chat template automatically and any remaining `<think>...</think>` block is filtered before label extraction.
-- `Qwen/Qwen3.5-4B` requires a Transformers build with `Qwen3_5ForConditionalGeneration` support.
+- For Qwen3-family models, thinking is disabled in the chat template automatically in generation mode, and any remaining `<think>...</think>` block is filtered before label extraction.
+- Qwen/Qwen3/Qwen3.5 likelihood scoring is available for `topdown`, `bottomup`, and `dualend`. For `dualend`, the likelihood path scores the best-only label distribution once and then uses its max/min labels as the heuristic best/worst outputs.
+- Qwen3.5 models should be loaded through `AutoModelForCausalLM`; use a Transformers build with Qwen3.5 support instead of relying on `Qwen3_5ForConditionalGeneration`.
 
 </details>
 

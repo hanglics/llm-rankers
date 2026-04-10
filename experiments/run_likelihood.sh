@@ -35,13 +35,17 @@ PASSAGE_LENGTH=${9:-128}
 
 mkdir -p ${OUTPUT_DIR}
 
+ANALYSIS_DIR="results/analysis/likelihood/$(basename ${OUTPUT_DIR})"
+
+mkdir -p ${ANALYSIS_DIR}
+
 echo "=== Likelihood Scoring Experiments ==="
 echo "Model: ${MODEL}"
 echo "Dataset: ${DATASET}"
 
 # TopDown-Heap with likelihood
 echo ""
-echo ">>> [1/2] TopDown-Heap (likelihood)"
+echo ">>> [1/4] TopDown-Heap (likelihood)"
 python run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
@@ -51,29 +55,69 @@ python run.py \
         --scoring likelihood \
         --hits ${HITS} \
         --passage_length ${PASSAGE_LENGTH} \
+        --log_comparisons ${ANALYSIS_DIR}/topdown_heapsort_comparisons.jsonl \
     setwise --num_child ${NUM_CHILD} \
             --method heapsort \
             --k ${K} \
             --direction topdown \
     2>&1 | tee ${OUTPUT_DIR}/topdown_heapsort.log
 
-# DualEnd-Heap with likelihood (reads max+min from distribution)
+# BottomUp-Heap with likelihood
 echo ""
-echo ">>> [2/2] DualEnd-Heap (likelihood)"
+echo ">>> [2/4] BottomUp-Heap (likelihood)"
 python run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
-        --save_path ${OUTPUT_DIR}/dualend_heapsort.txt \
+        --save_path ${OUTPUT_DIR}/bottomup_heapsort.txt \
         --device ${DEVICE} \
         --scoring likelihood \
         --hits ${HITS} \
         --passage_length ${PASSAGE_LENGTH} \
+        --log_comparisons ${ANALYSIS_DIR}/bottomup_heapsort_comparisons.jsonl \
     setwise --num_child ${NUM_CHILD} \
             --method heapsort \
             --k ${K} \
+            --direction bottomup \
+    2>&1 | tee ${OUTPUT_DIR}/bottomup_heapsort.log
+
+# DualEnd-Bubblesort with likelihood (reads max+min from the best-label distribution)
+echo ""
+echo ">>> [3/4] DualEnd-Bubblesort (likelihood)"
+python run.py \
+    run --model_name_or_path ${MODEL} \
+        --ir_dataset_name ${DATASET} \
+        --run_path ${RUN_PATH} \
+        --save_path ${OUTPUT_DIR}/dualend_bubblesort.txt \
+        --device ${DEVICE} \
+        --scoring likelihood \
+        --hits ${HITS} \
+        --passage_length ${PASSAGE_LENGTH} \
+        --log_comparisons ${ANALYSIS_DIR}/dualend_bubblesort_comparisons.jsonl \
+    setwise --num_child ${NUM_CHILD} \
+            --method bubblesort \
+            --k ${K} \
             --direction dualend \
-    2>&1 | tee ${OUTPUT_DIR}/dualend_heapsort.log
+    2>&1 | tee ${OUTPUT_DIR}/dualend_bubblesort.log
+
+# DualEnd-Selection with likelihood (same heuristic best/min reuse, different sorter)
+echo ""
+echo ">>> [4/4] DualEnd-Selection (likelihood)"
+python run.py \
+    run --model_name_or_path ${MODEL} \
+        --ir_dataset_name ${DATASET} \
+        --run_path ${RUN_PATH} \
+        --save_path ${OUTPUT_DIR}/dualend_selection.txt \
+        --device ${DEVICE} \
+        --scoring likelihood \
+        --hits ${HITS} \
+        --passage_length ${PASSAGE_LENGTH} \
+        --log_comparisons ${ANALYSIS_DIR}/dualend_selection_comparisons.jsonl \
+    setwise --num_child ${NUM_CHILD} \
+            --method selection \
+            --k ${K} \
+            --direction dualend \
+    2>&1 | tee ${OUTPUT_DIR}/dualend_selection.log
 
 echo ""
 echo "=== Likelihood experiments complete ==="

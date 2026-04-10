@@ -129,6 +129,27 @@ class SetwiseLlmRanker(LlmRanker):
             return {"enable_thinking": False}
         return {}
 
+    def _format_passages(self, docs: Sequence[SearchResult]) -> str:
+        return "\n\n".join(
+            [f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs)]
+        )
+
+    def _build_best_prompt(self, query: str, docs: Sequence[SearchResult]) -> str:
+        passages = self._format_passages(docs)
+        return (
+            f'Given a query "{query}", which of the following passages is the most relevant one to the query?\n\n'
+            + passages
+            + "\n\nOutput only the passage label of the most relevant passage:"
+        )
+
+    def _build_worst_prompt(self, query: str, docs: Sequence[SearchResult]) -> str:
+        passages = self._format_passages(docs)
+        return (
+            f'Given a query "{query}", which of the following passages is the least relevant one to the query?\n\n'
+            + passages
+            + "\n\nOutput only the passage label of the least relevant passage:"
+        )
+
     def _build_chat_prompt(self, messages):
         return self.tokenizer.apply_chat_template(
             messages,
@@ -147,6 +168,26 @@ class SetwiseLlmRanker(LlmRanker):
             if isinstance(value, int) and value > 0:
                 candidates.append(value)
         return min(candidates) if candidates else None
+
+    def _raw_tokenizer_kwargs(self, padding=False, add_special_tokens=True):
+        kwargs = {
+            "add_special_tokens": add_special_tokens,
+            "truncation": self.max_input_tokens is not None,
+        }
+        if self.max_input_tokens is not None:
+            kwargs["max_length"] = self.max_input_tokens
+        if padding:
+            kwargs["padding"] = True
+        return kwargs
+
+    @staticmethod
+    def _longest_common_prefix_length(lhs: Sequence[int], rhs: Sequence[int]) -> int:
+        prefix_len = 0
+        for left_token, right_token in zip(lhs, rhs):
+            if left_token != right_token:
+                break
+            prefix_len += 1
+        return prefix_len
 
     def _tokenize_inputs(self, inputs, padding=False):
         raw = self.tokenizer(inputs, add_special_tokens=True, return_attention_mask=True)
@@ -178,6 +219,87 @@ class SetwiseLlmRanker(LlmRanker):
         if padding:
             kwargs["padding"] = True
         return self.tokenizer(inputs, **kwargs).to(self.device)
+
+    def _score_causal_label_candidates(self, input_text: str, n_docs: int) -> torch.Tensor:
+        conversation = [{"role": "user", "content": input_text}]
+        prompt = self._build_chat_prompt(conversation)
+
+        prompt_inputs = self._tokenize_inputs(prompt)
+        self.total_prompt_tokens += prompt_inputs.input_ids.shape[1]
+
+        continuations = [f" Passage {label}" for label in self.CHARACTERS[:n_docs]]
+        full_texts = [prompt + continuation for continuation in continuations]
+
+        raw_kwargs = self._raw_tokenizer_kwargs()
+        prompt_ids = self.tokenizer(prompt, **raw_kwargs)["input_ids"]
+        full_ids = self.tokenizer(full_texts, **raw_kwargs)["input_ids"]
+
+        prefix_lengths = [
+            self._longest_common_prefix_length(prompt_ids, candidate_ids)
+            for candidate_ids in full_ids
+        ]
+        continuation_lengths = [
+            len(candidate_ids) - prefix_len
+            for candidate_ids, prefix_len in zip(full_ids, prefix_lengths)
+        ]
+
+        if any(length <= 0 for length in continuation_lengths):
+            raise RuntimeError(
+                "Causal likelihood prompt leaves no room for the label continuation. "
+                "Lower --passage_length or --query_length."
+            )
+
+        model_inputs = self._tokenize_inputs(full_texts, padding=True)
+        full_lengths = [len(candidate_ids) for candidate_ids in full_ids]
+        padding_side = getattr(self.tokenizer, "padding_side", "right")
+
+        with torch.no_grad():
+            logits = self.llm(
+                input_ids=model_inputs.input_ids,
+                attention_mask=model_inputs.attention_mask,
+            ).logits
+            shifted_log_probs = torch.log_softmax(logits[:, :-1, :], dim=-1)
+            shifted_targets = model_inputs.input_ids[:, 1:]
+            token_log_probs = shifted_log_probs.gather(
+                2, shifted_targets.unsqueeze(-1)
+            ).squeeze(-1)
+
+            scores = []
+            for row, (prefix_len, continuation_len, full_length) in enumerate(
+                zip(prefix_lengths, continuation_lengths, full_lengths)
+            ):
+                pad_offset = (
+                    model_inputs.input_ids.shape[1] - full_length
+                    if padding_side == "left"
+                    else 0
+                )
+                start = pad_offset + prefix_len - 1
+                end = start + continuation_len
+                scores.append(token_log_probs[row, start:end].sum())
+
+        return torch.stack(scores)
+
+    def _score_label_candidates(self, input_text: str, n_docs: int) -> torch.Tensor:
+        if self.config.model_type == 't5':
+            inputs = self._tokenize_inputs(input_text)
+            self.total_prompt_tokens += inputs.input_ids.shape[1]
+            with torch.no_grad():
+                logits = self.llm(
+                    input_ids=inputs.input_ids,
+                    attention_mask=inputs.attention_mask,
+                    decoder_input_ids=self.decoder_input_ids,
+                ).logits[0][-1]
+                distributions = torch.softmax(logits, dim=0)
+                return distributions[self.target_token_ids[:n_docs]]
+
+        if self._is_supported_causal_model():
+            # Causal-model label scoring uses short teacher-forced answer strings
+            # instead of assuming A/B/C is a single tokenizer token.
+            return self._score_causal_label_candidates(input_text, n_docs)
+
+        raise NotImplementedError(
+            f"Likelihood scoring is not implemented for model type {self.config.model_type}."
+        )
 
     def _generate(self, model_inputs, max_new_tokens, decoder_input_ids=None):
         kwargs = {
@@ -283,9 +405,7 @@ class SetwiseLlmRanker(LlmRanker):
     def compare(self, query: str, docs: List):
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
 
-        passages = "\n\n".join([f'Passage {self.CHARACTERS[i]}: "{doc.text}"' for i, doc in enumerate(docs)])
-        input_text = f'Given a query "{query}", which of the following passages is the most relevant one to the query?\n\n' \
-                     + passages + '\n\nOutput only the passage label of the most relevant passage:'
+        input_text = self._build_best_prompt(query, docs)
 
         if self.scoring == 'generation':
             if self.config.model_type == 't5':
@@ -399,24 +519,15 @@ class SetwiseLlmRanker(LlmRanker):
                     output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
-            if self.config.model_type == 't5':
-                inputs = self._tokenize_inputs(input_text)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                # Completion tokens = 0: likelihood reads logits from a single forward
-                # pass — no tokens are generated (no autoregressive decoding).
-                with torch.no_grad():
-                    logits = self.llm(
-                        input_ids=inputs.input_ids,
-                        attention_mask=inputs.attention_mask,
-                        decoder_input_ids=self.decoder_input_ids,
-                    ).logits[0][-1]
-                    distributions = torch.softmax(logits, dim=0)
-                    scores = distributions[self.target_token_ids[:len(docs)]]
-                    ranked = sorted(zip(self.CHARACTERS[:len(docs)], scores), key=lambda x: x[1], reverse=True)
-                    output = ranked[0][0]
-
-            else:
-                raise NotImplementedError
+            # Completion tokens = 0: likelihood reads scores from a single forward
+            # pass — no autoregressive decoding occurs.
+            scores = self._score_label_candidates(input_text, len(docs))
+            ranked = sorted(
+                zip(self.CHARACTERS[:len(docs)], scores),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            output = ranked[0][0]
 
         if len(output) == 1 and output in self.CHARACTERS:
             self._log_comparison("best", self.CHARACTERS[:len(docs)], output, docs)

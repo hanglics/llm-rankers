@@ -1915,16 +1915,69 @@
         <section class="section reveal" id="proposals">
           <div class="section-head">
             <span class="eyebrow">Proposed Refinements</span>
-            <h2>Three concrete follow-up methods suggested by the current evidence</h2>
+            <h2>Three concrete follow-up methods plus one targeted likelihood audit</h2>
             <p>
               The data does not suggest "more BottomUp." It suggests spending
               the joint best-worst signal more carefully, making it less
               order-sensitive, or using the worst output only as a local
-              constraint instead of a full second ranking channel.
+              constraint instead of a full second ranking channel. Before
+              changing the algorithm, it also suggests one clean diagnostic
+              rerun that separates decoding overhead from comparison-count
+              overhead.
             </p>
           </div>
 
           <div class="proposal-grid">
+            <article class="proposal-card is-wide">
+              <div class="proposal-head">
+                <span class="proposal-kicker">P0 · Measurement follow-up</span>
+                <h3>Likelihood Audit for Qwen DualEnd</h3>
+              </div>
+              <p class="proposal-summary">
+                Re-run representative TopDown-Heap, BottomUp-Heap,
+                DualEnd-Bubblesort, and DualEnd-Selection models in likelihood
+                mode to measure how much of Qwen latency comes from generation
+                and thinking overhead rather than the comparison structure
+                itself.
+              </p>
+
+              <div class="proposal-block">
+                <span class="block-label">What</span>
+                <p>
+                  Use the new <code>experiments/run_likelihood.sh</code> wrapper
+                  on representative <code>flan-t5</code>, <code>qwen3</code>,
+                  and <code>qwen3.5</code> checkpoints. The causal path now
+                  scores short teacher-forced answers such as
+                  <code>Passage A</code>, so all four variants run with
+                  <code>0</code> completion tokens.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Why</span>
+                <p>
+                  Current Qwen DualEnd runs mix two costs together: same-call
+                  best-worst reasoning and autoregressive decoding with thinking
+                  traces. This audit removes the second factor so the remaining
+                  gap can be attributed much more cleanly to prompt volume and
+                  comparison count.
+                </p>
+              </div>
+
+              <div class="proposal-block">
+                <span class="block-label">Readout</span>
+                <p>
+                  If the DualEnd variants remain far slower than TopDown after
+                  completion tokens drop to zero, then selective routing is
+                  still the main answer. If the gap collapses sharply,
+                  decode-aware variants become more attractive. Quality should
+                  be interpreted carefully because DualEnd likelihood is still
+                  a heuristic max/min reuse of the best-only distribution, not
+                  exact joint <code>Best: X, Worst: Y</code> scoring.
+                </p>
+              </div>
+            </article>
+
             <article class="proposal-card is-selective is-wide">
               <div class="proposal-head">
                 <span class="proposal-kicker">P1 · Main refinement</span>

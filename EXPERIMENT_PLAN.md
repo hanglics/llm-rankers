@@ -86,7 +86,7 @@ Encoder-Decoder (T5 family — support generation + likelihood scoring):
   - google/flan-t5-xl          (3B)     ← primary model for paper
   - google/flan-t5-xxl         (11B)
 
-Decoder-Only / Causal (Qwen3 family — generation only, thinking models):
+Decoder-Only / Causal (Qwen3 family — generation + likelihood scoring, thinking models):
   - Qwen/Qwen3-4B             (4B)
   - Qwen/Qwen3-8B             (8B)
   - Qwen/Qwen3-14B            (14B)
@@ -332,26 +332,26 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 - Flan-T5-xl (3B): `--mem=256G`, `--time=08:00:00`
 - Flan-T5-xxl (11B): `--mem=512G`, `--time=20:00:00`
 
-### Phase 1B: Flan-T5 Likelihood Scoring
+### Phase 1B: Likelihood Scoring
 
-Only T5 models support likelihood. Test TopDown-Heap and DualEnd-Heap (likelihood extracts both max and min from the softmax distribution in one forward pass).
+Likelihood is now supported for both Flan-T5 and Qwen/Qwen3.5 setwise rankers. The shared wrapper below runs `TopDown-Heap`, `BottomUp-Heap`, `DualEnd-Bubblesort`, and `DualEnd-Selection`; for DualEnd, the likelihood path scores the best-only label distribution once and reuses its max/min labels as the heuristic best/worst outputs.
 
 ```bash
-# For each T5 model × {DL19, DL20}:
+# For each model × {DL19, DL20}:
 bash experiments/run_likelihood.sh \
     <MODEL> <DATASET> <RUN_PATH> <OUTPUT_DIR>-likelihood \
     cuda 3 10 100 128
 ```
 
-| Model | DL19 | DL20 |
+For the original T5 likelihood phase, use `passage_length=128`; for Qwen/Qwen3.5 follow-ups, use `passage_length=512`.
+
+| Model family | DL19 | DL20 |
 |-------|------|------|
-| flan-t5-large | 2 runs | 2 runs |
-| flan-t5-xl | 2 runs | 2 runs |
-| flan-t5-xxl | 2 runs | 2 runs |
+| flan-t5-large / xl / xxl | 3 runs each | 3 runs each |
+| qwen3-4b / 8b / 14b | 3 runs each | 3 runs each |
+| qwen3.5-4b / 9b / 27b | 3 runs each | 3 runs each |
 
-Total: **12 runs**.
-
-**Note**: DualEnd with likelihood uses the standard "most relevant" prompt but reads both the max (best) and min (worst) from the softmax distribution. This is "free" dual information with zero extra tokens.
+**Note**: Flan-T5 likelihood reads the final decoder label distribution directly. Causal Qwen/Qwen3.5 likelihood scores short teacher-forced continuations like `Passage A`; this avoids brittle single-token label assumptions and still produces zero completion tokens.
 
 ### Phase 1C: Qwen3 Family (Decoder-Only, Thinking Models)
 
@@ -943,7 +943,7 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 
 | Script | Purpose | Status |
 |--------|---------|--------|
-| `experiments/run_likelihood.sh` | Likelihood scoring for T5 models | ✅ Created |
+| `experiments/run_likelihood.sh` | Likelihood scoring for T5 and Qwen/Qwen3.5 models | ✅ Created |
 | `experiments/run_permvote_p2.sh` | Permutation voting baseline (p=2) | ✅ Created |
 | `experiments/run_ablation_nc.sh` | num_child ablation (c=2,5,7) | ✅ Created |
 | `experiments/run_ablation_alpha.sh` | Alpha ablation (α=0.3,0.5,0.9) + CombSUM | ✅ Created |
@@ -1069,7 +1069,9 @@ For each model below, all 8 methods on both DL19 and DL20:
 
 6. **DualEnd T5 uses likelihood internally (even in generation mode)**: T5 cannot reliably produce dual-format text output ("Best: X, Worst: Y") — it echoes the template literally. So `compare_both()` automatically uses a single likelihood forward pass (reading max/min from softmax) regardless of `--scoring` setting. This is a SINGLE forward pass (satisfies the single-call constraint), requires no parsing, and uses the shorter "most relevant" prompt that fits within 512 tokens.
 
-7. **DualEnd Qwen3 uses `max_new_tokens=512`**: Thinking models need a large token budget because `<think>...</think>` blocks can consume 200+ tokens before the answer. The answer itself is only ~10 tokens. If you still see truncated outputs, increase further. Non-Qwen causal models use `max_new_tokens=64`.
+7. **DualEnd Qwen3 generation uses `max_new_tokens=512`**: Thinking models need a large token budget because `<think>...</think>` blocks can consume 200+ tokens before the answer. The answer itself is only ~10 tokens. If you still see truncated outputs, increase further. Non-Qwen causal generation uses `max_new_tokens=64`.
+
+8. **Qwen/Qwen3.5 likelihood is sequence-scored, not single-token-logit scored**: the causal likelihood path scores short teacher-forced continuations such as `Passage A` instead of assuming `A/B/C/D` are stable single tokens. For `dualend`, the implementation reuses the best-only distribution and takes `argmax` as best plus `argmin` as worst, matching the existing T5 heuristic.
 
 ### Completion Token Reporting for DualEnd T5
 
@@ -1252,7 +1254,7 @@ available, so the default command above will use the retrieval-enabled stack and
 produce passage-level exemplars in addition to the summary statistics.
 
 Outputs:
-- `rresults/analysis/topdown_heap_dualend_bubble_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md`
+- `results/analysis/topdown_heap_dualend_bubble_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md`
 - `results/analysis/topdown_heap_dualend_bubble_qualitative/when_dualend_helps_summary.json`
 - per-model markdown summaries with query text and passage snippets
 
@@ -1266,6 +1268,48 @@ Interpretation:
 - DualEnd is **not** universally beneficial.
 - The strongest qualitative motivation is therefore **selective routing**, not unconditional replacement of TopDown.
 - In the live exemplar run, the strongest Qwen gains mostly come from **adding relevant documents** to the top-k, while the T5 hurt cases more often reflect relevant-document drops or mixed noisy set changes.
+
+#### P0. Extra Likelihood Follow-up
+
+**What**: run the new likelihood path on representative models to measure how much of Qwen DualEnd latency comes from autoregressive decoding versus the underlying comparison count and prompt volume.
+
+**Why**: the new causal likelihood implementation removes completion-token overhead and Qwen thinking-block latency, while preserving the same sorting structure. This gives a clean before/after efficiency check for `TopDown`, `BottomUp`, and heuristic `DualEnd`.
+
+Representative commands (each call runs `TopDown-Heap`, `BottomUp-Heap`, `DualEnd-Bubblesort`, and `DualEnd-Selection`):
+
+```bash
+bash experiments/run_likelihood.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-likelihood \
+  cuda 3 10 100 128
+
+bash experiments/run_likelihood.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-likelihood \
+  cuda 3 10 100 512
+
+bash experiments/run_likelihood.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-likelihood \
+  cuda 3 10 100 512
+```
+
+Each output directory will contain:
+- `topdown_heapsort.txt` / `.log`
+- `bottomup_heapsort.txt` / `.log`
+- `dualend_bubblesort.txt` / `.log`
+- `dualend_selection.txt` / `.log`
+
+First comparison targets:
+- Qwen likelihood should drive `completion tokens -> 0` for all variants.
+- `DualEnd-Bubblesort` and `DualEnd-Selection` latency should drop substantially versus generation-based Qwen DualEnd, but they will still remain much more expensive than `TD-Heap` because the comparison count is unchanged.
+- Quality should be reported carefully: causal `DualEnd` likelihood is the same heuristic used by T5 (best-only distribution with max/min reuse), not exact joint-output likelihood.
 
 #### P1. Selective DualEnd
 
