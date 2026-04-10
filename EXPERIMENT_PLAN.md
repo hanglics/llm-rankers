@@ -345,11 +345,13 @@ bash experiments/run_likelihood.sh \
 
 For the original T5 likelihood phase, use `passage_length=128`; for Qwen/Qwen3.5 follow-ups, use `passage_length=512`.
 
+Methods: TD-Heap/BU-Heap/DE-Bubble/DE-Selection
+
 | Model family | DL19 | DL20 |
 |-------|------|------|
-| flan-t5-large / xl / xxl | 3 runs each | 3 runs each |
-| qwen3-4b / 8b / 14b | 3 runs each | 3 runs each |
-| qwen3.5-4b / 9b / 27b | 3 runs each | 3 runs each |
+| flan-t5-xl | 4 runs | 4 runs |
+| qwen3-8b | 4 runs | 4 runs |
+| qwen3.5-9b | 4 runs | 4 runs |
 
 **Note**: Flan-T5 likelihood reads the final decoder label distribution directly. Causal Qwen/Qwen3.5 likelihood scores short teacher-forced continuations like `Passage A`; this avoids brittle single-token label assumptions and still produces zero completion tokens.
 
