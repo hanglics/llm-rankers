@@ -321,6 +321,8 @@ Additional CLI options for the extended runs:
 - `--gate_strategy {off,shortlist,uncertain,hybrid}`: routing policy for `selective_dualend` and `bias_aware_dualend`
 - `--uncertainty_percentile 0.15`: treat the tightest 15% of query-local BM25-spread windows as uncertain
 - `--margin_threshold 0.15`: backward-compatible alias for `--uncertainty_percentile`
+- `bias_aware_dualend` supports `--method bubblesort` and `--method selection` only
+- `selective_dualend --method heapsort` disables shortlist gating because heap node indices are not rank positions; use `uncertain` if you want routed heapsort behavior
 
 Example: dual-end cocktail-shaker sort
 
@@ -419,7 +421,9 @@ Notes:
 - For Flan-T5 models, prefer a smaller `--passage_length` such as `64`, otherwise the prompt may exceed the encoder limit and be truncated.
 - For Qwen3-family models, thinking is disabled in the chat template automatically in generation mode, and any remaining `<think>...</think>` block is filtered before label extraction.
 - Qwen/Qwen3/Qwen3.5 likelihood scoring is available for `topdown`, `bottomup`, and `dualend`. For `dualend`, the likelihood path scores the best-only label distribution once and then uses its max/min labels as the heuristic best/worst outputs.
+- The same likelihood caveat applies to `selective_dualend`, `bias_aware_dualend`, and `samecall_regularized`: their joint-signal path is still a best-only proxy under `--scoring likelihood`, not exact joint `Best: X, Worst: Y` scoring.
 - For `selective_dualend` and `bias_aware_dualend`, `--gate_strategy uncertain` now uses a query-local percentile gate over BM25 score spreads rather than a fixed absolute margin. With the default `0.15`, DualEnd is invoked on roughly the tightest 15% of windows for that query.
+- For `samecall_regularized`, the extra worst-signal demotion is now applied only when the local worst candidate is already outside the protected ranking head frontier (top-`k` plus one active window).
 - Qwen3.5 models should be loaded through `AutoModelForCausalLM`; use a Transformers build with Qwen3.5 support instead of relying on `Qwen3_5ForConditionalGeneration`.
 
 </details>

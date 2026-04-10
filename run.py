@@ -127,6 +127,11 @@ def main(args):
                                                       margin_threshold=args.setwise.margin_threshold,
                                                       uncertainty_percentile=args.setwise.uncertainty_percentile)
         elif args.setwise.direction == 'bias_aware_dualend':
+            if args.setwise.method == 'heapsort':
+                raise ValueError(
+                    'bias_aware_dualend supports only bubblesort and selection; '
+                    'heapsort bypasses the order-robust joint prompting path.'
+                )
             ranker = BiasAwareDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                                       device=args.run.device,
@@ -363,7 +368,8 @@ if __name__ == '__main__':
                                 help='Weight for top-down in weighted fusion (bidirectional only)')
     setwise_parser.add_argument('--gate_strategy', type=str, default='hybrid',
                                 choices=['off', 'shortlist', 'uncertain', 'hybrid'],
-                                help='When to invoke extra DualEnd logic for selective/bias-aware variants')
+                                help='When to invoke extra DualEnd logic for selective/bias-aware variants '
+                                     '(shortlist routing is ignored for selective heapsort)')
     setwise_parser.add_argument('--shortlist_size', type=int, default=20,
                                 help='Prefix depth treated as near the top-k boundary for selective/bias-aware variants')
     setwise_parser.add_argument('--margin_threshold', type=float, default=0.15,
@@ -373,7 +379,8 @@ if __name__ == '__main__':
                                 help='Query-local percentile cutoff for uncertainty gating; '
                                      '0.15 means the tightest 15%% of BM25-spread windows')
     setwise_parser.add_argument('--order_robust_orderings', type=int, default=3,
-                                help='Number of controlled orderings for bias-aware DualEnd windows')
+                                help='Number of controlled orderings for bias-aware DualEnd windows '
+                                     '(bubblesort/selection only)')
 
     listwise_parser = commands.add_parser('listwise')
     listwise_parser.add_argument('--window_size', type=int, default=3)

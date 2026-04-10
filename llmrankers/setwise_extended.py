@@ -351,13 +351,14 @@ class _DualEndRoutingMixin:
         end_ind: int,
         total_docs: int,
         docs: Sequence[SearchResult],
+        allow_shortlist: bool = True,
     ) -> bool:
         gate_strategy = getattr(self, "gate_strategy", "off")
         if gate_strategy == "off":
             return False
 
         shortlist_size = max(0, min(getattr(self, "shortlist_size", 0), total_docs))
-        overlaps_shortlist = start_ind < shortlist_size
+        overlaps_shortlist = allow_shortlist and start_ind < shortlist_size
 
         relative_spread = self._window_relative_score_spread(docs)
         spread_threshold = getattr(self, "_query_uncertainty_thresholds", {}).get(len(docs))
@@ -476,6 +477,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             # Explicit likelihood mode uses the same single-forward-pass shortcut
             # as the T5 generation path above. We score the best-only prompt once,
             # then reuse argmax/argmin as the DualEnd heuristic.
+            #
+            # Important: this is a best-only proxy for DualEnd, not an exact
+            # likelihood model of the full "Best: X, Worst: Y" output string.
             likelihood_text = self._build_best_prompt(query, docs)
             scores = self._score_label_candidates(likelihood_text, len(docs))
             ranked = sorted(
@@ -1074,7 +1078,9 @@ class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
         child_end = min((self.num_child * (i + 1) + 1), n)
         docs = [arr[i]] + arr[self.num_child * i + 1:child_end]
         inds = [i] + list(range(self.num_child * i + 1, child_end))
-        if self._should_use_joint_signal(i, child_end, n, docs):
+        # Heap node indices are not meaningful rank positions, so shortlist
+        # routing is disabled for heapsort. Uncertainty routing still applies.
+        if self._should_use_joint_signal(i, child_end, n, docs, allow_shortlist=False):
             self.total_dual_invocations += 1
             label, _ = self.compare_both(query, docs)
         else:
@@ -1255,6 +1261,12 @@ class BiasAwareDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
         return self.CHARACTERS[best_index], self.CHARACTERS[worst_index]
 
     def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
+        if self.method not in {"bubblesort", "selection"}:
+            raise NotImplementedError(
+                "Bias-aware DualEnd currently supports bubblesort and selection only; "
+                "heapsort bypasses the order-robust joint prompting path."
+            )
+
         self._reset_joint_signal_stats()
         self._prepare_query_uncertainty_thresholds(ranking)
         return super().rerank(query, ranking)
@@ -1287,6 +1299,11 @@ class SameCallRegularizedSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLl
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self._reset_joint_signal_stats()
+        # Keep the current ranking head protected from the extra worst-signal
+        # demotion. We protect the top-k plus one full active window because
+        # candidates just beyond k can still be promoted into the final answer
+        # by the next few TopDown comparisons.
+        protected_frontier = min(len(ranking), self.k + self.num_child + 1)
 
         last_start = len(ranking) - (self.num_child + 1)
 
@@ -1311,6 +1328,7 @@ class SameCallRegularizedSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLl
 
                 actual_best = start_ind + best_ind
                 actual_worst = start_ind + worst_ind
+                original_worst = actual_worst
                 front = start_ind
                 back = start_ind + len(window) - 1
 
@@ -1329,7 +1347,7 @@ class SameCallRegularizedSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLl
                             if last_start != len(ranking) - (self.num_child + 1) and best_ind == len(window) - 1:
                                 last_start += len(window) - 1
 
-                    if actual_worst != back and actual_worst != front:
+                    if original_worst >= protected_frontier and actual_worst != back and actual_worst != front:
                         ranking[back], ranking[actual_worst] = ranking[actual_worst], ranking[back]
                         self.total_regularized_worst_moves += 1
                         is_change = True

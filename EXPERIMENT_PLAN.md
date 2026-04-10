@@ -353,7 +353,7 @@ Methods: TD-Heap/BU-Heap/DE-Bubble/DE-Selection
 | qwen3-8b | 4 runs | 4 runs |
 | qwen3.5-9b | 4 runs | 4 runs |
 
-**Note**: Flan-T5 likelihood reads the final decoder label distribution directly. Causal Qwen/Qwen3.5 likelihood scores short teacher-forced continuations like `Passage A`; this avoids brittle single-token label assumptions and still produces zero completion tokens.
+**Note**: Flan-T5 likelihood reads the final decoder label distribution directly. Causal Qwen/Qwen3.5 likelihood scores short teacher-forced continuations like `Passage A`; this avoids brittle single-token label assumptions and still produces zero completion tokens. For `dualend` and the routed joint-signal refinements, this is still only a best-only proxy, not exact joint `Best: X, Worst: Y` likelihood.
 
 ### Phase 1C: Qwen3 Family (Decoder-Only, Thinking Models)
 
@@ -1324,6 +1324,7 @@ First comparison targets:
 - `--gate_strategy uncertain`: only invoke DualEnd when the window falls into the tightest query-local BM25-spread percentile
 - `--gate_strategy hybrid`: union of the two
 - `0.15` now means "tightest 15% of windows for this query"; the existing `--margin_threshold` flag is kept as a backward-compatible alias for that percentile value
+- `heapsort` remains supported for Selective DualEnd, but its shortlist gate is intentionally disabled because heap node indices are not stable rank positions; use `uncertain` if you want routed heapsort behavior
 - for the paper-facing first pass, prefer `bubblesort` because the routing logic is easiest to interpret near the ranking head
 
 Configs:
@@ -1392,6 +1393,7 @@ Use the new log counters in `results.txt`:
 **How**:
 - use the same gating interface as Selective DualEnd
 - add `--order_robust_orderings 3` for base / reversed / shifted orderings
+- restrict the implementation to `bubblesort` and `selection`; `heapsort` is rejected because it bypasses the order-robust joint prompt path
 
 Representative commands:
 
@@ -1436,7 +1438,7 @@ Use the new log counters in `results.txt`:
 
 **How**:
 - promote the best item as usual
-- only demote the worst item locally inside the active window
+- only demote the worst item locally when that candidate is already outside the protected ranking head frontier (top-`k` plus one active window)
 - do not run a full backward DualEnd pass
 
 Representative commands:

@@ -2024,18 +2024,21 @@
                   <span class="block-label">Gating Strategies</span>
                   <p>
                     The implementation already exposes three interpretable
-                    routing rules through <code>--gate_strategy</code>.
+                    routing rules through <code>--gate_strategy</code>. For
+                    <code>Selective-Heap</code>, the shortlist part is disabled
+                    because heap node indices are not stable rank positions.
                   </p>
                 </div>
                 <div class="gate-grid">
                   <div class="gate-card">
                     <span class="gate-name">Shortlist gate</span>
-                    <p>
-                      Trigger DualEnd only on windows that overlap the current
-                      top shortlist, for example the top 20 candidates. This
-                      spends compute where a wrong decision can still affect the
-                      final answer.
-                    </p>
+                  <p>
+                    Trigger DualEnd only on windows that overlap the current
+                    top shortlist, for example the top 20 candidates. This
+                    spends compute where a wrong decision can still affect the
+                    final answer. In heapsort mode this gate is intentionally
+                    ignored.
+                  </p>
                   </div>
                   <div class="gate-card">
                     <span class="gate-name">Uncertainty gate</span>
@@ -2077,6 +2080,9 @@
                   On gated hard windows, compare the same candidate set in the
                   base order, reversed order, and a small shifted order. Then
                   remap the answers and vote on the final best and worst labels.
+                  The supported sorts are <code>bubblesort</code> and
+                  <code>selection</code>; heapsort is rejected because it
+                  bypasses the order-robust joint prompt path.
                 </p>
               </div>
 
@@ -2115,8 +2121,10 @@
                 <p>
                   The best output still drives promotion toward the ranking
                   front. The worst output only pushes one clearly bad document
-                  to the back of the current window instead of launching a full
-                  backward ranking process.
+                  to the back of the current window once that candidate is
+                  already outside the protected ranking-head frontier
+                  (top-<code>k</code> plus one active window), instead of
+                  launching a full backward ranking process.
                 </p>
               </div>
 
@@ -2135,7 +2143,8 @@
                 <p>
                   Treat worst as a brake, not as a second driver. The goal is to
                   regularize local mistakes without importing a whole noisy
-                  BottomUp channel into the final ranking.
+                  BottomUp channel into the final ranking, while avoiding extra
+                  demotions inside the protected head of the ranking.
                 </p>
               </div>
             </article>
