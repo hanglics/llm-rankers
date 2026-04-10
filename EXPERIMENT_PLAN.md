@@ -879,7 +879,7 @@ Run a **subset of methods** on BEIR (not all 8 — too expensive):
 **Recommended models for BEIR**: Start with 3 models:
 - `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
-- `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only
+- `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only (**TODO: Not Started Yet**)
 
 Total: **96 runs** for BEIR.
 
@@ -1277,7 +1277,7 @@ Interpretation:
 
 **Why**: the new causal likelihood implementation removes completion-token overhead and Qwen thinking-block latency, while preserving the same sorting structure. This gives a clean before/after efficiency check for `TopDown`, `BottomUp`, and heuristic `DualEnd`.
 
-Representative commands (each call runs `TopDown-Heap`, `BottomUp-Heap`, `DualEnd-Bubblesort`, and `DualEnd-Selection`):
+Representative commands (each call runs `TopDown-Heap`, `BottomUp-Heap`, `DualEnd-Bubblesort`, and `DualEnd-Selection`): (**TODO: Qwen3.5-9B Not Started Yet**)
 
 ```bash
 bash experiments/run_likelihood.sh \
@@ -1332,21 +1332,21 @@ bash experiments/run_selective_dualend.sh \
   google/flan-t5-xl \
   msmarco-passage/trec-dl-2019/judged \
   runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-  results/flan-t5-xl-dl19 \
+  results/flan-t5-xl-dl19-selective-dualend \
   cuda generation 3 10 100 128 bubblesort hybrid 20 0.15
 
 bash experiments/run_selective_dualend.sh \
   Qwen/Qwen3-8B \
   msmarco-passage/trec-dl-2019/judged \
   runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-  results/qwen3-8b-dl19 \
+  results/qwen3-8b-dl19-selective-dualend \
   cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
 
 bash experiments/run_selective_dualend.sh \
   Qwen/Qwen3.5-9B \
   msmarco-passage/trec-dl-2019/judged \
   runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
-  results/qwen3.5-9b-dl19 \
+  results/qwen3.5-9b-dl19-selective-dualend \
   cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
 ```
 

@@ -33,7 +33,7 @@ elif [ -f /scratch/project/neural_ir/hang/llm-rankers/ranker_env/bin/activate ];
 fi
 
 mkdir -p "${OUTPUT_DIR}"
-ANALYSIS_DIR="results/analysis/$(basename "${OUTPUT_DIR}")"
+ANALYSIS_DIR="results/analysis/selective-dualend/$(basename "${OUTPUT_DIR}")"
 mkdir -p "${ANALYSIS_DIR}"
 
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf
