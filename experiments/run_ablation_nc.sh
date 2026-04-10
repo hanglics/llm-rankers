@@ -31,13 +31,23 @@ DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
 K=${7:-10}
 HITS=${8:-100}
-PASSAGE_LENGTH=${9:-128}
+
+default_passage_length=128
+if [[ "${MODEL,,}" == *"qwen"* ]]; then
+    default_passage_length=512
+fi
+PASSAGE_LENGTH=${9:-${default_passage_length}}
 
 mkdir -p ${OUTPUT_DIR}
 
 echo "=== num_child Ablation (DualEnd-Cocktail) ==="
 echo "Model: ${MODEL}"
 echo "Dataset: ${DATASET}"
+echo "Passage length: ${PASSAGE_LENGTH}"
+
+if [[ "${MODEL,,}" == *"qwen"* ]] && (( PASSAGE_LENGTH < 512 )); then
+    echo "WARNING: Qwen-family runs are usually evaluated with --passage_length 512; got ${PASSAGE_LENGTH}."
+fi
 
 # c=3 is already covered in the main experiments; run c=2, 5, 7
 for NC in 2 5 7; do

@@ -98,6 +98,8 @@ def main():
         chi2 = sum((position_counts.get(i, 0) - expected_count) ** 2 / expected_count
                     for i in range(n_positions))
         out(f"\n  Chi-squared: {chi2:.2f} (df={n_positions-1})")
+        if expected_count < 5:
+            out("  Note: expected counts are below 5, so the chi-squared approximation is unreliable.")
 
         # Position accuracy: was the selected doc the most relevant?
         if any("doc_relevances" in e for e in entries):

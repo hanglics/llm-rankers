@@ -32,13 +32,23 @@ SCORING=${6:-"generation"}
 NUM_CHILD=${7:-3}
 K=${8:-10}
 HITS=${9:-100}
-PASSAGE_LENGTH=${10:-128}
+
+default_passage_length=128
+if [[ "${MODEL,,}" == *"qwen"* ]]; then
+    default_passage_length=512
+fi
+PASSAGE_LENGTH=${10:-${default_passage_length}}
 
 mkdir -p ${OUTPUT_DIR}
 
 echo "=== Alpha Ablation (BiDir-Weighted) ==="
 echo "Model: ${MODEL}"
 echo "Dataset: ${DATASET}"
+echo "Passage length: ${PASSAGE_LENGTH}"
+
+if [[ "${MODEL,,}" == *"qwen"* ]] && (( PASSAGE_LENGTH < 512 )); then
+    echo "WARNING: Qwen-family runs are usually evaluated with --passage_length 512; got ${PASSAGE_LENGTH}."
+fi
 
 # alpha=0.7 is already covered in the main experiments; run 0.3, 0.5, 0.9
 for ALPHA in 0.3 0.5 0.9; do

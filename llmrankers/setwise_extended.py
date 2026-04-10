@@ -971,47 +971,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
     def _tournament_select_worst(self, query, docs_list):
         """Run a tournament to find the worst document from a list. Returns index in docs_list."""
         if len(docs_list) <= self.num_child + 1:
-            # Use worst-selection prompt
-            self.total_compare += 1
-            worst_text = self._build_worst_prompt(query, docs_list)
-
-            if self.scoring == 'likelihood':
-                scores = self._score_label_candidates(worst_text, len(docs_list))
-                ranked = sorted(
-                    zip(self.CHARACTERS[:len(docs_list)], scores),
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
-                output = ranked[0][0]
-            elif self.config.model_type == 't5':
-                inputs = self._tokenize_inputs(worst_text)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                output_ids = self._generate(
-                    inputs,
-                    max_new_tokens=2,
-                    decoder_input_ids=self.decoder_input_ids,
-                )[0]
-                self.total_completion_tokens += output_ids.shape[0]
-                raw_output = self.tokenizer.decode(output_ids, skip_special_tokens=True).strip()
-                output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs_list)])
-                if output is None:
-                    output = self._clean_generation_output(raw_output).upper()
-            elif self._is_supported_causal_model():
-                conversation = [{"role": "user", "content": worst_text}]
-                prompt = self._build_chat_prompt(conversation)
-                prompt += " Passage:"
-                inputs = self._tokenize_inputs(prompt)
-                self.total_prompt_tokens += inputs.input_ids.shape[1]
-                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
-                output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
-                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
-                raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
-                output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs_list)])
-                if output is None:
-                    output = self._clean_generation_output(raw_output).upper()
-            else:
-                return 0
-
+            # Delegate to compare_worst() so tournament worst-comparisons share the
+            # same parsing, accounting, and position-bias logging path as the main
+            # BottomUp / DualEnd worst-selection calls.
+            output = self.compare_worst(query, docs_list)
             try:
                 return min(self.CHARACTERS.index(output.upper()), len(docs_list) - 1)
             except ValueError:
@@ -1404,6 +1367,8 @@ class BidirectionalEnsembleRanker(LlmRanker):
         self.k = k
         self.fusion = fusion
         self.alpha = alpha
+        self.__comparison_log_path = None
+        self.__current_qid = None
 
         # Create top-down ranker first
         self.topdown_ranker = SetwiseLlmRanker(
@@ -1447,6 +1412,30 @@ class BidirectionalEnsembleRanker(LlmRanker):
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
+
+    @property
+    def _comparison_log_path(self):
+        return self.__comparison_log_path
+
+    @_comparison_log_path.setter
+    def _comparison_log_path(self, value):
+        self.__comparison_log_path = value
+        if hasattr(self, "topdown_ranker"):
+            self.topdown_ranker._comparison_log_path = value
+        if hasattr(self, "bottomup_ranker"):
+            self.bottomup_ranker._comparison_log_path = value
+
+    @property
+    def _current_qid(self):
+        return self.__current_qid
+
+    @_current_qid.setter
+    def _current_qid(self, value):
+        self.__current_qid = value
+        if hasattr(self, "topdown_ranker"):
+            self.topdown_ranker._current_qid = value
+        if hasattr(self, "bottomup_ranker"):
+            self.bottomup_ranker._current_qid = value
 
     def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
         ranking_copy1 = copy.deepcopy(ranking)
