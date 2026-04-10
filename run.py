@@ -124,7 +124,8 @@ def main(args):
                                                       k=args.setwise.k,
                                                       gate_strategy=args.setwise.gate_strategy,
                                                       shortlist_size=args.setwise.shortlist_size,
-                                                      margin_threshold=args.setwise.margin_threshold)
+                                                      margin_threshold=args.setwise.margin_threshold,
+                                                      uncertainty_percentile=args.setwise.uncertainty_percentile)
         elif args.setwise.direction == 'bias_aware_dualend':
             ranker = BiasAwareDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -138,6 +139,7 @@ def main(args):
                                                       gate_strategy=args.setwise.gate_strategy,
                                                       shortlist_size=args.setwise.shortlist_size,
                                                       margin_threshold=args.setwise.margin_threshold,
+                                                      uncertainty_percentile=args.setwise.uncertainty_percentile,
                                                       order_robust_orderings=args.setwise.order_robust_orderings)
         elif args.setwise.direction == 'samecall_regularized':
             ranker = SameCallRegularizedSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
@@ -365,7 +367,11 @@ if __name__ == '__main__':
     setwise_parser.add_argument('--shortlist_size', type=int, default=20,
                                 help='Prefix depth treated as near the top-k boundary for selective/bias-aware variants')
     setwise_parser.add_argument('--margin_threshold', type=float, default=0.15,
-                                help='Relative BM25 window spread threshold below which a window is considered uncertain')
+                                help='Backward-compatible alias for the uncertainty percentile; '
+                                     '0.15 means the tightest 15%% of query-local BM25-spread windows')
+    setwise_parser.add_argument('--uncertainty_percentile', type=float, default=None,
+                                help='Query-local percentile cutoff for uncertainty gating; '
+                                     '0.15 means the tightest 15%% of BM25-spread windows')
     setwise_parser.add_argument('--order_robust_orderings', type=int, default=3,
                                 help='Number of controlled orderings for bias-aware DualEnd windows')
 

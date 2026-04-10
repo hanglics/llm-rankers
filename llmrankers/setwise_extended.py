@@ -7,10 +7,11 @@ Extended Setwise Ranking Strategies:
 Reference: Extends the setwise approach from Zhuang et al. (SIGIR 2024)
 """
 
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from .rankers import LlmRanker, SearchResult
 from .setwise import SetwiseLlmRanker, QWEN_MODEL_TYPES
 import copy
+import math
 import re
 import torch
 import random
@@ -263,10 +264,19 @@ class _DualEndRoutingMixin:
         gate_strategy: str = "hybrid",
         shortlist_size: int = 20,
         margin_threshold: float = 0.15,
+        uncertainty_percentile: Optional[float] = None,
     ) -> None:
         self.gate_strategy = gate_strategy
         self.shortlist_size = shortlist_size
+        # Backward compatibility: older scripts still pass --margin_threshold.
+        # We now interpret that value as a query-local uncertainty percentile.
+        if uncertainty_percentile is None:
+            uncertainty_percentile = margin_threshold
         self.margin_threshold = margin_threshold
+        self.uncertainty_percentile = self._normalize_uncertainty_percentile(
+            uncertainty_percentile
+        )
+        self._query_uncertainty_thresholds: Dict[int, float] = {}
         self._reset_joint_signal_stats()
 
     def _reset_joint_signal_stats(self) -> None:
@@ -285,6 +295,56 @@ class _DualEndRoutingMixin:
         denom = max(abs(max_score), abs(min_score), 1e-6)
         return (max_score - min_score) / denom
 
+    @staticmethod
+    def _normalize_uncertainty_percentile(value: float) -> float:
+        if value > 1.0:
+            value /= 100.0
+        return min(max(value, 0.0), 1.0)
+
+    @staticmethod
+    def _percentile_value(values: Sequence[float], percentile: float) -> Optional[float]:
+        if not values:
+            return None
+        ordered = sorted(values)
+        if len(ordered) == 1:
+            return ordered[0]
+
+        position = percentile * (len(ordered) - 1)
+        lower = int(math.floor(position))
+        upper = int(math.ceil(position))
+        if lower == upper:
+            return ordered[lower]
+
+        fraction = position - lower
+        return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+    def _prepare_query_uncertainty_thresholds(
+        self,
+        ranking: Sequence[SearchResult],
+    ) -> None:
+        if getattr(self, "gate_strategy", "off") not in {"uncertain", "hybrid"}:
+            self._query_uncertainty_thresholds = {}
+            return
+
+        thresholds: Dict[int, float] = {}
+        max_window_len = min(self.num_child + 1, len(ranking))
+        for window_len in range(2, max_window_len + 1):
+            spreads = []
+            for start in range(0, len(ranking) - window_len + 1):
+                spread = self._window_relative_score_spread(
+                    ranking[start:start + window_len]
+                )
+                if spread is not None:
+                    spreads.append(spread)
+            threshold = self._percentile_value(
+                spreads,
+                getattr(self, "uncertainty_percentile", 0.15),
+            )
+            if threshold is not None:
+                thresholds[window_len] = threshold
+
+        self._query_uncertainty_thresholds = thresholds
+
     def _should_use_joint_signal(
         self,
         start_ind: int,
@@ -300,7 +360,12 @@ class _DualEndRoutingMixin:
         overlaps_shortlist = start_ind < shortlist_size
 
         relative_spread = self._window_relative_score_spread(docs)
-        is_uncertain = relative_spread is not None and relative_spread <= getattr(self, "margin_threshold", 0.0)
+        spread_threshold = getattr(self, "_query_uncertainty_thresholds", {}).get(len(docs))
+        is_uncertain = (
+            relative_spread is not None
+            and spread_threshold is not None
+            and relative_spread <= spread_threshold
+        )
 
         if gate_strategy == "shortlist":
             return overlaps_shortlist
@@ -978,6 +1043,7 @@ class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
         gate_strategy: str = "hybrid",
         shortlist_size: int = 20,
         margin_threshold: float = 0.15,
+        uncertainty_percentile: Optional[float] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -985,6 +1051,7 @@ class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
             gate_strategy=gate_strategy,
             shortlist_size=shortlist_size,
             margin_threshold=margin_threshold,
+            uncertainty_percentile=uncertainty_percentile,
         )
 
     def _select_best_window(self, query: str, ranking: List[SearchResult], start_ind: int, end_ind: int) -> str:
@@ -1071,6 +1138,7 @@ class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self._reset_joint_signal_stats()
+        self._prepare_query_uncertainty_thresholds(original_ranking)
 
         if self.method == "heapsort":
             self._heap_sort_selective(ranking, query)
@@ -1111,6 +1179,7 @@ class BiasAwareDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
         gate_strategy: str = "hybrid",
         shortlist_size: int = 20,
         margin_threshold: float = 0.15,
+        uncertainty_percentile: Optional[float] = None,
         order_robust_orderings: int = 3,
         **kwargs,
     ):
@@ -1120,6 +1189,7 @@ class BiasAwareDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
             gate_strategy=gate_strategy,
             shortlist_size=shortlist_size,
             margin_threshold=margin_threshold,
+            uncertainty_percentile=uncertainty_percentile,
         )
 
     def _controlled_orderings(self, n_docs: int) -> List[List[int]]:
@@ -1186,6 +1256,7 @@ class BiasAwareDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRa
 
     def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
         self._reset_joint_signal_stats()
+        self._prepare_query_uncertainty_thresholds(ranking)
         return super().rerank(query, ranking)
 
 
@@ -1200,7 +1271,12 @@ class SameCallRegularizedSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLl
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._init_joint_signal_routing(gate_strategy="off", shortlist_size=0, margin_threshold=0.0)
+        self._init_joint_signal_routing(
+            gate_strategy="off",
+            shortlist_size=0,
+            margin_threshold=0.0,
+            uncertainty_percentile=0.0,
+        )
 
     def rerank(self, query: str, ranking: List[SearchResult]) -> List[SearchResult]:
         if self.method != "bubblesort":

@@ -318,6 +318,9 @@ Additional CLI options for the extended runs:
 - `--method selection`: double-ended selection sort for `dualend`
 - `--fusion {rrf,combsum,weighted}`: fusion rule for `bidirectional`
 - `--alpha 0.7`: weight for `weighted` fusion
+- `--gate_strategy {off,shortlist,uncertain,hybrid}`: routing policy for `selective_dualend` and `bias_aware_dualend`
+- `--uncertainty_percentile 0.15`: treat the tightest 15% of query-local BM25-spread windows as uncertain
+- `--margin_threshold 0.15`: backward-compatible alias for `--uncertainty_percentile`
 
 Example: dual-end cocktail-shaker sort
 
@@ -416,6 +419,7 @@ Notes:
 - For Flan-T5 models, prefer a smaller `--passage_length` such as `64`, otherwise the prompt may exceed the encoder limit and be truncated.
 - For Qwen3-family models, thinking is disabled in the chat template automatically in generation mode, and any remaining `<think>...</think>` block is filtered before label extraction.
 - Qwen/Qwen3/Qwen3.5 likelihood scoring is available for `topdown`, `bottomup`, and `dualend`. For `dualend`, the likelihood path scores the best-only label distribution once and then uses its max/min labels as the heuristic best/worst outputs.
+- For `selective_dualend` and `bias_aware_dualend`, `--gate_strategy uncertain` now uses a query-local percentile gate over BM25 score spreads rather than a fixed absolute margin. With the default `0.15`, DualEnd is invoked on roughly the tightest 15% of windows for that query.
 - Qwen3.5 models should be loaded through `AutoModelForCausalLM`; use a Transformers build with Qwen3.5 support instead of relying on `Qwen3_5ForConditionalGeneration`.
 
 </details>

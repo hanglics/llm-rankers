@@ -1209,8 +1209,8 @@ Post-result review changes the project emphasis. The strongest current paper is 
 | P0 | **Finish BEIR representative evaluation** | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets | 3 models × 8 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
 | P0 | **Quality-cost Pareto analysis** | Directly addresses the biggest reviewer concern: modest gains at high cost | Use existing TREC DL outputs first; compare NDCG@10 against calls, tokens, and wall time | Paper can show where DualEnd is or is not worthwhile under budgeted settings | New figure/table for paper and narrative |
 | P0 | **"When DualEnd helps" qualitative analysis** | Converts a weak average-gain story into a mechanism story | Inspect wins/losses for 2-3 representative models; group by query/window type | Produce a small taxonomy with concrete examples | Short analysis section + appendix table |
-| P1 | **Selective DualEnd** | Highest-leverage method refinement; may preserve quality while reducing cost | Start from best TopDown baseline and invoke DualEnd only on uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd | New method + quality-cost table |
-| P1 | **Order-robust / bias-aware DualEnd** | Converts the dual-worst bias reversal from analysis into method novelty | Use 2-3 controlled orderings only on uncertain windows | Improves robustness or average quality enough to justify extra calls | Bias-aware variant + ablation |
+| P1 | **Selective DualEnd** | Highest-leverage method refinement; may preserve quality while reducing cost | Start from best TopDown baseline and invoke DualEnd only on query-locally uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd | New method + quality-cost table |
+| P1 | **Order-robust / bias-aware DualEnd** | Converts the dual-worst bias reversal from analysis into method novelty | Use 2-3 controlled orderings only on query-locally uncertain windows | Improves robustness or average quality enough to justify extra calls | Bias-aware variant + ablation |
 | P2 | **Same-call worst-signal regularization** | Tests whether the useful signal is the joint prompt rather than independent worst ranking | Use DualEnd same-call outputs to adjust local ordering or pruning, without standalone BottomUp fusion | Small but consistent gain over vanilla DualEnd or better cost-quality tradeoff | Lightweight method note or appendix |
 
 ### 2026-04-09 Status Snapshot
@@ -1321,8 +1321,9 @@ First comparison targets:
 
 **How**:
 - `--gate_strategy shortlist`: only invoke DualEnd on windows touching the top shortlist
-- `--gate_strategy uncertain`: only invoke DualEnd when BM25 score spread is small
+- `--gate_strategy uncertain`: only invoke DualEnd when the window falls into the tightest query-local BM25-spread percentile
 - `--gate_strategy hybrid`: union of the two
+- `0.15` now means "tightest 15% of windows for this query"; the existing `--margin_threshold` flag is kept as a backward-compatible alias for that percentile value
 - for the paper-facing first pass, prefer `bubblesort` because the routing logic is easiest to interpret near the ranking head
 
 Configs:
@@ -1507,7 +1508,7 @@ If the next package lands well, the paper should say:
 
 ### Highest-Leverage New Experiments
 
-- [x] Implement **Selective DualEnd**: invoke DualEnd only on uncertain windows or on a final shortlist
+- [x] Implement **Selective DualEnd**: invoke DualEnd only on query-locally uncertain windows or on a final shortlist
 - [ ] Measure Selective DualEnd against best TopDown and full DualEnd on TREC DL first
 - [ ] If Selective DualEnd is promising, run the same representative BEIR subset
 - [x] Implement **Order-Robust / Bias-Aware DualEnd** if Selective DualEnd alone is not strong enough

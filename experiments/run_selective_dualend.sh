@@ -62,5 +62,5 @@ python run.py \
             --direction selective_dualend \
             --gate_strategy "${GATE_STRATEGY}" \
             --shortlist_size "${SHORTLIST_SIZE}" \
-            --margin_threshold "${MARGIN_THRESHOLD}" \
+            --uncertainty_percentile "${MARGIN_THRESHOLD}" \
     2>&1 | tee "${OUTPUT_DIR}/${STEM}.log"

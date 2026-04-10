@@ -2040,19 +2040,20 @@
                   <div class="gate-card">
                     <span class="gate-name">Uncertainty gate</span>
                     <p>
-                      Trigger DualEnd only when the BM25 score spread inside the
-                      active window is small, using a margin threshold such as
-                      <code>0.15</code>. This targets windows where lexical
-                      evidence alone does not cleanly separate candidates.
+                      Trigger DualEnd only when the active window falls into
+                      the tightest query-local BM25-spread percentile, for
+                      example the tightest <code>15%</code> of windows. This
+                      targets windows where lexical evidence alone does not
+                      cleanly separate candidates.
                     </p>
                   </div>
                   <div class="gate-card">
                     <span class="gate-name">Hybrid gate</span>
                     <p>
-                      Use the union of shortlist overlap and uncertainty. This
-                      is the most paper-friendly default because it matches two
-                      intuitive ideas at once: top-k sensitivity and local
-                      ambiguity.
+                      Use the union of shortlist overlap and percentile-based
+                      uncertainty. This is the most paper-friendly default
+                      because it matches two intuitive ideas at once: top-k
+                      sensitivity and local ambiguity.
                     </p>
                   </div>
                 </div>
