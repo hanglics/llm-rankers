@@ -1,0 +1,365 @@
+# BEIR
+## flan-t5-xl
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/dbpedia-entity/test runs/bm25/run.beir.bm25-flat.dbpedia-entity.txt results/flan-t5-xl-beir-dbpedia \
+        cuda generation 3 10 100 128 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/nfcorpus/test runs/bm25/run.beir.bm25-flat.nfcorpus.txt results/flan-t5-xl-beir-nfcorpus \
+        cuda generation 3 10 100 128 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/scifact/test runs/bm25/run.beir.bm25-flat.scifact.txt results/flan-t5-xl-beir-scifact \
+        cuda generation 3 10 100 128 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/trec-covid runs/bm25/run.beir.bm25-flat.trec-covid.txt results/flan-t5-xl-beir-covid \
+        cuda generation 3 10 100 128 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/webis-touche2020/v2 runs/bm25/run.beir.bm25-flat.webis-touche2020.txt results/flan-t5-xl-beir-touche2020 \
+        cuda generation 3 10 100 128 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        google/flan-t5-xl beir/fiqa/test runs/bm25/run.beir.bm25-flat.fiqa.txt results/flan-t5-xl-beir-fiqa \
+        cuda generation 3 10 100 128 0.7; done
+
+## Qwen3-8B
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/dbpedia-entity/test runs/bm25/run.beir.bm25-flat.dbpedia-entity.txt results/qwen3-8b-beir-dbpedia \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/nfcorpus/test runs/bm25/run.beir.bm25-flat.nfcorpus.txt results/qwen3-8b-beir-nfcorpus \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/scifact/test runs/bm25/run.beir.bm25-flat.scifact.txt results/qwen3-8b-beir-scifact \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/trec-covid runs/bm25/run.beir.bm25-flat.trec-covid.txt results/qwen3-8b-beir-covid \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/webis-touche2020/v2 runs/bm25/run.beir.bm25-flat.webis-touche2020.txt results/qwen3-8b-beir-touche2020 \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3-8B beir/fiqa/test runs/bm25/run.beir.bm25-flat.fiqa.txt results/qwen3-8b-beir-fiqa \
+        cuda generation 3 10 100 512 0.7; done
+
+## Qwen3.5-9B
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/dbpedia-entity/test runs/bm25/run.beir.bm25-flat.dbpedia-entity.txt results/qwen3.5-9b-beir-dbpedia \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/nfcorpus/test runs/bm25/run.beir.bm25-flat.nfcorpus.txt results/qwen3.5-9b-beir-nfcorpus \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/scifact/test runs/bm25/run.beir.bm25-flat.scifact.txt results/qwen3.5-9b-beir-scifact \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/trec-covid runs/bm25/run.beir.bm25-flat.trec-covid.txt results/qwen3.5-9b-beir-covid \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/webis-touche2020/v2 runs/bm25/run.beir.bm25-flat.webis-touche2020.txt results/qwen3.5-9b-beir-touche2020 \
+        cuda generation 3 10 100 512 0.7; done
+
+for SCRIPT in run_topdown_bubblesort \
+              run_bottomup_bubblesort \
+              run_dualend_bubblesort \
+              run_bidirectional_rrf; do
+    sbatch experiments/${SCRIPT}.sh \
+        Qwen/Qwen3.5-9B beir/fiqa/test runs/bm25/run.beir.bm25-flat.fiqa.txt results/qwen3.5-9b-beir-fiqa \
+        cuda generation 3 10 100 512 0.7; done
+
+# Likelihood
+## flan-t5-xl
+sbatch experiments/run_likelihood.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-likelihood \
+  cuda 3 10 100 128
+
+sbatch experiments/run_likelihood.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/flan-t5-xl-dl20-likelihood \
+  cuda 3 10 100 128
+
+## Qwen3-8B
+sbatch experiments/run_likelihood.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-likelihood \
+  cuda 3 10 100 512
+
+sbatch experiments/run_likelihood.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3-8b-dl20-likelihood \
+  cuda 3 10 100 512
+
+## Qwen3.5-9B
+sbatch experiments/run_likelihood.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-likelihood \
+  cuda 3 10 100 512
+
+sbatch experiments/run_likelihood.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3.5-9b-dl20-likelihood \
+  cuda 3 10 100 512
+
+# Selective Dualend
+## flan-t5-xl
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 128 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/flan-t5-xl-dl20-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 128 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 128 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/flan-t5-xl-dl20-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 128 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-generation-shortlist \
+  cuda generation 3 10 100 128 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-likelihood-shortlist \
+  cuda likelihood 3 10 100 128 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-generation-uncertain cuda \
+  generation 3 10 100 128 bubblesort uncertain 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  google/flan-t5-xl \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/flan-t5-xl-dl19-selective-dualend-likelihood-uncertain \
+  cuda likelihood 3 10 100 128 bubblesort uncertain 20 0.15
+
+## Qwen3-8B
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3-8b-dl20-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3-8b-dl20-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-generation-shortlist \
+  cuda generation 3 10 100 512 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-likelihood-shortlist \
+  cuda likelihood 3 10 100 512 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-generation-uncertain \
+  cuda generation 3 10 100 512 bubblesort uncertain 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3-8B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3-8b-dl19-selective-dualend-likelihood-uncertain \
+  cuda likelihood 3 10 100 512 bubblesort uncertain 20 0.15
+
+## Qwen3.5-9B
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3.5-9b-dl20-selective-dualend-generation-hybrid \
+  cuda generation 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2020/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt \
+  results/qwen3.5-9b-dl20-selective-dualend-likelihood-hybrid \
+  cuda likelihood 3 10 100 512 bubblesort hybrid 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-generation-shortlist \
+  cuda generation 3 10 100 512 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-likelihood-shortlist \
+  cuda likelihood 3 10 100 512 bubblesort shortlist 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-generation-uncertain \
+  cuda generation 3 10 100 512 bubblesort uncertain 20 0.15
+
+sbatch experiments/run_selective_dualend.sh \
+  Qwen/Qwen3.5-9B \
+  msmarco-passage/trec-dl-2019/judged \
+  runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+  results/qwen3.5-9b-dl19-selective-dualend-likelihood-uncertain \
+  cuda likelihood 3 10 100 512 bubblesort uncertain 20 0.15
