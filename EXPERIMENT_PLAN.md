@@ -1,6 +1,6 @@
-# Experiment Plan: Directional Asymmetry in LLM-Based Setwise Ranking
+# Experiment Plan: Finding the Worst Is Harder Than Finding the Best: Directional Asymmetry in LLM Setwise Ranking
 
-**Paper:** "Directional Asymmetry in LLM-Based Setwise Ranking: Evidence from Worst-Only, Joint, and Fused Signals"
+**Paper:** "Finding the Worst Is Harder Than Finding the Best: Directional Asymmetry in LLM Setwise Ranking"
 **Last Updated:** 2026-04-09
 **Status:** Phase 1-4 COMPLETE (all re-runs done after 2026-03-29 bug fixes). Significance testing complete. Phase 5 BEIR execution is delegated to the remote GPU runs; the local priority is the review-driven refinement package, paper-facing analysis, and audit.
 

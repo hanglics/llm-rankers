@@ -1,6 +1,6 @@
 #!/bin/bash
 # Extended Setwise Ranking Experiments
-# Paper: "Directional Asymmetry in LLM-Based Setwise Ranking: Evidence from Worst-Only, Joint, and Fused Signals"
+# Paper: "Finding the Worst Is Harder Than Finding the Best: Directional Asymmetry in LLM Setwise Ranking"
 #
 # Usage: bash experiments/run_extended_setwise_all.sh <model> <dataset> <run_path> <output_dir>
 # Example: bash experiments/run_extended_setwise_all.sh google/flan-t5-xl msmarco-passage/trec-dl-2019/judged runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt results/
