@@ -34,7 +34,7 @@ echo "=============================================="
 echo ""
 echo ">>> 4B: Query Difficulty Stratification"
 
-DIFF_DIR="results/query_difficulty"
+DIFF_DIR="results/analysis/query_difficulty"
 mkdir -p ${DIFF_DIR}
 
 for RESULTS_DIR in results/*-dl19; do
@@ -79,7 +79,7 @@ echo "    Results saved to ${DIFF_DIR}/"
 echo ""
 echo ">>> 4C: Ranking Agreement"
 
-AGREE_DIR="results/ranking_agreement"
+AGREE_DIR="results/analysis/ranking_agreement"
 mkdir -p ${AGREE_DIR}
 
 for RESULTS_DIR in results/*-dl19; do
@@ -122,7 +122,7 @@ echo "    Results saved to ${AGREE_DIR}/"
 echo ""
 echo ">>> 4D: Per-Query Wins Analysis"
 
-WINS_DIR="results/per_query_wins"
+WINS_DIR="results/analysis/per_query_wins"
 mkdir -p ${WINS_DIR}
 
 for RESULTS_DIR in results/*-dl19; do
@@ -173,7 +173,7 @@ echo "    Results saved to ${WINS_DIR}/"
 echo ""
 echo ">>> 4E: Dual-End Parse Success Rate"
 
-PARSE_DIR="results/parse_success"
+PARSE_DIR="results/analysis/parse_success"
 mkdir -p ${PARSE_DIR}
 
 for RESULTS_DIR in results/*-dl19 results/*-dl20; do

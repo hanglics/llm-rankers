@@ -2,8 +2,8 @@
 # Extended Setwise Ranking Experiments
 # Paper: "Directional Asymmetry in LLM-Based Setwise Ranking: Evidence from Worst-Only, Joint, and Fused Signals"
 #
-# Usage: bash experiments/run_extended_setwise.sh <model> <dataset> <run_path> <output_dir>
-# Example: bash experiments/run_extended_setwise.sh google/flan-t5-xl msmarco-passage/trec-dl-2019 runs/bm25_dl19.txt results/
+# Usage: bash experiments/run_extended_setwise_all.sh <model> <dataset> <run_path> <output_dir>
+# Example: bash experiments/run_extended_setwise_all.sh google/flan-t5-xl msmarco-passage/trec-dl-2019/judged runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt results/
 
 # Models:
 # google/flan-t5-large
@@ -37,7 +37,7 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 
 MODEL=${1:-"google/flan-t5-xl"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
-RUN_PATH=${3:-"runs/bm25/run.msmarco-passage.bm25-default.dl19.txt"}
+RUN_PATH=${3:-"runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt"}
 OUTPUT_DIR=${4:-"results/extended_setwise"}
 DEVICE=${5:-"cuda"}
 SCORING=${6:-"generation"}
@@ -185,7 +185,7 @@ python run.py \
             --fusion rrf \
     2>&1 | tee ${OUTPUT_DIR}/bidirectional_rrf.log
 
-# --- Bidirectional Ensemble (Weighted, alpha=0.7) ---
+# --- Bidirectional Ensemble (Weighted, configurable alpha) ---
 echo ""
 echo ">>> [8/8] Bidirectional Ensemble (Weighted, alpha=${BIDIRECTION_WEIGHTED_ALPHA})"
 python run.py \

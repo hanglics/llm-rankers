@@ -2,8 +2,9 @@
 # Phase 4: Analysis Experiments
 # Runs all post-hoc analyses and position bias experiments
 #
-# Usage: bash experiments/run_phase4_analysis.sh [model] [device]
+# Usage: bash experiments/run_phase4_analysis.sh [model] [device] [passage_length]
 # Example: bash experiments/run_phase4_analysis.sh google/flan-t5-xl cuda
+# Example: bash experiments/run_phase4_analysis.sh Qwen/Qwen3-8B cuda 512
 
 set -e
 
@@ -14,13 +15,26 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 
 MODEL=${1:-"google/flan-t5-xl"}
 DEVICE=${2:-"cuda"}
+PASSAGE_LENGTH=${3:-""}
 
 # Derive short model name for paths
 MODEL_SHORT=$(echo ${MODEL} | sed 's|.*/||' | tr '[:upper:]' '[:lower:]')
 
+if [ -z "${PASSAGE_LENGTH}" ]; then
+    case "${MODEL}" in
+        Qwen/*)
+            PASSAGE_LENGTH=512
+            ;;
+        *)
+            PASSAGE_LENGTH=128
+            ;;
+    esac
+fi
+
 echo "=============================================="
 echo "Phase 4: Analysis Experiments"
 echo "Model: ${MODEL}"
+echo "Passage Length: ${PASSAGE_LENGTH}"
 echo "=============================================="
 
 # ============================================================
@@ -40,7 +54,7 @@ python run.py \
         --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
         --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
         --save_path ${ANALYSIS_DIR}/topdown_heapsort.txt \
-        --device ${DEVICE} --scoring generation --hits 100 --passage_length 128 \
+        --device ${DEVICE} --scoring generation --hits 100 --passage_length ${PASSAGE_LENGTH} \
         --log_comparisons ${ANALYSIS_DIR}/topdown_heapsort_comparisons.jsonl \
     setwise --num_child 3 --method heapsort --k 10 --direction topdown \
     2>&1 | tee ${ANALYSIS_DIR}/topdown_heapsort.log
@@ -52,7 +66,7 @@ python run.py \
         --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
         --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
         --save_path ${ANALYSIS_DIR}/bottomup_heapsort.txt \
-        --device ${DEVICE} --scoring generation --hits 100 --passage_length 128 \
+        --device ${DEVICE} --scoring generation --hits 100 --passage_length ${PASSAGE_LENGTH} \
         --log_comparisons ${ANALYSIS_DIR}/bottomup_heapsort_comparisons.jsonl \
     setwise --num_child 3 --method heapsort --k 10 --direction bottomup \
     2>&1 | tee ${ANALYSIS_DIR}/bottomup_heapsort.log
@@ -64,7 +78,7 @@ python run.py \
         --ir_dataset_name msmarco-passage/trec-dl-2019/judged \
         --run_path runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
         --save_path ${ANALYSIS_DIR}/dualend_bubblesort.txt \
-        --device ${DEVICE} --scoring generation --hits 100 --passage_length 128 \
+        --device ${DEVICE} --scoring generation --hits 100 --passage_length ${PASSAGE_LENGTH} \
         --log_comparisons ${ANALYSIS_DIR}/dualend_bubblesort_comparisons.jsonl \
     setwise --num_child 3 --method bubblesort --k 10 --direction dualend \
     2>&1 | tee ${ANALYSIS_DIR}/dualend_bubblesort.log
@@ -102,6 +116,23 @@ for RESULTS_DIR in results/*-dl19; do
     fi
 done
 
+for RESULTS_DIR in results/*-dl20; do
+    [ -d "${RESULTS_DIR}" ] || continue
+    MODEL_NAME=$(basename ${RESULTS_DIR} | sed 's/-dl20$//')
+
+    TD="${RESULTS_DIR}/topdown_heapsort.txt"
+    BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
+
+    if [ -f "${TD}" ] && [ -f "${BU}" ]; then
+        CMD="python analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${CMD} --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt --qrels dl20-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME} (DL20)"
+        eval ${CMD} > "${DIFF_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
+    fi
+done
+
 echo "    Results saved to ${DIFF_DIR}/"
 
 # ============================================================
@@ -126,6 +157,22 @@ for RESULTS_DIR in results/*-dl19; do
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         echo "    ${MODEL_NAME}: pairwise agreement (DL19)"
         eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
+    fi
+done
+
+for RESULTS_DIR in results/*-dl20; do
+    [ -d "${RESULTS_DIR}" ] || continue
+    MODEL_NAME=$(basename ${RESULTS_DIR} | sed 's/-dl20$//')
+
+    TD="${RESULTS_DIR}/topdown_heapsort.txt"
+    BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
+
+    if [ -f "${TD}" ] && [ -f "${BU}" ]; then
+        CMD="python analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        echo "    ${MODEL_NAME}: pairwise agreement (DL20)"
+        eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
     fi
 done
 
@@ -157,6 +204,26 @@ for RESULTS_DIR in results/*-dl19; do
         [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"
         echo "    ${MODEL_NAME} (DL19)"
         eval ${CMD} > "${WINS_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
+    fi
+done
+
+for RESULTS_DIR in results/*-dl20; do
+    [ -d "${RESULTS_DIR}" ] || continue
+    MODEL_NAME=$(basename ${RESULTS_DIR} | sed 's/-dl20$//')
+
+    TD="${RESULTS_DIR}/topdown_heapsort.txt"
+    BU="${RESULTS_DIR}/bottomup_heapsort.txt"
+    DE="${RESULTS_DIR}/dualend_bubblesort.txt"
+    BIDIR="${RESULTS_DIR}/bidirectional_rrf.txt"
+    PV="${RESULTS_DIR}/permvote_p2_heapsort.txt"
+
+    if [ -f "${TD}" ] && [ -f "${BU}" ]; then
+        CMD="python analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl20-passage"
+        [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
+        [ -f "${BIDIR}" ] && CMD="${CMD} --bidir_rrf ${BIDIR}"
+        [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"
+        echo "    ${MODEL_NAME} (DL20)"
+        eval ${CMD} > "${WINS_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
     fi
 done
 
