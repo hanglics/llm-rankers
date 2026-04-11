@@ -22,9 +22,7 @@
 # beir/scifact/test
 # beir/trec-covid
 # beir/webis-touche2020/v2
-# beir/hotpotqa/test
-# beir/quora/test
-# beir/fever/test
+# beir/fiqa/test
 # 
 # Notes:
 # - For Flan-T5 models, a smaller passage length (e.g. 64) is usually cleaner.

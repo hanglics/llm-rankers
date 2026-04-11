@@ -106,15 +106,13 @@ TREC Deep Learning (primary — have graded qrels, standard benchmarks):
   - msmarco-passage/trec-dl-2019/judged   (43 queries, qrels: dl19-passage)
   - msmarco-passage/trec-dl-2020/judged   (54 queries, qrels: dl20-passage)
 
-BEIR (extended — diverse domains):
+BEIR (representative 6-dataset subset — current source of truth):
   - beir/dbpedia-entity/test     (entity-centric)
   - beir/nfcorpus/test           (medical)
   - beir/scifact/test            (scientific claims)
   - beir/trec-covid              (biomedical)
   - beir/webis-touche2020/v2     (arguments)
-  - beir/hotpotqa/test           (multi-hop)
-  - beir/quora/test              (duplicate questions)
-  - beir/fever/test              (fact verification)
+  - beir/fiqa/test               (financial QA)
 ```
 
 ### BM25 Run Files (all exist)
@@ -127,9 +125,7 @@ runs/bm25/run.beir.bm25-flat.nfcorpus.txt
 runs/bm25/run.beir.bm25-flat.scifact.txt
 runs/bm25/run.beir.bm25-flat.trec-covid.txt
 runs/bm25/run.beir.bm25-flat.webis-touche2020.txt
-runs/bm25/run.beir.bm25-flat.hotpotqa.txt
-runs/bm25/run.beir.bm25-flat.quora.txt
-runs/bm25/run.beir.bm25-flat.fever.txt
+runs/bm25/run.beir.bm25-flat.fiqa.txt
 ```
 
 ### Methods (8 configurations)
@@ -188,7 +184,7 @@ c=9 → PL=45  → 10×45 = 450
 | **Phase 1B: Likelihood (T5 only)** | 3 T5 models | 2 datasets | 2 methods | 12 |
 | **Phase 2: Baselines** | 2-3 models | 2 datasets | 1 method | 4-6 |
 | **Phase 3: Ablations** | 1-2 models | 1 dataset | varies | ~20 |
-| **Phase 5: BEIR** | 2-3 models | 8 datasets | 4-8 methods | 64-192 |
+| **Phase 5: BEIR** | 3 representative models | 6 datasets | 4 methods | 72 |
 | **Total estimated** | | | | **~200-340** |
 
 ---
@@ -890,7 +886,7 @@ Once the remote BEIR run files are available and you have manual `trec_eval` out
    - `BottomUp-Bubble - TopDown-Bubble`
    - `BiDir-RRF - TopDown-Bubble`
 2. **Macro win-count summary**
-   - On how many of the 8 datasets does DualEnd beat TopDown for each model family?
+   - On how many of the 6 datasets does DualEnd beat TopDown for each model family?
    - How many clear losses does BottomUp incur?
 3. **Family-consistency note**
    - Does the DualEnd pattern hold for both encoder-decoder and causal models, or only for Qwen-style models?
@@ -1129,7 +1125,7 @@ Phase 3: Ablations (~32 runs)
 Phase 4: Analysis (ALL post-hoc — 4A merged into Phase 1, 4B-4E use Phase 1 results)
   → After Phase 4: can fill Tab 6, §5.4, all analysis sections
 
-Phase 5: BEIR evaluation (64 runs with 2 representative models)
+Phase 5: BEIR evaluation (72 runs with 3 representative models across 6 datasets)
   → After Phase 5: can fill BEIR generalizability table
 ```
 
@@ -1179,7 +1175,7 @@ Cross-referencing IDEA_REPORT hypotheses (H1-H6), research questions (RQ1-RQ3), 
 | Per-call information gain (bits) | Key Measurement 2 | ❌ Missing | Complex to compute. Could approximate via ranking quality / #calls ratio. |
 | BottomUp likelihood scoring | H1 | ❌ Not in Phase 1B | Add BottomUp-Heap likelihood for T5 to compare with TopDown-Heap likelihood. |
 | num_child ablation cross-method | Idea 2 experimental design | ⚠️ Only DualEnd | Could add TopDown and BottomUp for 1-2 models if time allows. |
-| BEIR evaluation scripts | Phase 5 | ⚠️ Specified but no scripts yet | Create run scripts when Phase 1-4 are done. |
+| BEIR evaluation package | Phase 5 | ⚠️ Remote runs in progress | Local follow-up is the BEIR summary table, per-dataset deltas, and macro win counts once the run files land. |
 | Error analysis (qualitative) | Analysis checklist | ❌ No methodology | Define what to analyze: failure modes, query types where DualEnd helps/hurts. |
 
 ---
@@ -1204,7 +1200,7 @@ Post-result review changes the project emphasis. The strongest current paper is 
 
 | Priority | Experiment | Why it matters | Minimal scope | Success criterion | Deliverable |
 |---|---|---|---|---|---|
-| P0 | **Finish BEIR representative evaluation** | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets | 3 models × 8 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
+| P0 | **Finish BEIR representative evaluation** | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets | 3 models × 6 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
 | P0 | **Quality-cost Pareto analysis** | Directly addresses the biggest reviewer concern: modest gains at high cost | Use existing TREC DL outputs first; compare NDCG@10 against calls, tokens, and wall time | Paper can show where DualEnd is or is not worthwhile under budgeted settings | New figure/table for paper and narrative |
 | P0 | **"When DualEnd helps" qualitative analysis** | Converts a weak average-gain story into a mechanism story | Inspect wins/losses for 2-3 representative models; group by query/window type | Produce a small taxonomy with concrete examples | Short analysis section + appendix table |
 | P1 | **Selective DualEnd** | Highest-leverage method refinement; may preserve quality while reducing cost | Start from best TopDown baseline and invoke DualEnd only on query-locally uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd | New method + quality-cost table |
