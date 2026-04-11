@@ -862,9 +862,7 @@ So there is **no local blocker on BEIR run scripting**. The remaining BEIR work 
 | SciFact | `runs/bm25/run.beir.bm25-flat.scifact.txt` | `beir/scifact/test` |
 | TREC-COVID | `runs/bm25/run.beir.bm25-flat.trec-covid.txt` | `beir/trec-covid` |
 | Touche2020 | `runs/bm25/run.beir.bm25-flat.webis-touche2020.txt` | `beir/webis-touche2020/v2` |
-| HotpotQA | `runs/bm25/run.beir.bm25-flat.hotpotqa.txt` | `beir/hotpotqa/test` |
-| Quora | `runs/bm25/run.beir.bm25-flat.quora.txt` | `beir/quora/test` |
-| FEVER | `runs/bm25/run.beir.bm25-flat.fever.txt` | `beir/fever/test` |
+| FiQA | `runs/bm25/run.beir.bm25-flat.fiqa.txt` | `beir/fiqa/test` |
 
 ### BEIR Evaluation Strategy
 
@@ -874,14 +872,14 @@ Run a **subset of methods** on BEIR (not all 8 — too expensive):
 3. DualEnd-Cocktail (RQ2 primary method)
 4. BiDir-RRF (RQ3 primary method)
 
-= 4 methods × 8 datasets = 32 runs per model.
+= 4 methods × 6 datasets = 24 runs per model.
 
 **Recommended models for BEIR**: Start with 3 models:
 - `google/flan-t5-xl` (passage_length=128) — representative encoder-decoder
 - `Qwen/Qwen3-8B` (passage_length=512) — representative decoder-only
 - `Qwen/Qwen3.5-9B` (passage_length=512) — representative stronger decoder-only (**TODO: Not Started Yet**)
 
-Total: **96 runs** for BEIR.
+Total: **72 runs** for BEIR.
 
 ### Minimal BEIR Extras Beyond Effectiveness
 
