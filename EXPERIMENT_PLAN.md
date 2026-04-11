@@ -1382,7 +1382,7 @@ Use the new log counters in `results.txt`:
 - `Avg dual invocations`
 - `Avg single invocations`
 
-#### P1. Order-Robust / Bias-Aware DualEnd
+#### P1. Order-Robust / Bias-Aware DualEnd (**TODO: Not Started Yet**)
 
 **What**: keep DualEnd, but on gated hard windows run a tiny number of controlled orderings and majority-vote the best / worst decision back into the original window.
 
