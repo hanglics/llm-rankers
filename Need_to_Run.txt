@@ -1,5 +1,5 @@
 # BEIR
-## flan-t5-xl
+## flan-t5-xl (Already Done)
 for SCRIPT in run_topdown_bubblesort \
               run_bottomup_bubblesort \
               run_dualend_bubblesort \
