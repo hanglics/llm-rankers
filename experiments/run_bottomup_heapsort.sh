@@ -32,7 +32,7 @@ PASSAGE_LENGTH=${10:-512}
 mkdir -p ${OUTPUT_DIR}
 
 # Comparison logging for position bias analysis (Phase 4A)
-ANALYSIS_DIR="results/analysis/$(basename ${OUTPUT_DIR})"
+ANALYSIS_DIR="results/analysis/position_bias/$(basename ${OUTPUT_DIR})"
 mkdir -p ${ANALYSIS_DIR}
 
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf

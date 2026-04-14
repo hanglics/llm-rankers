@@ -32,7 +32,7 @@ HITS=${9:-100}
 PASSAGE_LENGTH=${10:-512}
 
 mkdir -p "${OUTPUT_DIR}"
-ANALYSIS_DIR="results/analysis/samecall-regularized-${SCORING}/$(basename "${OUTPUT_DIR}")"
+ANALYSIS_DIR="results/analysis/samecall-regularized/samecall-regularized-${SCORING}/$(basename "${OUTPUT_DIR}")"
 mkdir -p "${ANALYSIS_DIR}"
 
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf

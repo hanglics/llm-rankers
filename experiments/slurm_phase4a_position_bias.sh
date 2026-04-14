@@ -42,7 +42,7 @@ export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyser
 # Derive short model name for paths
 MODEL_SHORT=$(echo ${MODEL} | sed 's|.*/||' | tr '[:upper:]' '[:lower:]')
 
-ANALYSIS_DIR="results/analysis/${MODEL_SHORT}-dl19"
+ANALYSIS_DIR="results/analysis/position_bias/${MODEL_SHORT}-dl19"
 mkdir -p ${ANALYSIS_DIR}
 
 DATASET="msmarco-passage/trec-dl-2019/judged"

@@ -44,7 +44,7 @@ echo ""
 echo ">>> 4A: Position Bias Analysis"
 echo "    Re-running 3 methods on DL19 with comparison logging..."
 
-ANALYSIS_DIR="results/analysis/${MODEL_SHORT}-dl19"
+ANALYSIS_DIR="results/analysis/position_bias/${MODEL_SHORT}-dl19"
 mkdir -p ${ANALYSIS_DIR}
 
 # TopDown Heapsort

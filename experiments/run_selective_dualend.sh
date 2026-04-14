@@ -36,7 +36,7 @@ SHORTLIST_SIZE=${13:-20}
 MARGIN_THRESHOLD=${14:-0.15}
 
 mkdir -p "${OUTPUT_DIR}"
-ANALYSIS_DIR="results/analysis/selective-dualend-${SCORING}-${GATE_STRATEGY}/$(basename "${OUTPUT_DIR}")"
+ANALYSIS_DIR="results/analysis/selective-dualend/selective-dualend-${SCORING}-${GATE_STRATEGY}/$(basename "${OUTPUT_DIR}")"
 mkdir -p "${ANALYSIS_DIR}"
 
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf
