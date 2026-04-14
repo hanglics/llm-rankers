@@ -161,7 +161,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .claude/
-research_pipeline_setwise/
 results/
 pyserini/
 ranker_env/

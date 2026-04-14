@@ -1,0 +1,307 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{22}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Agrawal et~al\mbox{.}(2026)]%
+        {blitzrank2026}
+\bibfield{author}{\bibinfo{person}{Aman Agrawal} {et~al\mbox{.}}}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \showarticletitle{{BlitzRank}: Principled Zero-shot Ranking Agents
+  with Tournament Graphs}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2602.05448}}
+  (\bibinfo{year}{2026}).
+\newblock
+
+
+\bibitem[Chen et~al\mbox{.}(2025)]%
+        {chen2025tourrank}
+\bibfield{author}{\bibinfo{person}{Yiqun Chen}, \bibinfo{person}{Qi Liu},
+  \bibinfo{person}{Yi Zhang}, \bibinfo{person}{Weiwei Sun},
+  \bibinfo{person}{Xinyu Ma}, \bibinfo{person}{Wei Yang},
+  \bibinfo{person}{Daiting Shi}, \bibinfo{person}{Jiaxin Mao}, {and}
+  \bibinfo{person}{Dawei Yin}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \showarticletitle{{TourRank}: Utilizing Large Language Models for
+  Documents Ranking with a Tournament-Inspired Strategy}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the ACM Web Conference 2025}}.
+\newblock
+
+
+\bibitem[Cormack et~al\mbox{.}(2009)]%
+        {cormack2009reciprocal}
+\bibfield{author}{\bibinfo{person}{Gordon~V. Cormack}, \bibinfo{person}{Charles
+  L.~A. Clarke}, {and} \bibinfo{person}{Stefan Buettcher}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Reciprocal Rank Fusion Outperforms Condorcet and
+  Individual Rank Learning Methods}. In \bibinfo{booktitle}{\emph{Proceedings
+  of the 32nd International ACM SIGIR Conference on Research and Development in
+  Information Retrieval}}. \bibinfo{pages}{758--759}.
+\newblock
+
+
+\bibitem[Craswell et~al\mbox{.}(2021)]%
+        {craswell2021overview}
+\bibfield{author}{\bibinfo{person}{Nick Craswell}, \bibinfo{person}{Bhaskar
+  Mitra}, \bibinfo{person}{Emine Yilmaz}, {and} \bibinfo{person}{Daniel
+  Campos}.} \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Overview of the {TREC} 2020 Deep Learning Track}.
+  In \bibinfo{booktitle}{\emph{Proceedings of TREC 2020}}.
+\newblock
+
+
+\bibitem[Craswell et~al\mbox{.}(2020)]%
+        {craswell2020overview}
+\bibfield{author}{\bibinfo{person}{Nick Craswell}, \bibinfo{person}{Bhaskar
+  Mitra}, \bibinfo{person}{Emine Yilmaz}, \bibinfo{person}{Daniel Campos},
+  {and} \bibinfo{person}{Ellen~M. Voorhees}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Overview of the {TREC} 2019 Deep Learning Track}.
+  In \bibinfo{booktitle}{\emph{Proceedings of TREC 2019}}.
+\newblock
+
+
+\bibitem[Knuth(1997)]%
+        {knuth1997art}
+\bibfield{author}{\bibinfo{person}{Donald~E. Knuth}.}
+  \bibinfo{year}{1997}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{The Art of Computer Programming, Volume 3:
+  Sorting and Searching} (\bibinfo{edition}{2nd} ed.)}.
+\newblock \bibinfo{publisher}{Addison-Wesley}.
+\newblock
+
+
+\bibitem[Lin et~al\mbox{.}(2021)]%
+        {lin2021pyserini}
+\bibfield{author}{\bibinfo{person}{Jimmy Lin}, \bibinfo{person}{Xueguang Ma},
+  \bibinfo{person}{Sheng-Chieh Lin}, \bibinfo{person}{Jheng-Hong Yang},
+  \bibinfo{person}{Ronak Pradeep}, {and} \bibinfo{person}{Rodrigo Nogueira}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{Pyserini: A Python Toolkit for Reproducible
+  Information Retrieval Research with Sparse and Dense Representations}.
+\newblock \bibinfo{journal}{\emph{Proceedings of the 44th International ACM
+  SIGIR Conference on Research and Development in Information Retrieval}}
+  (\bibinfo{year}{2021}), \bibinfo{pages}{2356--2362}.
+\newblock
+
+
+\bibitem[Liu et~al\mbox{.}(2024)]%
+        {liu2024lost}
+\bibfield{author}{\bibinfo{person}{Nelson~F. Liu}, \bibinfo{person}{Kevin Lin},
+  \bibinfo{person}{John Hewitt}, \bibinfo{person}{Ashwin Paranjape},
+  \bibinfo{person}{Michele Bevilacqua}, \bibinfo{person}{Fabio Petroni}, {and}
+  \bibinfo{person}{Percy Liang}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Lost in the Middle: How Language Models Use Long
+  Contexts}.
+\newblock \bibinfo{journal}{\emph{Transactions of the Association for
+  Computational Linguistics}}  \bibinfo{volume}{12} (\bibinfo{year}{2024}),
+  \bibinfo{pages}{157--173}.
+\newblock
+
+
+\bibitem[Ma et~al\mbox{.}(2023)]%
+        {ma2023zero}
+\bibfield{author}{\bibinfo{person}{Xueguang Ma}, \bibinfo{person}{Xinyu Zhang},
+  \bibinfo{person}{Ronak Pradeep}, {and} \bibinfo{person}{Jimmy Lin}.}
+  \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{Zero-Shot Listwise Document Reranking with a Large
+  Language Model}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2305.02156}}
+  (\bibinfo{year}{2023}).
+\newblock
+
+
+\bibitem[Nogueira et~al\mbox{.}(2020)]%
+        {nogueira2020document}
+\bibfield{author}{\bibinfo{person}{Rodrigo Nogueira}, \bibinfo{person}{Zhiying
+  Jiang}, \bibinfo{person}{Ronak Pradeep}, {and} \bibinfo{person}{Jimmy Lin}.}
+  \bibinfo{year}{2020}\natexlab{}.
+\newblock \showarticletitle{Document Ranking with a Pretrained
+  Sequence-to-Sequence Model}.
+\newblock \bibinfo{journal}{\emph{Findings of the Association for Computational
+  Linguistics: EMNLP 2020}} (\bibinfo{year}{2020}), \bibinfo{pages}{708--718}.
+\newblock
+
+
+\bibitem[Podolak et~al\mbox{.}(2025)]%
+        {podolak2025beyond}
+\bibfield{author}{\bibinfo{person}{Jakub Podolak}, \bibinfo{person}{Leon
+  Peric}, \bibinfo{person}{Mina Janicijevic}, {and} \bibinfo{person}{Roxana
+  Petcu}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \showarticletitle{Beyond Reproducibility: Advancing Zero-shot {LLM}
+  Reranking Efficiency with Setwise Insertion}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 48th International ACM SIGIR
+  Conference on Research and Development in Information Retrieval}}.
+\newblock
+
+
+\bibitem[Pradeep et~al\mbox{.}(2021)]%
+        {pradeep2021expando}
+\bibfield{author}{\bibinfo{person}{Ronak Pradeep}, \bibinfo{person}{Rodrigo
+  Nogueira}, {and} \bibinfo{person}{Jimmy Lin}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{The Expando-Mono-Duo Design Pattern for Text
+  Ranking with Pretrained Sequence-to-Sequence Models}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2101.05667}}
+  (\bibinfo{year}{2021}).
+\newblock
+
+
+\bibitem[Qin et~al\mbox{.}(2024)]%
+        {qin2024large}
+\bibfield{author}{\bibinfo{person}{Zhen Qin}, \bibinfo{person}{Rolf Jagerman},
+  \bibinfo{person}{Kai Hui}, \bibinfo{person}{Honglei Zhuang},
+  \bibinfo{person}{Junru Wu}, \bibinfo{person}{Le Yan},
+  \bibinfo{person}{Jiaming Shen}, \bibinfo{person}{Tianqi Liu},
+  \bibinfo{person}{Jialu Liu}, \bibinfo{person}{Donald Metzler},
+  \bibinfo{person}{Xuanhui Wang}, {and} \bibinfo{person}{Michael Bendersky}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Large Language Models are Effective Text Rankers
+  with Pairwise Ranking Prompting}. In \bibinfo{booktitle}{\emph{Findings of
+  the Association for Computational Linguistics: NAACL 2024}}.
+  \bibinfo{pages}{1504--1518}.
+\newblock
+
+
+\bibitem[Sachan et~al\mbox{.}(2022)]%
+        {sachan2022improving}
+\bibfield{author}{\bibinfo{person}{Devendra~Singh Sachan},
+  \bibinfo{person}{Mike Lewis}, \bibinfo{person}{Mandar Joshi},
+  \bibinfo{person}{Armen Aghajanyan}, \bibinfo{person}{Wen-tau Yih},
+  \bibinfo{person}{Joelle Pineau}, {and} \bibinfo{person}{Luke Zettlemoyer}.}
+  \bibinfo{year}{2022}\natexlab{}.
+\newblock \showarticletitle{Improving Passage Retrieval with Zero-Shot Question
+  Generation}. In \bibinfo{booktitle}{\emph{Proceedings of the 2022 Conference
+  on Empirical Methods in Natural Language Processing}}.
+\newblock
+
+
+\bibitem[Sato(2026)]%
+        {sato2026survey}
+\bibfield{author}{\bibinfo{person}{Ryoma Sato}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \showarticletitle{A Survey on Sorting with Large Language Models}.
+\newblock \bibinfo{journal}{\emph{DPC Technical Report DPC-TR-2026-001}}
+  (\bibinfo{year}{2026}).
+\newblock
+
+
+\bibitem[Sun et~al\mbox{.}(2023)]%
+        {sun2023chatgpt}
+\bibfield{author}{\bibinfo{person}{Weiwei Sun}, \bibinfo{person}{Lingyong Yan},
+  \bibinfo{person}{Xinyu Ma}, \bibinfo{person}{Shuaiqiang Wang},
+  \bibinfo{person}{Pengjie Ren}, \bibinfo{person}{Zhumin Chen},
+  \bibinfo{person}{Dawei Yin}, {and} \bibinfo{person}{Zhaochun Ren}.}
+  \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{Is ChatGPT Good at Search? Investigating Large
+  Language Models as Re-Ranking Agents}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 2023 Conference on Empirical
+  Methods in Natural Language Processing}}. \bibinfo{pages}{14009--14026}.
+\newblock
+
+
+\bibitem[Tang et~al\mbox{.}(2024)]%
+        {tang2024found}
+\bibfield{author}{\bibinfo{person}{Raphael Tang}, \bibinfo{person}{Xinyu
+  Zhang}, \bibinfo{person}{Xueguang Ma}, \bibinfo{person}{Jimmy Lin}, {and}
+  \bibinfo{person}{Ferhan Ture}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Found in the Middle: Permutation Self-Consistency
+  Improves Listwise Ranking in Large Language Models}. In
+  \bibinfo{booktitle}{\emph{Findings of the Association for Computational
+  Linguistics: NAACL 2024}}. \bibinfo{pages}{511--524}.
+\newblock
+
+
+\bibitem[Wisznia et~al\mbox{.}(2025)]%
+        {wisznia2025optimal}
+\bibfield{author}{\bibinfo{person}{Oren Wisznia} {et~al\mbox{.}}}
+  \bibinfo{year}{2025}\natexlab{}.
+\newblock \showarticletitle{Are Optimal Algorithms Still Optimal? Rethinking
+  Sorting for {LLM}-based Pairwise Ranking}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2505.24643}}
+  (\bibinfo{year}{2025}).
+\newblock
+
+
+\bibitem[Zeng et~al\mbox{.}(2024)]%
+        {zeng2024llmrankfusion}
+\bibfield{author}{\bibinfo{person}{Yifan Zeng}, \bibinfo{person}{Ojas
+  Tendolkar}, \bibinfo{person}{Raymond Baartmans}, \bibinfo{person}{Qiufeng
+  Wu}, \bibinfo{person}{Liyu Chen}, {and} \bibinfo{person}{Huazheng Wang}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{{LLM-RankFusion}: Mitigating Intrinsic
+  Inconsistency in {LLM}-based Ranking}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2406.00231}}
+  (\bibinfo{year}{2024}).
+\newblock
+
+
+\bibitem[Zhang et~al\mbox{.}(2025)]%
+        {zhang2025rankwithoutgpt}
+\bibfield{author}{\bibinfo{person}{Xinyu Zhang}, \bibinfo{person}{Sebastian
+  Hofstatter}, \bibinfo{person}{Patrick Lewis}, \bibinfo{person}{Raphael Tang},
+  {and} \bibinfo{person}{Jimmy Lin}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \showarticletitle{Rank-without-{GPT}: Building {GPT}-Independent
+  Listwise Rerankers on Open-Source Large Language Models}.
+\newblock \bibinfo{journal}{\emph{Proceedings of the 47th European Conference
+  on Information Retrieval}} (\bibinfo{year}{2025}).
+\newblock
+
+
+\bibitem[Zhuang et~al\mbox{.}(2025)]%
+        {zhuang2025rankr1}
+\bibfield{author}{\bibinfo{person}{Shengyao Zhuang}, \bibinfo{person}{Xueguang
+  Ma}, \bibinfo{person}{Bevan Koopman}, \bibinfo{person}{Jimmy Lin}, {and}
+  \bibinfo{person}{Guido Zuccon}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \showarticletitle{{Rank-R1}: Enhancing Reasoning in {LLM}-based
+  Document Rerankers via Reinforcement Learning}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:2503.06034}}
+  (\bibinfo{year}{2025}).
+\newblock
+
+
+\bibitem[Zhuang et~al\mbox{.}(2024)]%
+        {zhuang2024setwise}
+\bibfield{author}{\bibinfo{person}{Shengyao Zhuang}, \bibinfo{person}{Honglei
+  Zhuang}, \bibinfo{person}{Bevan Koopman}, {and} \bibinfo{person}{Guido
+  Zuccon}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{A Setwise Approach for Effective and Highly
+  Efficient Zero-shot Ranking with Large Language Models}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 47th International ACM SIGIR
+  Conference on Research and Development in Information Retrieval}}.
+  \bibinfo{pages}{38--47}.
+\newblock
+
+
+\end{thebibliography}
