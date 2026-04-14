@@ -41,8 +41,24 @@
 \usepackage{algorithmic}
 \usepackage{xcolor}
 \usepackage{subcaption}
+\usepackage{placeins}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,decorations.pathreplacing}
+\setlength{\emergencystretch}{2em}
+
+% TeX Live 2026 + lineno v5.7 records ACL's two-column markers reversed in
+% review mode, which pushes line numbers into the center gutter. Re-emit the
+% column marker with the expected orientation so ACL's switch mode places line
+% numbers on the outer page margins.
+\makeatletter
+\@ifpackageloaded{lineno}{%
+  \AddToHook{build/column/before}{%
+    \protected@write\@auxout{}{%
+      \string\def\string\@LN@column{\if@firstcolumn2\else1\fi}%
+    }%
+  }%
+}{}
+\makeatother
 
 % Custom commands shared across sections
 \newcommand{\topdown}{\textsc{TopDown}}

@@ -65,7 +65,9 @@ The prompt change is minimal: only two words differ (``least'' vs. ``most''). Th
 
 We define a \emph{dual comparison function} $f_{\text{dual}}$ that simultaneously returns both the most and least relevant documents from a candidate set:
 \begin{equation}
-f_{\text{dual}}(q, S) = \left(\arg\max_{d \in S} \text{rel}(q,d),\; \arg\min_{d \in S} \text{rel}(q,d)\right)
+\resizebox{0.90\columnwidth}{!}{$
+f_{\text{dual}}(q, S) = \bigl(\arg\max_{d \in S} \text{rel}(q,d),\ \arg\min_{d \in S} \text{rel}(q,d)\bigr)
+$}
 \label{eq:fdual}
 \end{equation}
 

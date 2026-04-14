@@ -18,6 +18,7 @@ The key idea is to alternate between two types of passes:
 \begin{algorithm}[!htbp]
 \caption{Cocktail Shaker Sort for Dual-End Setwise}
 \label{alg:cocktail}
+\scriptsize
 \begin{algorithmic}[1]
 \REQUIRE Documents $D[0..n{-}1]$, query $q$, top-$k$, window size $c{+}1$
 \STATE $t \leftarrow 0$ \COMMENT{Top sorted boundary}
@@ -54,6 +55,7 @@ This algorithm takes a more aggressive approach: in each round, it finds the \em
 \begin{algorithm}[!htbp]
 \caption{Double-Ended Selection Sort}
 \label{alg:deselection}
+\scriptsize
 \begin{algorithmic}[1]
 \REQUIRE Documents $D[0..n{-}1]$, query $q$, top-$k$, group size $c{+}1$
 \STATE $t \leftarrow 0$; $b \leftarrow n-1$
