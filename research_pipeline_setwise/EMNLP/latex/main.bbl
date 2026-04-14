@@ -1,0 +1,174 @@
+\begin{thebibliography}{23}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Agrawal et~al.(2026)}]{blitzrank2026}
+Aman Agrawal and 1 others. 2026.
+\newblock {BlitzRank}: Principled zero-shot ranking agents with tournament
+  graphs.
+\newblock \emph{arXiv preprint arXiv:2602.05448}.
+
+\bibitem[{Chen et~al.(2025)Chen, Liu, Zhang, Sun, Ma, Yang, Shi, Mao, and
+  Yin}]{chen2025tourrank}
+Yiqun Chen, Qi~Liu, Yi~Zhang, Weiwei Sun, Xinyu Ma, Wei Yang, Daiting Shi,
+  Jiaxin Mao, and Dawei Yin. 2025.
+\newblock {TourRank}: Utilizing large language models for documents ranking
+  with a tournament-inspired strategy.
+\newblock In \emph{Proceedings of the ACM Web Conference 2025}.
+
+\bibitem[{Cormack et~al.(2009)Cormack, Clarke, and
+  Buettcher}]{cormack2009reciprocal}
+Gordon~V. Cormack, Charles L.~A. Clarke, and Stefan Buettcher. 2009.
+\newblock Reciprocal rank fusion outperforms condorcet and individual rank
+  learning methods.
+\newblock In \emph{Proceedings of the 32nd International ACM SIGIR Conference
+  on Research and Development in Information Retrieval}, pages 758--759.
+
+\bibitem[{Craswell et~al.(2021)Craswell, Mitra, Yilmaz, and
+  Campos}]{craswell2021overview}
+Nick Craswell, Bhaskar Mitra, Emine Yilmaz, and Daniel Campos. 2021.
+\newblock Overview of the {TREC} 2020 deep learning track.
+\newblock In \emph{Proceedings of TREC 2020}.
+
+\bibitem[{Craswell et~al.(2020)Craswell, Mitra, Yilmaz, Campos, and
+  Voorhees}]{craswell2020overview}
+Nick Craswell, Bhaskar Mitra, Emine Yilmaz, Daniel Campos, and Ellen~M.
+  Voorhees. 2020.
+\newblock Overview of the {TREC} 2019 deep learning track.
+\newblock In \emph{Proceedings of TREC 2019}.
+
+\bibitem[{Knuth(1997)}]{knuth1997art}
+Donald~E. Knuth. 1997.
+\newblock \emph{The Art of Computer Programming, Volume 3: Sorting and
+  Searching}, 2nd edition.
+\newblock Addison-Wesley.
+
+\bibitem[{Lin et~al.(2021)Lin, Ma, Lin, Yang, Pradeep, and
+  Nogueira}]{lin2021pyserini}
+Jimmy Lin, Xueguang Ma, Sheng-Chieh Lin, Jheng-Hong Yang, Ronak Pradeep, and
+  Rodrigo Nogueira. 2021.
+\newblock Pyserini: A python toolkit for reproducible information retrieval
+  research with sparse and dense representations.
+\newblock \emph{Proceedings of the 44th International ACM SIGIR Conference on
+  Research and Development in Information Retrieval}, pages 2356--2362.
+
+\bibitem[{Liu et~al.(2024)Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and
+  Liang}]{liu2024lost}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua,
+  Fabio Petroni, and Percy Liang. 2024.
+\newblock Lost in the middle: How language models use long contexts.
+\newblock \emph{Transactions of the Association for Computational Linguistics},
+  12:157--173.
+
+\bibitem[{Ma et~al.(2023)Ma, Zhang, Pradeep, and Lin}]{ma2023zero}
+Xueguang Ma, Xinyu Zhang, Ronak Pradeep, and Jimmy Lin. 2023.
+\newblock Zero-shot listwise document reranking with a large language model.
+\newblock \emph{arXiv preprint arXiv:2305.02156}.
+
+\bibitem[{Nogueira et~al.(2020)Nogueira, Jiang, Pradeep, and
+  Lin}]{nogueira2020document}
+Rodrigo Nogueira, Zhiying Jiang, Ronak Pradeep, and Jimmy Lin. 2020.
+\newblock Document ranking with a pretrained sequence-to-sequence model.
+\newblock \emph{Findings of the Association for Computational Linguistics:
+  EMNLP 2020}, pages 708--718.
+
+\bibitem[{Podolak et~al.(2025)Podolak, Peric, Janicijevic, and
+  Petcu}]{podolak2025beyond}
+Jakub Podolak, Leon Peric, Mina Janicijevic, and Roxana Petcu. 2025.
+\newblock Beyond reproducibility: Advancing zero-shot {LLM} reranking
+  efficiency with setwise insertion.
+\newblock In \emph{Proceedings of the 48th International ACM SIGIR Conference
+  on Research and Development in Information Retrieval}.
+
+\bibitem[{Pradeep et~al.(2021)Pradeep, Nogueira, and Lin}]{pradeep2021expando}
+Ronak Pradeep, Rodrigo Nogueira, and Jimmy Lin. 2021.
+\newblock The expando-mono-duo design pattern for text ranking with pretrained
+  sequence-to-sequence models.
+\newblock \emph{arXiv preprint arXiv:2101.05667}.
+
+\bibitem[{Qin et~al.(2024)Qin, Jagerman, Hui, Zhuang, Wu, Yan, Shen, Liu, Liu,
+  Metzler, Wang, and Bendersky}]{qin2024large}
+Zhen Qin, Rolf Jagerman, Kai Hui, Honglei Zhuang, Junru Wu, Le~Yan, Jiaming
+  Shen, Tianqi Liu, Jialu Liu, Donald Metzler, Xuanhui Wang, and Michael
+  Bendersky. 2024.
+\newblock Large language models are effective text rankers with pairwise
+  ranking prompting.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  NAACL 2024}, pages 1504--1518.
+
+\bibitem[{Sachan et~al.(2022)Sachan, Lewis, Joshi, Aghajanyan, Yih, Pineau, and
+  Zettlemoyer}]{sachan2022improving}
+Devendra~Singh Sachan, Mike Lewis, Mandar Joshi, Armen Aghajanyan, Wen-tau Yih,
+  Joelle Pineau, and Luke Zettlemoyer. 2022.
+\newblock Improving passage retrieval with zero-shot question generation.
+\newblock In \emph{Proceedings of the 2022 Conference on Empirical Methods in
+  Natural Language Processing}.
+
+\bibitem[{Sato(2026)}]{sato2026survey}
+Ryoma Sato. 2026.
+\newblock A survey on sorting with large language models.
+\newblock \emph{DPC Technical Report DPC-TR-2026-001}.
+
+\bibitem[{Sun et~al.(2023)Sun, Yan, Ma, Wang, Ren, Chen, Yin, and
+  Ren}]{sun2023chatgpt}
+Weiwei Sun, Lingyong Yan, Xinyu Ma, Shuaiqiang Wang, Pengjie Ren, Zhumin Chen,
+  Dawei Yin, and Zhaochun Ren. 2023.
+\newblock Is chatgpt good at search? investigating large language models as
+  re-ranking agents.
+\newblock In \emph{Proceedings of the 2023 Conference on Empirical Methods in
+  Natural Language Processing}, pages 14009--14026.
+
+\bibitem[{Tang et~al.(2024)Tang, Zhang, Ma, Lin, and Ture}]{tang2024found}
+Raphael Tang, Xinyu Zhang, Xueguang Ma, Jimmy Lin, and Ferhan Ture. 2024.
+\newblock Found in the middle: Permutation self-consistency improves listwise
+  ranking in large language models.
+\newblock In \emph{Findings of the Association for Computational Linguistics:
+  NAACL 2024}, pages 511--524.
+
+\bibitem[{Thakur et~al.(2021)Thakur, Reimers, R{\"u}ckl{\'e}, Srivastava, and
+  Gurevych}]{thakur2021beir}
+Nandan Thakur, Nils Reimers, Andreas R{\"u}ckl{\'e}, Abhishek Srivastava, and
+  Iryna Gurevych. 2021.
+\newblock {BEIR}: A heterogeneous benchmark for zero-shot evaluation of
+  information retrieval models.
+\newblock In \emph{Proceedings of the 35th Conference on Neural Information
+  Processing Systems Datasets and Benchmarks Track}.
+
+\bibitem[{Wisznia et~al.(2025)}]{wisznia2025optimal}
+Oren Wisznia and 1 others. 2025.
+\newblock Are optimal algorithms still optimal? rethinking sorting for
+  {LLM}-based pairwise ranking.
+\newblock \emph{arXiv preprint arXiv:2505.24643}.
+
+\bibitem[{Zeng et~al.(2024)Zeng, Tendolkar, Baartmans, Wu, Chen, and
+  Wang}]{zeng2024llmrankfusion}
+Yifan Zeng, Ojas Tendolkar, Raymond Baartmans, Qiufeng Wu, Liyu Chen, and
+  Huazheng Wang. 2024.
+\newblock {LLM-RankFusion}: Mitigating intrinsic inconsistency in {LLM}-based
+  ranking.
+\newblock \emph{arXiv preprint arXiv:2406.00231}.
+
+\bibitem[{Zhang et~al.(2025)Zhang, Hofstatter, Lewis, Tang, and
+  Lin}]{zhang2025rankwithoutgpt}
+Xinyu Zhang, Sebastian Hofstatter, Patrick Lewis, Raphael Tang, and Jimmy Lin.
+  2025.
+\newblock Rank-without-{GPT}: Building {GPT}-independent listwise rerankers on
+  open-source large language models.
+\newblock \emph{Proceedings of the 47th European Conference on Information
+  Retrieval}.
+
+\bibitem[{Zhuang et~al.(2025)Zhuang, Ma, Koopman, Lin, and
+  Zuccon}]{zhuang2025rankr1}
+Shengyao Zhuang, Xueguang Ma, Bevan Koopman, Jimmy Lin, and Guido Zuccon. 2025.
+\newblock {Rank-R1}: Enhancing reasoning in {LLM}-based document rerankers via
+  reinforcement learning.
+\newblock \emph{arXiv preprint arXiv:2503.06034}.
+
+\bibitem[{Zhuang et~al.(2024)Zhuang, Zhuang, Koopman, and
+  Zuccon}]{zhuang2024setwise}
+Shengyao Zhuang, Honglei Zhuang, Bevan Koopman, and Guido Zuccon. 2024.
+\newblock A setwise approach for effective and highly efficient zero-shot
+  ranking with large language models.
+\newblock In \emph{Proceedings of the 47th International ACM SIGIR Conference
+  on Research and Development in Information Retrieval}, pages 38--47.
+
+\end{thebibliography}

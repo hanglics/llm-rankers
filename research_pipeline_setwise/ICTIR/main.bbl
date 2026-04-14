@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{22}
+\begin{thebibliography}{23}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -240,6 +240,19 @@
   Improves Listwise Ranking in Large Language Models}. In
   \bibinfo{booktitle}{\emph{Findings of the Association for Computational
   Linguistics: NAACL 2024}}. \bibinfo{pages}{511--524}.
+\newblock
+
+
+\bibitem[Thakur et~al\mbox{.}(2021)]%
+        {thakur2021beir}
+\bibfield{author}{\bibinfo{person}{Nandan Thakur}, \bibinfo{person}{Nils
+  Reimers}, \bibinfo{person}{Andreas R{\"u}ckl{\'e}}, \bibinfo{person}{Abhishek
+  Srivastava}, {and} \bibinfo{person}{Iryna Gurevych}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \showarticletitle{{BEIR}: A Heterogeneous Benchmark for Zero-shot
+  Evaluation of Information Retrieval Models}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 35th Conference on Neural
+  Information Processing Systems Datasets and Benchmarks Track}}.
 \newblock
 
 

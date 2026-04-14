@@ -1,0 +1,133 @@
+% =============================================================================
+\section{Sorting Algorithms for Dual-End Comparisons}
+\label{sec:algorithms}
+% =============================================================================
+
+Standard heapsort and bubblesort are designed for single-output comparators that return one winner per call. To fully leverage $f_{\text{dual}}$, which returns \emph{two} outputs per call, we need algorithms that can exploit both the best and worst information simultaneously. We introduce two such algorithms and then describe a refinement package built on top of them.
+
+\subsection{Cocktail Shaker Sort}
+
+Cocktail shaker sort (also known as bidirectional bubble sort or cocktail sort) is a well-known variant of bubble sort in classical computer science~\citep{knuth1997art}. We adapt it for LLM-based ranking with dual-end comparisons.
+
+The key idea is to alternate between two types of passes:
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Backward pass} (bottom $\to$ top): A sliding window moves from the bottom of the unsorted region toward the top. In each window, $f_{\text{dual}}$ identifies both the best and worst documents. The best is moved to the front of the window (bubbling up), while the worst is moved to the back (sinking down).
+\item \textbf{Forward pass} (top $\to$ bottom): The window slides in the opposite direction, from the top of the unsorted region toward the bottom. Again, $f_{\text{dual}}$ identifies both extremes, with the worst sinking down as the primary operation and the best bubbling up as a bonus.
+\end{enumerate}
+
+\begin{algorithm}[!htbp]
+\caption{Cocktail Shaker Sort for Dual-End Setwise}
+\label{alg:cocktail}
+\begin{algorithmic}[1]
+\REQUIRE Documents $D[0..n{-}1]$, query $q$, top-$k$, window size $c{+}1$
+\STATE $t \leftarrow 0$ \COMMENT{Top sorted boundary}
+\STATE $b \leftarrow n$ \COMMENT{Bottom unsorted boundary}
+\WHILE{$t < k$}
+    \STATE \textbf{// Backward pass: bubble best to position $t$}
+    \FOR{window $W$ from position $b{-}c{-}1$ down to $t$}
+        \STATE $(best, worst) \leftarrow f_{\text{dual}}(q, W)$
+        \STATE Move $best$ to front of $W$; move $worst$ to back of $W$
+    \ENDFOR
+    \STATE $t \leftarrow t + 1$; $b \leftarrow b - 1$
+    \IF{$t < k$}
+        \STATE \textbf{// Forward pass: sink worst to position $b{-}1$}
+        \FOR{window $W$ from position $t$ up to $b{-}1$}
+            \STATE $(best, worst) \leftarrow f_{\text{dual}}(q, W)$
+            \STATE Move $worst$ to back of $W$; move $best$ to front of $W$
+        \ENDFOR
+        \STATE $b \leftarrow b - 1$
+    \ENDIF
+\ENDWHILE
+\RETURN $D[0..k{-}1]$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Swap handling}: When both the best and worst need to be repositioned within the same window, care must be taken to avoid interference. We handle three cases: (1) if best is at the back and worst is at the front, a single swap suffices; (2) otherwise, move the primary element first (best for backward passes, worst for forward passes), then adjust the secondary element's index if it was displaced by the first swap.
+
+\textbf{Complexity}: Each backward pass consists of $\lceil(b-t)/c\rceil$ dual comparisons, and each forward pass is similar. In each iteration of the while loop, the sorted region grows by 1 at the top (from the backward pass) and potentially by 1 at the bottom (from the forward pass sinking the worst). Thus, each iteration sorts up to 2 elements using roughly $2 \cdot \lceil(b-t)/c\rceil$ dual comparisons. For top-$k$ ranking, we need at most $k$ backward passes (the forward passes are bonus), giving $O(kn/c)$ dual comparisons---the same asymptotic count as standard bubblesort, but each comparison also produces bottom-ranking information.
+
+
+\subsection{Double-Ended Selection Sort}
+
+This algorithm takes a more aggressive approach: in each round, it finds the \emph{global} best and worst among all unsorted documents, placing one at the next top position and the other at the next bottom position.
+
+\begin{algorithm}[!htbp]
+\caption{Double-Ended Selection Sort}
+\label{alg:deselection}
+\begin{algorithmic}[1]
+\REQUIRE Documents $D[0..n{-}1]$, query $q$, top-$k$, group size $c{+}1$
+\STATE $t \leftarrow 0$; $b \leftarrow n-1$
+\WHILE{$t < k \land t < b$}
+    \STATE \textbf{// Phase 1: Group comparisons}
+    \STATE Divide $D[t..b]$ into groups of size $\leq c{+}1$
+    \FOR{each group $G$}
+        \STATE $(best_G, worst_G) \leftarrow f_{\text{dual}}(q, G)$
+    \ENDFOR
+    \STATE \textbf{// Phase 2: Winner and loser tournaments}
+    \STATE $d^* \leftarrow$ tournament among group $best_G$'s using $f_{\text{best}}$
+    \STATE $d_\bot \leftarrow$ tournament among group $worst_G$'s using $f_{\text{worst}}$
+    \STATE Place $d^*$ at position $t$; place $d_\bot$ at position $b$
+    \STATE $t \leftarrow t + 1$; $b \leftarrow b - 1$
+\ENDWHILE
+\RETURN $D[0..k{-}1]$
+\end{algorithmic}
+\end{algorithm}
+
+Each round has two phases. In Phase 1, the unsorted documents are divided into groups of size $c+1$, and $f_{\text{dual}}$ is called on each group to identify local winners and losers. In Phase 2, the group winners compete in a secondary tournament using $f_{\text{best}}$ to find the global best, and group losers compete using $f_{\text{worst}}$ to find the global worst. Both are placed at their respective positions, and the unsorted region shrinks by 2.
+
+\textbf{Complexity}: Let $n' = b - t + 1$ be the current unsorted size. Phase 1 requires $\lceil n'/(c+1) \rceil$ dual comparisons. Phase 2 requires at most $2 \cdot \lceil g/(c+1) \rceil$ single comparisons where $g = \lceil n'/(c+1) \rceil$ is the number of groups. Each round places 2 elements, so $\lceil k/2 \rceil$ rounds suffice. For $k=10$, $n=100$, $c=3$: roughly $\sim$25 group dual-comparisons + $\sim$14 single tournament comparisons per round, $\sim$195 comparisons total over 5 rounds. This exceeds standard heapsort ($\sim$130) but extracts richer information per round and naturally produces bottom-ranking as a byproduct.
+
+
+\subsection{Refinement Variants}
+\label{sec:refinement}
+
+The Pareto analysis in \S\ref{sec:pareto} shows that the global mean comparison- and token-frontier in our setting contains only \topdown{}-Heap, \topdown{}-Bubble, and \dualend{}-Cocktail. \topdown{}-Heap is the cheap anchor, \topdown{}-Bubble is the strongest middle-cost anchor, and \dualend{}-Cocktail is the quality-first anchor. This identifies a clear refinement target: a method that sits \emph{between} \topdown{}-Bubble and \dualend{}-Cocktail. We implement three such refinements as runnable code paths in the \texttt{llm-rankers} fork.
+
+\textbf{Selective DualEnd.} A TopDown sort that upgrades to same-call best-worst prompting only on routed windows, and otherwise issues a standard single-output prompt. We support three gating strategies: (i) shortlist routing (only windows that overlap the current top-$k$ shortlist), (ii) query-locally uncertain routing (only windows whose BM25 score spread exceeds a query-local percentile threshold over sliding windows in the original ranking), and (iii) the union of the two. For the heapsort variant we disable shortlist routing because heap nodes are not stable rank positions, and use uncertainty routing only.
+
+\textbf{Bias-aware DualEnd.} An order-robust DualEnd variant motivated directly by the reversed dual\_worst pattern (\S\ref{sec:bias}). On gated hard windows, we run a small set of controlled orderings (base, reversed, and a label-shifted variant) and majority-vote the dual labels back into the original window order. Off the gated path, we run a single ordering. We restrict bias-aware DualEnd to the bubblesort/cocktail and selection drivers because the heap traversal does not exercise the order-robust joint prompt path.
+
+\textbf{Same-call worst-signal regularization.} A head-focused TopDown pass that uses the same-call worst output only as a local negative constraint. We promote best as usual; we only push worst locally to the back when the candidate is already outside the protected ranking head frontier (top-$k$ plus one active window). This avoids full backward DualEnd passes while still consuming the worst signal that the dual prompt produces ``for free'' in the same call.
+
+These three variants share the same gating infrastructure (query-local BM25 spread percentiles, configurable shortlist overlap) and expose method-level counters (dual invocations, single invocations, order-robust windows, extra orderings, regularized worst moves) so they can be audited as method behavior rather than as black-box NDCG numbers. We use them in this paper as motivated by the analysis in \S\ref{sec:analysis} but reserve the full empirical evaluation of these variants for follow-up work, since the paper's headline question is about asymmetry rather than about routing strategy tuning.
+
+
+\subsection{Information-Theoretic Analysis}
+\label{sec:information}
+
+We quantify the ``information efficiency'' of each comparison strategy by computing the Shannon entropy of the ranking information extracted per LLM call. For a uniform prior over $m$ candidates:
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{Best-only} ($f_{\text{best}}$): Identifying 1 of $m$ candidates yields $\log_2(m)$ bits.
+\item \textbf{Worst-only} ($f_{\text{worst}}$): Same as best-only: $\log_2(m)$ bits.
+\item \textbf{Dual-end} ($f_{\text{dual}}$): Identifying the best from $m$, \emph{then} the worst from the remaining $m-1$, yields $\log_2(m) + \log_2(m-1) = \log_2\bigl(m(m-1)\bigr)$ bits.
+\item \textbf{Full ranking} (listwise): Identifying a complete ranking of $m$ candidates yields $\log_2(m!)$ bits.
+\end{itemize}
+
+Table~\ref{tab:infobits} shows the information per call and per token for different window sizes. The key observation is that dual-end achieves $\sim$$74$--$90$\% more information per call at only $\sim$2.5\% more tokens, yielding dramatically higher \emph{information per token}.
+
+\begin{table}[!htbp]
+\caption{Information extracted per LLM call for different comparison strategies. Token overhead calculated for passages of 128 tokens.}
+\label{tab:infobits}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Strategy} & \textbf{Bits/call} & \textbf{$\Delta$Tokens} & \textbf{Bits/token} \\
+\midrule
+\multicolumn{4}{l}{\textit{Window size $m=4$ ($c=3$)}} \\
+Best-only & 2.00 & 0 & baseline \\
+Worst-only & 2.00 & 0 & baseline \\
+Dual-end & 3.58 & +25 & $+74$\% \\
+\midrule
+\multicolumn{4}{l}{\textit{Window size $m=6$ ($c=5$)}} \\
+Best-only & 2.58 & 0 & baseline \\
+Dual-end & 4.91 & +25 & $+87$\% \\
+\midrule
+\multicolumn{4}{l}{\textit{Window size $m=8$ ($c=7$)}} \\
+Best-only & 3.00 & 0 & baseline \\
+Dual-end & 5.81 & +25 & $+90$\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This analysis assumes the LLM's selections are accurate. In practice, the LLM may have different accuracy for best-selection versus worst-selection, which affects the \emph{effective} information per call. As we will see, standalone worst-selection is dominated by recency bias, while joint best-worst elicitation produces a different positional pattern entirely. We measure the empirical effect on ranking quality in \S\ref{sec:rq2} and on bias structure in \S\ref{sec:bias}.

@@ -1,1 +1,26 @@
-\section{Limitation}
+% =============================================================================
+\section*{Limitations}
+\label{sec:limitations}
+% =============================================================================
+
+Our approach has several limitations that should be acknowledged.
+
+\textbf{Statistical fragility on small TREC DL test sets.} With 43 (DL19) and 54 (DL20) queries, only one DualEnd configuration (Qwen3-4B DL19) survives Bonferroni correction with $p_\text{Bonf}=0.010$. The remaining 13 positive DualEnd configurations are directionally consistent but cannot be claimed as significant on these query budgets. By contrast, the negative results---6 Bonferroni-significant BottomUp losses and 3 BiDir losses---are statistically more robust. We therefore frame the headline contribution as ``directional asymmetry'' rather than ``DualEnd is universally significantly better.''
+
+\textbf{Efficiency of bottom-up for top-$k$.} \bottomup{} requires $\sim$$n-1$ extractions for top-$k$ ranking, making it $\sim$$3.5\times$ more expensive than \topdown{}-Heap when $k=10$, $n=100$ (and \bottomup{}-Bubble is more than $20\times$ more expensive). This limits its use as a standalone method; it is primarily valuable as a diagnostic tool for the directional asymmetry argument.
+
+\textbf{DualEnd cost.} \dualend{}-Cocktail uses about $7\times$ more comparisons than \topdown{}-Heap and about $1.7\times$ more than \topdown{}-Bubble. The token-level overhead is similar. We do not claim end-to-end efficiency gains; we claim more useful bits per call. The Pareto analysis in \S\ref{sec:pareto} shows that the global mean frontier contains only \topdown{}-Heap, \topdown{}-Bubble, and \dualend{}-Cocktail, and this is the right way to read the cost story.
+
+\textbf{Likelihood for worst-related signals remains heuristic.} For Flan-T5 we use direct logits over single-character labels. For Qwen3/Qwen3.5 we use a teacher-forced short-answer scheme (\texttt{Passage A}, etc.) that is robust to causal tokenization. For \emph{dual-end} likelihood we reuse the best-only distribution and take its maximum and minimum as the best/worst outputs. This is useful as an efficiency probe and matches the heuristic Flan-T5 path, but it is not an exact likelihood model of the full ``Best: X, Worst: Y'' string. The same caveat applies to the routed joint-signal refinements in \S\ref{sec:refinement} whenever they enter their joint-signal path under \texttt{--scoring likelihood}.
+
+\textbf{Parsing fragility.} Dual-end generation requires the LLM to produce structured output with two labels. While our cascading parser handles most formats, the success rate varies across models. Models that tend to produce verbose explanations rather than concise labels may have lower parsing success rates. The worst case in our experiments is Qwen3-14B on DL 2020 with a 0.9\% partial parse rate (handled by heuristic defaults).
+
+\textbf{Model dependence.} Our experiments cover three architecture families (encoder-decoder, decoder-only, and hybrid causal) and nine models ranging from 780M to 27B parameters. Results may differ for larger models (e.g., 70B+) or API-based models (GPT-4, Claude), which may have stronger format-following abilities and different position bias patterns.
+
+\textbf{Dataset scope.} Our headline results come from TREC DL 2019/2020. We are also running a representative BEIR subset on Flan-T5-XL, Qwen3-8B, and Qwen3.5-9B; those runs are still completing and will be folded into the camera-ready version. All current benchmarks use relatively short passages, and performance on longer documents or domain-specific corpora with very long documents remains to be validated.
+
+\textbf{Refinement variants are implemented but not yet fully evaluated.} The Selective DualEnd, bias-aware DualEnd, and same-call worst-signal regularization variants in \S\ref{sec:refinement} are runnable code paths in our \texttt{llm-rankers} fork, with their own logged counters. We use them in this paper as a motivated next-step package rather than as a primary empirical contribution; their full evaluation is reserved for follow-up work.
+
+\textbf{Single re-ranking depth.} All experiments re-rank BM25 top-100 with $k=10$. Sensitivity to initial retrieval quality and re-ranking depth (top-50, top-200) is not evaluated.
+
+\textbf{No cross-paradigm comparison.} We compare only within the setwise paradigm. A broader comparison against listwise (RankGPT, \citealp{sun2023chatgpt}) and pairwise (PRP, \citealp{qin2024large}) methods on the same models would contextualize the absolute performance levels, but is out of scope here.

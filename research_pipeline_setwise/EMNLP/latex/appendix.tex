@@ -1,4 +1,14 @@
-\section{Appendix}
+\section{Additional Implementation Details}
 \label{sec:appendix}
 
-This is an appendix.
+\subsection{Reproducibility}
+
+All experiments use the open-source \texttt{llm-rankers} framework~\citep{zhuang2024setwise}, extended with our \texttt{BottomUpSetwiseLlmRanker}, \texttt{DualEndSetwiseLlmRanker}, and \texttt{BidirectionalEnsembleRanker} classes, plus three refinement variants (\texttt{SelectiveDualEndSetwiseLlmRanker}, \texttt{BiasAwareDualEndSetwiseLlmRanker}, \texttt{SameCallRegularizedSetwiseLlmRanker}). The codebase exposes per-method counters (dual invocations, single invocations, order-robust windows, extra orderings, regularized worst moves) so each method can be audited as behavior rather than as a black box. All runs use \texttt{num\_child}$=3$, $k=10$, hits$=100$, BM25 first-stage retrieval via Pyserini~\citep{lin2021pyserini}, and a single NVIDIA H100 80GB GPU. Random seeds are fixed via the \texttt{random.seed(929)} call in both \texttt{setwise.py} and \texttt{setwise\_extended.py} for reproducibility.
+
+\subsection{Significance Testing Procedure}
+
+For each model--dataset configuration we read per-query \texttt{ndcg\_cut\_10} values directly from the saved \texttt{.eval} files. For each challenger family (DualEnd, BottomUp, BiDir) we compare its best variant against the best TopDown baseline for the same configuration. The test is two-sided paired approximate randomization with $100{,}000$ samples; uncertainty is reported as a paired bootstrap 95\% confidence interval over the mean delta with $20{,}000$ resamples; multiple-testing control is Bonferroni within each challenger family across the 18 TREC DL configurations. Per-configuration verdicts are summarized in the main text and listed in full in our supplementary \texttt{SIGNIFICANCE\_TESTS} artifact.
+
+\subsection{Position Bias Logging}
+
+For the position bias analysis (\S\ref{sec:bias}) the comparator records the selected label for every comparison along with its type (\texttt{best}, \texttt{worst}, \texttt{dual\_best}, \texttt{dual\_worst}) and the candidate window. This produces approximately 170K typed observations per model on TREC DL 2019. The per-position frequencies in Table~\ref{tab:posD} are computed over these logs after stripping any comparisons that fall outside the documented prompt template (e.g., comparisons whose window has fewer than $c+1=4$ candidates due to boundary effects).
