@@ -29,35 +29,35 @@
 
 The paper addresses three research questions. Every experiment must map to at least one RQ.
 
-| RQ | Question | Key Tables/Figures |
-|----|----------|--------------------|
-| **RQ1** | Does bottom-up (worst) selection achieve different effectiveness than top-down (best) selection? | Tab 1 (main), Tab 6 (difficulty), Position bias analysis |
-| **RQ2** | Does dual-end selection improve effectiveness enough to justify its extra compute cost, and can that quality-cost tradeoff be improved? | Tab 1, Tab 3 (efficiency), Tab 4 (num_child ablation) |
-| **RQ3** | Does bidirectional ensemble improve over individual methods? | Tab 1, Tab 5 (alpha ablation), Permutation voting comparison |
+| RQ      | Question                                                                                                                                | Key Tables/Figures                                           |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| **RQ1** | Does bottom-up (worst) selection achieve different effectiveness than top-down (best) selection?                                        | Tab 1 (main), Tab 6 (difficulty), Position bias analysis     |
+| **RQ2** | Does dual-end selection improve effectiveness enough to justify its extra compute cost, and can that quality-cost tradeoff be improved? | Tab 1, Tab 3 (efficiency), Tab 4 (num_child ablation)        |
+| **RQ3** | Does bidirectional ensemble improve over individual methods?                                                                            | Tab 1, Tab 5 (alpha ablation), Permutation voting comparison |
 
 ---
 
 ## 2. Audit Summary: Paper vs. Code Gaps
 
-### Critical Misalignments Found
+### Critical Misalignment Found
 
-| Issue | Paper Says | Code/Scripts Say | Impact | Status |
-|-------|-----------|-----------------|--------|--------|
-| **Models** | Flan-T5-XL/XXL, Vicuna | SLURM defaults to Qwen3-4B | **HIGH** | ✅ Plan updated: use 9 models (3 T5, 3 Qwen3, 3 Qwen3.5) |
-| **passage_length** | 128 tokens | Scripts use 512 | **HIGH** | ✅ Plan clarifies: **128 for T5** (matches original paper), 512 for Qwen; ablation added |
-| **Likelihood scoring** | Tab 1 has likelihood rows | No script | **HIGH** | ✅ `run_likelihood.sh` created |
-| **Permutation voting** | §5.3 compares BiDir vs. p=2 | No script | **HIGH** | ✅ `run_permvote_p2.sh` created |
-| **num_child ablation** | Tab 4 tests c∈{2,3,5,7} | Not scripted | **MEDIUM** | ✅ `run_ablation_nc.sh` created |
-| **Alpha ablation** | Tab 5 tests α∈{0.3,0.5,0.7,0.9} | Only α=0.7 | **MEDIUM** | ✅ `run_ablation_alpha.sh` created |
-| **Passage length ablation** | Not in paper yet | Not scripted | **MEDIUM** | ✅ `run_ablation_passage_length.sh` created; paper update needed |
-| **CombSUM fusion** | §5.3 mentions CombSUM | Not scripted | **LOW** | ✅ Included in `run_ablation_alpha.sh` |
-| **MAP@100 metric** | §4.1 says "also report MAP@100" | Eval only does NDCG@10 | **LOW** | ✅ `eval_all.sh` includes MAP@100 |
-| **BM25 baseline** | Tab 1 has BM25 row | Not computed | **LOW** | ✅ Phase 0 instructions added |
-| **Position bias analysis** | §5.4 detailed analysis | No logging code | **HIGH** | ⚠️ Requires code changes (Phase 4) |
-| **Query difficulty analysis** | Tab 6 stratified by difficulty | No analysis code | **MEDIUM** | ✅ `analysis/query_difficulty.py` created |
-| **BottomUp bubblesort bug** | Top-k should be sorted | Top-k was UNSORTED (n-k passes only) | **CRITICAL** | ✅ Fixed 2026-03-29: now does n-1 passes for full sort |
-| **BottomUp heapsort mixed prompts** | BottomUp should only use "worst" | Used "best" prompts for top-k sort phase | **HIGH** | ✅ Fixed 2026-03-29: now uses min-heap extraction throughout |
-| **BottomUp compare_worst no logging** | Should log for position bias | `compare_worst` had `pass` instead of logging | **HIGH** | ✅ Fixed 2026-03-29: now logs as `type="worst"` |
+| Issue                                 | Paper Says                       | Code/Scripts Say                              | Impact       | Status                                                                                  |
+|---------------------------------------|----------------------------------|-----------------------------------------------|--------------|-----------------------------------------------------------------------------------------|
+| **Models**                            | Flan-T5-XL/XXL, Vicuna           | SLURM defaults to Qwen3-4B                    | **HIGH**     | ✅ Plan updated: use 9 models (3 T5, 3 Qwen3, 3 Qwen3.5)                                 |
+| **passage_length**                    | 128 tokens                       | Scripts use 512                               | **HIGH**     | ✅ Plan clarifies: **128 for T5** (matches original paper), 512 for Qwen; ablation added |
+| **Likelihood scoring**                | Tab 1 has likelihood rows        | No script                                     | **HIGH**     | ✅ `run_likelihood.sh` created                                                           |
+| **Permutation voting**                | §5.3 compares BiDir vs. p=2      | No script                                     | **HIGH**     | ✅ `run_permvote_p2.sh` created                                                          |
+| **num_child ablation**                | Tab 4 tests c∈{2,3,5,7}          | Not scripted                                  | **MEDIUM**   | ✅ `run_ablation_nc.sh` created                                                          |
+| **Alpha ablation**                    | Tab 5 tests α∈{0.3,0.5,0.7,0.9}  | Only α=0.7                                    | **MEDIUM**   | ✅ `run_ablation_alpha.sh` created                                                       |
+| **Passage length ablation**           | Not in paper yet                 | Not scripted                                  | **MEDIUM**   | ✅ `run_ablation_passage_length.sh` created; paper update needed                         |
+| **CombSUM fusion**                    | §5.3 mentions CombSUM            | Not scripted                                  | **LOW**      | ✅ Included in `run_ablation_alpha.sh`                                                   |
+| **MAP@100 metric**                    | §4.1 says "also report MAP@100"  | Eval only does NDCG@10                        | **LOW**      | ✅ `eval_all.sh` includes MAP@100                                                        |
+| **BM25 baseline**                     | Tab 1 has BM25 row               | Not computed                                  | **LOW**      | ✅ Phase 0 instructions added                                                            |
+| **Position bias analysis**            | §5.4 detailed analysis           | No logging code                               | **HIGH**     | ⚠️ Requires code changes (Phase 4)                                                      |
+| **Query difficulty analysis**         | Tab 6 stratified by difficulty   | No analysis code                              | **MEDIUM**   | ✅ `analysis/query_difficulty.py` created                                                |
+| **BottomUp bubblesort bug**           | Top-k should be sorted           | Top-k was UNSORTED (n-k passes only)          | **CRITICAL** | ✅ Fixed 2026-03-29: now does n-1 passes for full sort                                   |
+| **BottomUp heapsort mixed prompts**   | BottomUp should only use "worst" | Used "best" prompts for top-k sort phase      | **HIGH**     | ✅ Fixed 2026-03-29: now uses min-heap extraction throughout                             |
+| **BottomUp compare_worst no logging** | Should log for position bias     | `compare_worst` had `pass` instead of logging | **HIGH**     | ✅ Fixed 2026-03-29: now logs as `type="worst"`                                          |
 
 ### Code Implementation Status ✅
 
@@ -69,7 +69,7 @@ All three ranker classes are implemented and parsing bugs are fixed:
 - `_parse_single_label` — handles brackets, numbers, refusals ✅
 - `_try_parse_dual_output` — handles square-bracketed labels + numeric labels ✅
 - `_parse_dual_output` — guaranteed-return fallback with numeric + heuristic parsing ✅
-- Bubblesort window-shrinking bug — fixed ✅
+- bubblesort window-shrinking bug — fixed ✅
 - `max_new_tokens` — 512 for Qwen dual-end, 256 for Qwen single-label, 64 for non-Qwen causal ✅
 - DualEnd T5 generation — uses likelihood internally (single forward pass, no parsing) ✅
 - DualEnd strict single-call enforcement — never falls back to 2 separate calls ✅
@@ -168,24 +168,24 @@ c=7 → PL=60  → 8×60  = 480
 c=9 → PL=45  → 10×45 = 450
 ```
 
-| Model Family | Context Limit | `passage_length` | Notes |
-|---|---|---|---|
-| Flan-T5-large/xl/xxl | 512 tokens | **128** | Matches original paper; marginal truncation expected for some queries |
-| Qwen3-4B/8B/14B | 32k+ tokens | **512** | Plenty of room |
-| Qwen3.5-4B | 32k+ tokens | **512** | Same as Qwen3 |
+| Model Family         | Context Limit | `passage_length` | Notes                                                                 |
+|----------------------|---------------|------------------|-----------------------------------------------------------------------|
+| Flan-T5-large/xl/xxl | 512 tokens    | **128**          | Matches original paper; marginal truncation expected for some queries |
+| Qwen3-4B/8B/14B      | 32k+ tokens   | **512**          | Plenty of room                                                        |
+| Qwen3.5-4B           | 32k+ tokens   | **512**          | Same as Qwen3                                                         |
 
 **Note**: You may see `"Warning: prompt length NNN exceeds model limit 512"` for T5 models. This is expected — the original paper experiences the same marginal truncation. The code handles it gracefully via `_tokenize_inputs()`. For BEIR datasets with longer queries, consider reducing to `passage_length=100`.
 
 ### Experiment Scale Summary
 
-| Scope | Models | Datasets | Methods | Runs |
-|-------|--------|----------|---------|------|
-| **Phase 1: Core (DL19+DL20)** | 9 models | 2 datasets | 8 methods | 144 |
-| **Phase 1B: Likelihood (T5 only)** | 3 T5 models | 2 datasets | 2 methods | 12 |
-| **Phase 2: Baselines** | 2-3 models | 2 datasets | 1 method | 4-6 |
-| **Phase 3: Ablations** | 1-2 models | 1 dataset | varies | ~20 |
-| **Phase 5: BEIR** | 3 representative models | 6 datasets | 4 methods | 72 |
-| **Total estimated** | | | | **~200-340** |
+| Scope                              | Models                  | Datasets   | Methods   | Runs         |
+|------------------------------------|-------------------------|------------|-----------|--------------|
+| **Phase 1: Core (DL19+DL20)**      | 9 models                | 2 datasets | 8 methods | 144          |
+| **Phase 1B: Likelihood (T5 only)** | 3 T5 models             | 2 datasets | 2 methods | 12           |
+| **Phase 2: Baselines**             | 2-3 models              | 2 datasets | 1 method  | 4-6          |
+| **Phase 3: Ablations**             | 1-2 models              | 1 dataset  | varies    | ~20          |
+| **Phase 5: BEIR**                  | 3 representative models | 6 datasets | 4 methods | 72           |
+| **Total estimated**                |                         |            |           | **~200-340** |
 
 ---
 
@@ -313,11 +313,11 @@ done
 
 ### Phase 1A: Flan-T5 Family (Encoder-Decoder)
 
-| Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
-|-------|----------------|----------------|-----|
+| Model                  | DL19 OUTPUT_DIR              | DL20 OUTPUT_DIR              | PL      |
+|------------------------|------------------------------|------------------------------|---------|
 | `google/flan-t5-large` | `results/flan-t5-large-dl19` | `results/flan-t5-large-dl20` | **128** |
-| `google/flan-t5-xl` | `results/flan-t5-xl-dl19` | `results/flan-t5-xl-dl20` | **128** |
-| `google/flan-t5-xxl` | `results/flan-t5-xxl-dl19` | `results/flan-t5-xxl-dl20` | **128** |
+| `google/flan-t5-xl`    | `results/flan-t5-xl-dl19`    | `results/flan-t5-xl-dl20`    | **128** |
+| `google/flan-t5-xxl`   | `results/flan-t5-xxl-dl19`   | `results/flan-t5-xxl-dl20`   | **128** |
 
 **passage_length=128** for Flan-T5 — matches the original paper (arXiv:2310.09497). With `num_child=3` (4 passages per prompt), this is at the 512-token limit. Marginal truncation is expected and matches the original methodology.
 
@@ -343,20 +343,20 @@ For the original T5 likelihood phase, use `passage_length=128`; for Qwen/Qwen3.5
 
 Methods: TD-Heap/BU-Heap/DE-Bubble/DE-Selection
 
-| Model family | DL19 | DL20 |
-|-------|------|------|
-| flan-t5-xl | 4 runs | 4 runs |
-| qwen3-8b | 4 runs | 4 runs |
-| qwen3.5-9b | 4 runs | 4 runs |
+| Model family | DL19   | DL20   |
+|--------------|--------|--------|
+| flan-t5-xl   | 4 runs | 4 runs |
+| qwen3-8b     | 4 runs | 4 runs |
+| qwen3.5-9b   | 4 runs | 4 runs |
 
 **Note**: Flan-T5 likelihood reads the final decoder label distribution directly. Causal Qwen/Qwen3.5 likelihood scores short teacher-forced continuations like `Passage A`; this avoids brittle single-token label assumptions and still produces zero completion tokens. For `dualend` and the routed joint-signal refinements, this is still only a best-only proxy, not exact joint `Best: X, Worst: Y` likelihood.
 
 ### Phase 1C: Qwen3 Family (Decoder-Only, Thinking Models)
 
-| Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
-|-------|----------------|----------------|-----|
-| `Qwen/Qwen3-4B` | `results/qwen3-4b-dl19` | `results/qwen3-4b-dl20` | 512 |
-| `Qwen/Qwen3-8B` | `results/qwen3-8b-dl19` | `results/qwen3-8b-dl20` | 512 |
+| Model            | DL19 OUTPUT_DIR          | DL20 OUTPUT_DIR          | PL  |
+|------------------|--------------------------|--------------------------|-----|
+| `Qwen/Qwen3-4B`  | `results/qwen3-4b-dl19`  | `results/qwen3-4b-dl20`  | 512 |
+| `Qwen/Qwen3-8B`  | `results/qwen3-8b-dl19`  | `results/qwen3-8b-dl20`  | 512 |
 | `Qwen/Qwen3-14B` | `results/qwen3-14b-dl19` | `results/qwen3-14b-dl20` | 512 |
 
 **passage_length=512** for Qwen3 (32k+ context window).
@@ -376,10 +376,10 @@ Each: 8 methods × 2 datasets = 16 runs. Total: **48 runs** across 3 models.
 
 ### Phase 1D: Qwen3.5-4B (Hybrid Causal — Gated DeltaNet + Standard Attention)
 
-| Model | DL19 OUTPUT_DIR | DL20 OUTPUT_DIR | PL |
-|-------|----------------|----------------|-----|
-| `Qwen/Qwen3.5-4B` | `results/qwen3.5-4b-dl19` | `results/qwen3.5-4b-dl20` | 512 |
-| `Qwen/Qwen3.5-9B` | `results/qwen3.5-9b-dl19` | `results/qwen3.5-9b-dl20` | 512 |
+| Model              | DL19 OUTPUT_DIR            | DL20 OUTPUT_DIR            | PL  |
+|--------------------|----------------------------|----------------------------|-----|
+| `Qwen/Qwen3.5-4B`  | `results/qwen3.5-4b-dl19`  | `results/qwen3.5-4b-dl20`  | 512 |
+| `Qwen/Qwen3.5-9B`  | `results/qwen3.5-9b-dl19`  | `results/qwen3.5-9b-dl20`  | 512 |
 | `Qwen/Qwen3.5-27B` | `results/qwen3.5-27b-dl19` | `results/qwen3.5-27b-dl20` | 512 |
 
 3 models × 8 methods × 2 datasets = **48 runs**. ✅ COMPLETE
@@ -431,17 +431,17 @@ bash experiments/eval_all.sh results/*/
 
 **Key finding — DualEnd-Cocktail is the top performer for capable models:**
 
-| Model | DL19 Best Method | NDCG@10 | DL20 Best Method | NDCG@10 |
-|-------|-----------------|---------|-----------------|---------|
-| flan-t5-large | topdown_bubblesort | 0.6874 | **dualend_bubblesort** | **0.6308** |
-| flan-t5-xl | topdown_bubblesort | 0.6980 | topdown_bubblesort | 0.6868 |
-| flan-t5-xxl | **dualend_bubblesort** | **0.7137** | topdown_bubblesort | 0.6959 |
-| Qwen3-4B | **dualend_selection** | **0.7220** | **dualend_selection** | **0.6627** |
-| Qwen3-8B | **dualend_selection** | **0.7158** | **dualend_bubblesort** | **0.6678** |
-| Qwen3-14B | **dualend_bubblesort** | **0.7519** | **dualend_bubblesort** | **0.7051** |
-| Qwen3.5-4B | **dualend_bubblesort** | **0.7161** | **dualend_bubblesort** | **0.6768** |
-| Qwen3.5-9B | **dualend_bubblesort** | **0.7370** | **dualend_bubblesort** | **0.6984** |
-| Qwen3.5-27B | **dualend_bubblesort** | **0.7475** | **dualend_bubblesort** | **0.7186** |
+| Model         | DL19 Best Method       | NDCG@10    | DL20 Best Method       | NDCG@10    |
+|---------------|------------------------|------------|------------------------|------------|
+| flan-t5-large | topdown_bubblesort     | 0.6874     | **dualend_bubblesort** | **0.6308** |
+| flan-t5-xl    | topdown_bubblesort     | 0.6980     | topdown_bubblesort     | 0.6868     |
+| flan-t5-xxl   | **dualend_bubblesort** | **0.7137** | topdown_bubblesort     | 0.6959     |
+| Qwen3-4B      | **dualend_selection**  | **0.7220** | **dualend_selection**  | **0.6627** |
+| Qwen3-8B      | **dualend_selection**  | **0.7158** | **dualend_bubblesort** | **0.6678** |
+| Qwen3-14B     | **dualend_bubblesort** | **0.7519** | **dualend_bubblesort** | **0.7051** |
+| Qwen3.5-4B    | **dualend_bubblesort** | **0.7161** | **dualend_bubblesort** | **0.6768** |
+| Qwen3.5-9B    | **dualend_bubblesort** | **0.7370** | **dualend_bubblesort** | **0.6984** |
+| Qwen3.5-27B   | **dualend_bubblesort** | **0.7475** | **dualend_bubblesort** | **0.7186** |
 
 **Observations (post-fix):**
 
@@ -630,12 +630,12 @@ bash experiments/run_ablation_passage_length.sh \
 
 **What to report** (Table 5b):
 
-| PL | Flan-T5-XL TD-Heap | Flan-T5-XL DE-Cocktail | Qwen3-8B TD-Heap | Qwen3-8B DE-Cocktail | Qwen3.5-9B TD-Heap | Qwen3.5-9B DE-Cocktail |
-|----|:---:|:---:|:---:|:---:|:---:|:---:|
-| 64 | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ |
-| 128 | ☐ (**default**, matches paper) | ☐ | ☐ | ☐ | ☐ | ☐ |
-| 256 | ☐ (heavy truncation for T5) | ☐ | ☐ | ☐ | ☐ | ☐ |
-| 512 | ☐ (severe truncation for T5) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) | ☐ (**default**) |
+| PL  |       Flan-T5-XL TD-Heap       | Flan-T5-XL DE-Cocktail | Qwen3-8B TD-Heap | Qwen3-8B DE-Cocktail | Qwen3.5-9B TD-Heap | Qwen3.5-9B DE-Cocktail |
+|-----|:------------------------------:|:----------------------:|:----------------:|:--------------------:|:------------------:|:----------------------:|
+| 64  |               ☐                |           ☐            |        ☐         |          ☐           |         ☐          |           ☐            |
+| 128 | ☐ (**default**, matches paper) |           ☐            |        ☐         |          ☐           |         ☐          |           ☐            |
+| 256 |  ☐ (heavy truncation for T5)   |           ☐            |        ☐         |          ☐           |         ☐          |           ☐            |
+| 512 |  ☐ (severe truncation for T5)  |    ☐ (**default**)     | ☐ (**default**)  |   ☐ (**default**)    |  ☐ (**default**)   |    ☐ (**default**)     |
 
 Total: ~24 runs (18 from ablation script + 6 reusable from Phase 1).
 
@@ -690,31 +690,31 @@ bash experiments/run_phase4_analysis.sh Qwen/Qwen3-4B cuda
 
 ### Phase 4 Scripts Reference
 
-| Script | Purpose | GPU? | Time |
-|--------|---------|------|------|
-| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU) | — | Instant |
+| Script                                       | Purpose                                                | GPU?       | Time       |
+|----------------------------------------------|--------------------------------------------------------|------------|------------|
+| `experiments/submit_phase4.sh`               | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU)          | —          | Instant    |
 | `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with comparison logging + analyze | Yes (H100) | ~20h/model |
-| `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses | No (CPU) | ~1h |
-| `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ~1h/model |
-| `analysis/position_bias.py` | 4A: Chi-squared position bias from comparison logs | No | <1min |
-| `analysis/query_difficulty.py` | 4B: Stratify queries by BM25 difficulty | No | <1min |
-| `analysis/ranking_agreement.py` | 4C: TopDown vs BottomUp overlap@k | No | <1min |
-| `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | No | <1min |
-| `analysis/parse_success_rate.sh` | 4E: DualEnd parse warnings from logs | No | <1min |
+| `experiments/slurm_phase4bce_posthoc.sh`     | 4B/C/D/E: All post-hoc analyses                        | No (CPU)   | ~1h        |
+| `experiments/run_phase4_analysis.sh`         | All of 4A-4E locally (no SLURM)                        | Yes        | ~1h/model  |
+| `analysis/position_bias.py`                  | 4A: Chi-squared position bias from comparison logs     | No         | <1min      |
+| `analysis/query_difficulty.py`               | 4B: Stratify queries by BM25 difficulty                | No         | <1min      |
+| `analysis/ranking_agreement.py`              | 4C: TopDown vs BottomUp overlap@k                      | No         | <1min      |
+| `analysis/per_query_analysis.py`             | 4D: Per-query win/loss/tie counts                      | No         | <1min      |
+| `analysis/parse_success_rate.sh`             | 4E: DualEnd parse warnings from logs                   | No         | <1min      |
 
 ### Phase 4A Job Matrix (9 GPU jobs — all models)
 
-| Model | `sbatch` Command | PL | Output Dir |
-|-------|------------------|----|------------|
+| Model                  | `sbatch` Command                                                             | PL  | Output Dir                             |
+|------------------------|------------------------------------------------------------------------------|-----|----------------------------------------|
 | `google/flan-t5-large` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-large 128` | 128 | `results/analysis/flan-t5-large-dl19/` |
-| `google/flan-t5-xl` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xl 128` | 128 | `results/analysis/flan-t5-xl-dl19/` |
-| `google/flan-t5-xxl` | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xxl 128` | 128 | `results/analysis/flan-t5-xxl-dl19/` |
-| `Qwen/Qwen3-4B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-4B 512` | 512 | `results/analysis/qwen3-4b-dl19/` |
-| `Qwen/Qwen3-8B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-8B 512` | 512 | `results/analysis/qwen3-8b-dl19/` |
-| `Qwen/Qwen3-14B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-14B 512` | 512 | `results/analysis/qwen3-14b-dl19/` |
-| `Qwen/Qwen3.5-4B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-4B 512` | 512 | `results/analysis/qwen3.5-4b-dl19/` |
-| `Qwen/Qwen3.5-9B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-9B 512` | 512 | `results/analysis/qwen3.5-9b-dl19/` |
-| `Qwen/Qwen3.5-27B` | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-27B 512` | 512 | `results/analysis/qwen3.5-27b-dl19/` |
+| `google/flan-t5-xl`    | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xl 128`    | 128 | `results/analysis/flan-t5-xl-dl19/`    |
+| `google/flan-t5-xxl`   | `sbatch experiments/slurm_phase4a_position_bias.sh google/flan-t5-xxl 128`   | 128 | `results/analysis/flan-t5-xxl-dl19/`   |
+| `Qwen/Qwen3-4B`        | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-4B 512`        | 512 | `results/analysis/qwen3-4b-dl19/`      |
+| `Qwen/Qwen3-8B`        | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-8B 512`        | 512 | `results/analysis/qwen3-8b-dl19/`      |
+| `Qwen/Qwen3-14B`       | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-14B 512`       | 512 | `results/analysis/qwen3-14b-dl19/`     |
+| `Qwen/Qwen3.5-4B`      | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-4B 512`      | 512 | `results/analysis/qwen3.5-4b-dl19/`    |
+| `Qwen/Qwen3.5-9B`      | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-9B 512`      | 512 | `results/analysis/qwen3.5-9b-dl19/`    |
+| `Qwen/Qwen3.5-27B`     | `sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-27B 512`     | 512 | `results/analysis/qwen3.5-27b-dl19/`   |
 
 > **Note on Bidirectional**: Not included in 4A. Bidirectional runs TopDown + BottomUp
 > independently, so its position bias is just the union of the TopDown and BottomUp logs.
@@ -851,14 +851,14 @@ So there is **no local blocker on BEIR run scripting**. The remaining BEIR work 
 
 ### BEIR Dataset-to-Run Mapping
 
-| Dataset | BM25 Run File | ir_dataset_name |
-|---------|--------------|-----------------|
-| DBpedia | `runs/bm25/run.beir.bm25-flat.dbpedia-entity.txt` | `beir/dbpedia-entity/test` |
-| NFCorpus | `runs/bm25/run.beir.bm25-flat.nfcorpus.txt` | `beir/nfcorpus/test` |
-| SciFact | `runs/bm25/run.beir.bm25-flat.scifact.txt` | `beir/scifact/test` |
-| TREC-COVID | `runs/bm25/run.beir.bm25-flat.trec-covid.txt` | `beir/trec-covid` |
+| Dataset    | BM25 Run File                                       | ir_dataset_name            |
+|------------|-----------------------------------------------------|----------------------------|
+| DBpedia    | `runs/bm25/run.beir.bm25-flat.dbpedia-entity.txt`   | `beir/dbpedia-entity/test` |
+| NFCorpus   | `runs/bm25/run.beir.bm25-flat.nfcorpus.txt`         | `beir/nfcorpus/test`       |
+| SciFact    | `runs/bm25/run.beir.bm25-flat.scifact.txt`          | `beir/scifact/test`        |
+| TREC-COVID | `runs/bm25/run.beir.bm25-flat.trec-covid.txt`       | `beir/trec-covid`          |
 | Touche2020 | `runs/bm25/run.beir.bm25-flat.webis-touche2020.txt` | `beir/webis-touche2020/v2` |
-| FiQA | `runs/bm25/run.beir.bm25-flat.fiqa.txt` | `beir/fiqa/test` |
+| FiQA       | `runs/bm25/run.beir.bm25-flat.fiqa.txt`             | `beir/fiqa/test`           |
 
 ### BEIR Evaluation Strategy
 
@@ -879,7 +879,7 @@ Total: **72 runs** for BEIR.
 
 ### Minimal BEIR Extras Beyond Effectiveness
 
-Once the remote BEIR run files are available and you have manual `trec_eval` outputs, the paper only needs three additional summaries beyond raw `nDCG@10` / `MAP@10`:
+Once the remote BEIR run files are available, and you have manual `trec_eval` outputs, the paper only needs three additional summaries beyond raw `nDCG@10` / `MAP@10`:
 
 1. **Per-dataset deltas against TopDown-Bubble**
    - `DualEnd-Cocktail - TopDown-Bubble`
@@ -923,59 +923,59 @@ Then: `trec_eval -m ndcg_cut.10 /tmp/scifact_qrels.txt results/.../*.txt`
 
 ### Existing Scripts
 
-| Script | Purpose | Cluster? |
-|--------|---------|----------|
-| `experiments/run_extended_setwise_all.sh` | Run all 8 methods + evaluate (no SLURM) | No |
-| `experiments/run_topdown_heapsort.sh` | Single method SLURM job | Yes |
-| `experiments/run_topdown_bubblesort.sh` | Single method SLURM job | Yes |
-| `experiments/run_bottomup_heapsort.sh` | Single method SLURM job | Yes |
-| `experiments/run_bottomup_bubblesort.sh` | Single method SLURM job | Yes |
-| `experiments/run_dualend_bubblesort.sh` | Single method SLURM job | Yes |
-| `experiments/run_dualend_selection.sh` | Single method SLURM job | Yes |
-| `experiments/run_bidirectional_rrf.sh` | Single method SLURM job | Yes |
-| `experiments/run_bidirectional_weighted.sh` | Single method SLURM job | Yes |
+| Script                                      | Purpose                                 | Cluster? |
+|---------------------------------------------|-----------------------------------------|----------|
+| `experiments/run_extended_setwise_all.sh`   | Run all 8 methods + evaluate (no SLURM) | No       |
+| `experiments/run_topdown_heapsort.sh`       | Single method SLURM job                 | Yes      |
+| `experiments/run_topdown_bubblesort.sh`     | Single method SLURM job                 | Yes      |
+| `experiments/run_bottomup_heapsort.sh`      | Single method SLURM job                 | Yes      |
+| `experiments/run_bottomup_bubblesort.sh`    | Single method SLURM job                 | Yes      |
+| `experiments/run_dualend_bubblesort.sh`     | Single method SLURM job                 | Yes      |
+| `experiments/run_dualend_selection.sh`      | Single method SLURM job                 | Yes      |
+| `experiments/run_bidirectional_rrf.sh`      | Single method SLURM job                 | Yes      |
+| `experiments/run_bidirectional_weighted.sh` | Single method SLURM job                 | Yes      |
 
 ### Phase 2-3 Scripts
 
-| Script | Purpose | Status |
-|--------|---------|--------|
-| `experiments/run_likelihood.sh` | Likelihood scoring for T5 and Qwen/Qwen3.5 models | ✅ Created |
-| `experiments/run_permvote_p2.sh` | Permutation voting baseline (p=2) | ✅ Created |
-| `experiments/run_ablation_nc.sh` | num_child ablation (c=2,5,7) | ✅ Created |
-| `experiments/run_ablation_alpha.sh` | Alpha ablation (α=0.3,0.5,0.9) + CombSUM | ✅ Created |
-| `experiments/run_ablation_passage_length.sh` | Passage length ablation (pl=64,128,256,512) | ✅ Created |
-| `experiments/eval_all.sh` | Evaluate all results directories | ✅ Created |
+| Script                                       | Purpose                                           | Status    |
+|----------------------------------------------|---------------------------------------------------|-----------|
+| `experiments/run_likelihood.sh`              | Likelihood scoring for T5 and Qwen/Qwen3.5 models | ✅ Created |
+| `experiments/run_permvote_p2.sh`             | Permutation voting baseline (p=2)                 | ✅ Created |
+| `experiments/run_ablation_nc.sh`             | num_child ablation (c=2,5,7)                      | ✅ Created |
+| `experiments/run_ablation_alpha.sh`          | Alpha ablation (α=0.3,0.5,0.9) + CombSUM          | ✅ Created |
+| `experiments/run_ablation_passage_length.sh` | Passage length ablation (pl=64,128,256,512)       | ✅ Created |
+| `experiments/eval_all.sh`                    | Evaluate all results directories                  | ✅ Created |
 
 ### Phase 4 Scripts
 
-| Script | Purpose | GPU? | Status |
-|--------|---------|------|--------|
-| `experiments/submit_phase4.sh` | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU) | — | ✅ Updated |
+| Script                                       | Purpose                                                 | GPU?       | Status    |
+|----------------------------------------------|---------------------------------------------------------|------------|-----------|
+| `experiments/submit_phase4.sh`               | Submit all Phase 4 SLURM jobs (9 GPU + 1 CPU)           | —          | ✅ Updated |
 | `experiments/slurm_phase4a_position_bias.sh` | 4A: Re-run 3 methods with `--log_comparisons` + analyze | Yes (H100) | ✅ Created |
-| `experiments/slurm_phase4bce_posthoc.sh` | 4B/C/D/E: All post-hoc analyses on existing results | No (CPU) | ✅ Created |
-| `experiments/run_phase4_analysis.sh` | All of 4A-4E locally (no SLURM) | Yes | ✅ Created |
+| `experiments/slurm_phase4bce_posthoc.sh`     | 4B/C/D/E: All post-hoc analyses on existing results     | No (CPU)   | ✅ Created |
+| `experiments/run_phase4_analysis.sh`         | All of 4A-4E locally (no SLURM)                         | Yes        | ✅ Created |
 
 ### Refinement Package Scripts
 
-| Script | Purpose | Status |
-|--------|---------|--------|
-| `experiments/run_selective_dualend.sh` | Run Selective DualEnd with shortlist / uncertainty gating | ✅ Created |
-| `experiments/run_bias_aware_dualend.sh` | Run order-robust / bias-aware DualEnd with controlled orderings | ✅ Created |
-| `experiments/run_samecall_regularized.sh` | Run same-call worst-signal regularization | ✅ Created |
-| `experiments/run_quality_cost_pareto.sh` | Build the quality-cost Pareto artifacts from existing results | ✅ Created |
-| `experiments/run_when_dualend_helps.sh` | Build the qualitative DualEnd-help summary from existing artifacts or live env | ✅ Created |
+| Script                                    | Purpose                                                                        | Status    |
+|-------------------------------------------|--------------------------------------------------------------------------------|-----------|
+| `experiments/run_selective_dualend.sh`    | Run Selective DualEnd with shortlist / uncertainty gating                      | ✅ Created |
+| `experiments/run_bias_aware_dualend.sh`   | Run order-robust / bias-aware DualEnd with controlled orderings                | ✅ Created |
+| `experiments/run_samecall_regularized.sh` | Run same-call worst-signal regularization                                      | ✅ Created |
+| `experiments/run_quality_cost_pareto.sh`  | Build the quality-cost Pareto artifacts from existing results                  | ✅ Created |
+| `experiments/run_when_dualend_helps.sh`   | Build the qualitative DualEnd-help summary from existing artifacts or live env | ✅ Created |
 
 ### Analysis Scripts
 
-| Script | Purpose | Status |
-|--------|---------|--------|
-| `analysis/position_bias.py` | 4A: Chi-squared position bias from comparison logs | ✅ Created |
-| `analysis/query_difficulty.py` | 4B: Table 6 — stratify by BM25 difficulty | ✅ Created |
-| `analysis/ranking_agreement.py` | 4C: TopDown vs BottomUp overlap@k | ✅ Created |
-| `analysis/per_query_analysis.py` | 4D: Per-query win/loss/tie counts | ✅ Created |
-| `analysis/parse_success_rate.sh` | 4E: Dual-end parse warnings from logs | ✅ Created |
-| `analysis/quality_cost_pareto.py` | Plot / summarize NDCG@10 against calls, tokens, and time | ✅ Created |
-| `analysis/when_dualend_helps.py` | Produce model-level help/hurt summaries and, when env allows, qualitative exemplars | ✅ Created |
+| Script                            | Purpose                                                                             | Status    |
+|-----------------------------------|-------------------------------------------------------------------------------------|-----------|
+| `analysis/position_bias.py`       | 4A: Chi-squared position bias from comparison logs                                  | ✅ Created |
+| `analysis/query_difficulty.py`    | 4B: Table 6 — stratify by BM25 difficulty                                           | ✅ Created |
+| `analysis/ranking_agreement.py`   | 4C: TopDown vs BottomUp overlap@k                                                   | ✅ Created |
+| `analysis/per_query_analysis.py`  | 4D: Per-query win/loss/tie counts                                                   | ✅ Created |
+| `analysis/parse_success_rate.sh`  | 4E: Dual-end parse warnings from logs                                               | ✅ Created |
+| `analysis/quality_cost_pareto.py` | Plot / summarize NDCG@10 against calls, tokens, and time                            | ✅ Created |
+| `analysis/when_dualend_helps.py`  | Produce model-level help/hurt summaries and, when env allows, qualitative exemplars | ✅ Created |
 
 ---
 
@@ -987,55 +987,55 @@ Check off each cell as experiments complete. Each cell is one run.
 
 For each model below, all 8 methods on both DL19 and DL20:
 
-| Model | DL19 (8 methods) | DL20 (8 methods) |
-|-------|:-:|:-:|
-| Flan-T5-large | ✅ | ✅ |
-| Flan-T5-xl | ✅ | ✅ |
-| Flan-T5-xxl | ✅ | ✅ |
-| Qwen3-4B | ✅ | ✅ |
-| Qwen3-8B | ✅ | ✅ |
-| Qwen3-14B | ✅ | ✅ |
-| Qwen3.5-4B | ✅ | ✅ |
-| Qwen3.5-9B | ✅ | ✅ |
-| Qwen3.5-27B | ✅ | ✅ |
+| Model         | DL19 (8 methods) | DL20 (8 methods) |
+|---------------|:----------------:|:----------------:|
+| Flan-T5-large |        ✅         |        ✅         |
+| Flan-T5-xl    |        ✅         |        ✅         |
+| Flan-T5-xxl   |        ✅         |        ✅         |
+| Qwen3-4B      |        ✅         |        ✅         |
+| Qwen3-8B      |        ✅         |        ✅         |
+| Qwen3-14B     |        ✅         |        ✅         |
+| Qwen3.5-4B    |        ✅         |        ✅         |
+| Qwen3.5-9B    |        ✅         |        ✅         |
+| Qwen3.5-27B   |        ✅         |        ✅         |
 
 #### Likelihood Scoring (T5 models only)
-| Model | DL19 (2 methods) | DL20 (2 methods) |
-|-------|:-:|:-:|
-| Flan-T5-large | ✅ | ✅ |
-| Flan-T5-xl | ✅ | ✅ |
-| Flan-T5-xxl | ✅ | ✅ |
+| Model         | DL19 (2 methods) | DL20 (2 methods) |
+|---------------|:----------------:|:----------------:|
+| Flan-T5-large |        ✅         |        ✅         |
+| Flan-T5-xl    |        ✅         |        ✅         |
+| Flan-T5-xxl   |        ✅         |        ✅         |
 
 ### Table 3: Efficiency
 ✅ Extract from Phase 1 logs (no new runs) — data available in results.txt files
 
 ### Table 4: num_child Ablation
 | c | DL19 NDCG@10 | #Comps | Parse% |
-|---|:---:|:---:|:---:|
-| 2 | ☐ | ☐ | ☐ |
-| 3 | from Phase 1 | — | — |
-| 5 | ☐ | ☐ | ☐ |
-| 7 | ☐ | ☐ | ☐ |
+|---|:------------:|:------:|:------:|
+| 2 |      ☐       |   ☐    |   ☐    |
+| 3 | from Phase 1 |   —    |   —    |
+| 5 |      ☐       |   ☐    |   ☐    |
+| 7 |      ☐       |   ☐    |   ☐    |
 
 ### Table 5: Alpha Ablation
-| α | 0.3 | 0.5 | 0.7 | 0.9 |
-|---|:---:|:---:|:---:|:---:|
-| DL19 NDCG@10 | ☐ | ☐ | from Phase 1 | ☐ |
+| α            | 0.3 | 0.5 |     0.7      | 0.9 |
+|--------------|:---:|:---:|:------------:|:---:|
+| DL19 NDCG@10 |  ☐  |  ☐  | from Phase 1 |  ☐  |
 
 ### Table 5b: Passage Length Ablation
-| PL | Flan-T5-XL TD-Heap | Qwen3-4B TD-Heap | Qwen3-4B DE-Cocktail |
-|----|:---:|:---:|:---:|
-| 64 | ☐ | ☐ | ☐ |
-| 128 | from Phase 1 (**default**) | ☐ | ☐ |
-| 256 | ☐ (heavy truncation) | ☐ | ☐ |
-| 512 | ☐ (severe truncation) | from Phase 1 (**default**) | from Phase 1 (**default**) |
+| PL  |     Flan-T5-XL TD-Heap     |      Qwen3-4B TD-Heap      |    Qwen3-4B DE-Cocktail    |
+|-----|:--------------------------:|:--------------------------:|:--------------------------:|
+| 64  |             ☐              |             ☐              |             ☐              |
+| 128 | from Phase 1 (**default**) |             ☐              |             ☐              |
+| 256 |    ☐ (heavy truncation)    |             ☐              |             ☐              |
+| 512 |   ☐ (severe truncation)    | from Phase 1 (**default**) | from Phase 1 (**default**) |
 
 ### Table 6: Query Difficulty
 ✅ Post-hoc analysis from Phase 1
 
 ### Permutation Voting Baseline
-| | DL19 | DL20 |
-|--|:---:|:---:|
+|                |    DL19    |    DL20    |
+|----------------|:----------:|:----------:|
 | PermVote (p=2) | 🔄 running | 🔄 running |
 
 ### Analysis Sections
@@ -1078,26 +1078,26 @@ For each model below, all 8 methods on both DL19 and DL20:
 - **Stage 2 — Tournament tiebreakers**: Calls `self.compare()` (parent's T5 generation) for best-of-winners and `_tournament_select_worst()` (T5 generation) for worst-of-losers → these DO generate tokens via autoregressive decoding → non-zero completion tokens
 
 This is a meaningful architectural difference for the paper's efficiency analysis:
-- **Cocktail shaker** is purely likelihood-based for T5 — no autoregressive decoding at all, making it computationally cheaper per comparison (single forward pass vs. multi-step generation)
+- **Cocktail shaker** is purely likelihood-based for T5 — no autoregressive decoding at all, making it computationally cheaper per comparison (single forward pass vs. multistep generation)
 - **Selection sort** mixes likelihood (`compare_both` in groups) with generation (tournament rounds), so it has both forward-pass and decoding costs
 
 When reporting efficiency in the paper, completion tokens should be presented alongside a note explaining that 0 completion tokens for DualEnd cocktail reflects the use of likelihood scoring (single forward pass reading the full label distribution), not a counting error.
 
 ### Medium
 
-8. **SLURM log paths are hardcoded**: The individual SLURM scripts have hardcoded `-o` and `-e` paths for qwen3-4b-dl20. Update these when running different models/datasets.
+1. **SLURM log paths are hardcoded**: The individual SLURM scripts have hardcoded `-o` and `-e` paths for qwen3-4b-dl20. Update these when running different models/datasets.
 
-9. **SLURM --mem=512G**: This is probably overkill for Flan-T5-XL (3B). Consider reducing for cluster efficiency.
+2. **SLURM --mem=512G**: This is probably overkill for Flan-T5-XL (3B). Consider reducing for cluster efficiency.
 
-10. **Vicuna chat template**: The code has a hardcoded chat template for `vicuna` + `v1.5`. This should work but verify the template renders correctly.
+3. **Vicuna chat template**: The code has a hardcoded chat template for `vicuna` + `v1.5`. This should work but verify the template renders correctly.
 
-11. **random.seed(929)**: Both `setwise.py` and `setwise_extended.py` set `random.seed(929)` at module level. This ensures reproducibility but means re-running produces identical results. Good for paper, but be aware.
+4. **random.seed(929)**: Both `setwise.py` and `setwise_extended.py` set `random.seed(929)` at module level. This ensures reproducibility but means re-running produces identical results. Good for paper, but be aware.
 
 ### Low
 
-12. **`results.txt` skip in eval loop**: The evaluation loop in `run_extended_setwise_all.sh` skips `results.txt` when iterating `*.txt` files. If you add other non-TREC `.txt` files to the results dir, add skip guards.
+1. **`results.txt` skip in eval loop**: The evaluation loop in `run_extended_setwise_all.sh` skips `results.txt` when iterating `*.txt` files. If you add other non-TREC `.txt` files to the results dir, add skip guards.
 
-13. **Sorting method names**: `method=bubblesort` for DualEnd actually runs cocktail shaker sort. `method=selection` runs double-ended selection sort. The method name in CLI doesn't fully describe the algorithm — the `direction` flag changes behavior.
+2. **Sorting method names**: `method=bubblesort` for DualEnd actually runs cocktail shaker sort. `method=selection` runs double-ended selection sort. The method name in CLI doesn't fully describe the algorithm — the `direction` flag changes behavior.
 
 ---
 
@@ -1153,30 +1153,30 @@ Cross-referencing IDEA_REPORT hypotheses (H1-H6), research questions (RQ1-RQ3), 
 
 ### Must-Have (before submission)
 
-| Gap | IDEA_REPORT Reference | Status | Action |
-|-----|----------------------|--------|--------|
-| **Statistical significance tests** | Paper framing claims "comparable effectiveness" | ✅ Done | Added [analysis/significance_tests.py](/Users/hangli/projects/llm-rankers/analysis/significance_tests.py) and recorded results in [research_pipeline_setwise/SIGNIFICANCE_TESTS.md](/Users/hangli/projects/llm-rankers/research_pipeline_setwise/SIGNIFICANCE_TESTS.md). Use these results to keep claims conservative. |
-| **Dual selection accuracy** (Key Measurement 1 for Idea 2) | "How often does dual agree with separate best-only and worst-only?" | ❌ Missing | New Phase 4F: For 1-2 models, run same queries with TopDown, BottomUp, and DualEnd; compare whether DualEnd's best matches TopDown's best and DualEnd's worst matches BottomUp's worst. Post-hoc from comparison logs. |
-| **Efficiency claim validation** (H4) | Old hypothesis: "~50% fewer LLM calls" | ⚠️ Reframed | Current evidence refutes the old efficiency framing. Keep the call-count table, but use it to support a quality-cost tradeoff claim rather than any fewer-calls claim. |
-| **MAP@100 metric** | §4.1 "also report MAP@100" | ⚠️ In eval scripts but not checked | Verify eval_all.sh includes `-m map_cut.100` and results are collected. |
+| Gap                                                        | IDEA_REPORT Reference                                               | Status                             | Action                                                                                                                                                                                                                                                                                                                  |
+|------------------------------------------------------------|---------------------------------------------------------------------|------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Statistical significance tests**                         | Paper framing claims "comparable effectiveness"                     | ✅ Done                             | Added [analysis/significance_tests.py](/Users/hangli/projects/llm-rankers/analysis/significance_tests.py) and recorded results in [research_pipeline_setwise/SIGNIFICANCE_TESTS.md](/Users/hangli/projects/llm-rankers/research_pipeline_setwise/SIGNIFICANCE_TESTS.md). Use these results to keep claims conservative. |
+| **Dual selection accuracy** (Key Measurement 1 for Idea 2) | "How often does dual agree with separate best-only and worst-only?" | ❌ Missing                          | New Phase 4F: For 1-2 models, run same queries with TopDown, BottomUp, and DualEnd; compare whether DualEnd's best matches TopDown's best and DualEnd's worst matches BottomUp's worst. Post-hoc from comparison logs.                                                                                                  |
+| **Efficiency claim validation** (H4)                       | Old hypothesis: "~50% fewer LLM calls"                              | ⚠️ Reframed                        | Current evidence refutes the old efficiency framing. Keep the call-count table, but use it to support a quality-cost tradeoff claim rather than any fewer-calls claim.                                                                                                                                                  |
+| **MAP@100 metric**                                         | §4.1 "also report MAP@100"                                          | ⚠️ In eval scripts but not checked | Verify eval_all.sh includes `-m map_cut.100` and results are collected.                                                                                                                                                                                                                                                 |
 
 ### Should-Have (strengthens paper)
 
-| Gap | IDEA_REPORT Reference | Status | Action |
-|-----|----------------------|--------|--------|
-| **CombMNZ fusion** | Idea 3 lists 4 fusion methods | ❌ Missing (only RRF, CombSUM, Weighted) | Low priority — mention in limitations or add as one-line code change + re-run. |
-| **Permutation voting for more models** | RQ3: BiDir vs PermVote(p=2) | ⚠️ Only Flan-T5-XL | Extend to at least 1 Qwen model for cross-family comparison. |
-| **Position bias interaction** (H3/Key Measurement 3) | "Does asking for both change bias?" | ⚠️ Phase 4A covers it | Ensure analysis script compares dual-end bias pattern vs. TopDown+BottomUp combined. Already in position_bias.py (separate type analysis). |
+| Gap                                                  | IDEA_REPORT Reference               | Status                                  | Action                                                                                                                                     |
+|------------------------------------------------------|-------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| **CombMNZ fusion**                                   | Idea 3 lists 4 fusion methods       | ❌ Missing (only RRF, CombSUM, Weighted) | Low priority — mention in limitations or add as one-line code change + re-run.                                                             |
+| **Permutation voting for more models**               | RQ3: BiDir vs PermVote(p=2)         | ⚠️ Only Flan-T5-XL                      | Extend to at least 1 Qwen model for cross-family comparison.                                                                               |
+| **Position bias interaction** (H3/Key Measurement 3) | "Does asking for both change bias?" | ⚠️ Phase 4A covers it                   | Ensure analysis script compares dual-end bias pattern vs. TopDown+BottomUp combined. Already in position_bias.py (separate type analysis). |
 
 ### Nice-to-Have (time permitting)
 
-| Gap | IDEA_REPORT Reference | Status | Action |
-|-----|----------------------|--------|--------|
-| Per-call information gain (bits) | Key Measurement 2 | ❌ Missing | Complex to compute. Could approximate via ranking quality / #calls ratio. |
-| BottomUp likelihood scoring | H1 | ❌ Not in Phase 1B | Add BottomUp-Heap likelihood for T5 to compare with TopDown-Heap likelihood. |
-| num_child ablation cross-method | Idea 2 experimental design | ⚠️ Only DualEnd | Could add TopDown and BottomUp for 1-2 models if time allows. |
-| BEIR evaluation package | Phase 5 | ⚠️ Remote runs in progress | Local follow-up is the BEIR summary table, per-dataset deltas, and macro win counts once the run files land. |
-| Error analysis (qualitative) | Analysis checklist | ❌ No methodology | Define what to analyze: failure modes, query types where DualEnd helps/hurts. |
+| Gap                              | IDEA_REPORT Reference      | Status                     | Action                                                                                                       |
+|----------------------------------|----------------------------|----------------------------|--------------------------------------------------------------------------------------------------------------|
+| Per-call information gain (bits) | Key Measurement 2          | ❌ Missing                  | Complex to compute. Could approximate via ranking quality / #calls ratio.                                    |
+| BottomUp likelihood scoring      | H1                         | ❌ Not in Phase 1B          | Add BottomUp-Heap likelihood for T5 to compare with TopDown-Heap likelihood.                                 |
+| num_child ablation cross-method  | Idea 2 experimental design | ⚠️ Only DualEnd            | Could add TopDown and BottomUp for 1-2 models if time allows.                                                |
+| BEIR evaluation package          | Phase 5                    | ⚠️ Remote runs in progress | Local follow-up is the BEIR summary table, per-dataset deltas, and macro win counts once the run files land. |
+| Error analysis (qualitative)     | Analysis checklist         | ❌ No methodology           | Define what to analyze: failure modes, query types where DualEnd helps/hurts.                                |
 
 ---
 
@@ -1198,14 +1198,14 @@ Post-result review changes the project emphasis. The strongest current paper is 
 
 ### Prioritized Experiment Package
 
-| Priority | Experiment | Why it matters | Minimal scope | Success criterion | Deliverable |
-|---|---|---|---|---|---|
-| P0 | **Finish BEIR representative evaluation** | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets | 3 models × 6 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
-| P0 | **Quality-cost Pareto analysis** | Directly addresses the biggest reviewer concern: modest gains at high cost | Use existing TREC DL outputs first; compare NDCG@10 against calls, tokens, and wall time | Paper can show where DualEnd is or is not worthwhile under budgeted settings | New figure/table for paper and narrative |
-| P0 | **"When DualEnd helps" qualitative analysis** | Converts a weak average-gain story into a mechanism story | Inspect wins/losses for 2-3 representative models; group by query/window type | Produce a small taxonomy with concrete examples | Short analysis section + appendix table |
-| P1 | **Selective DualEnd** | Highest-leverage method refinement; may preserve quality while reducing cost | Start from best TopDown baseline and invoke DualEnd only on query-locally uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd | New method + quality-cost table |
-| P1 | **Order-robust / bias-aware DualEnd** | Converts the dual-worst bias reversal from analysis into method novelty | Use 2-3 controlled orderings only on query-locally uncertain windows | Improves robustness or average quality enough to justify extra calls | Bias-aware variant + ablation |
-| P2 | **Same-call worst-signal regularization** | Tests whether the useful signal is the joint prompt rather than independent worst ranking | Use DualEnd same-call outputs to adjust local ordering or pruning, without standalone BottomUp fusion | Small but consistent gain over vanilla DualEnd or better cost-quality tradeoff | Lightweight method note or appendix |
+| Priority | Experiment                                    | Why it matters                                                                            | Minimal scope                                                                                                  | Success criterion                                                                                       | Deliverable                                                |
+|----------|-----------------------------------------------|-------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
+| P0       | **Finish BEIR representative evaluation**     | Tests whether the DualEnd directional pattern survives beyond small TREC DL query sets    | 3 models × 6 datasets × 4 methods: TopDown-Bubble, BottomUp-Bubble, DualEnd-Cocktail, BiDir-RRF                | DualEnd is positive on a clear majority of datasets or shows at least one family-consistent win pattern | BEIR summary table + per-dataset deltas + macro win counts |
+| P0       | **Quality-cost Pareto analysis**              | Directly addresses the biggest reviewer concern: modest gains at high cost                | Use existing TREC DL outputs first; compare NDCG@10 against calls, tokens, and wall time                       | Paper can show where DualEnd is or is not worthwhile under budgeted settings                            | New figure/table for paper and narrative                   |
+| P0       | **"When DualEnd helps" qualitative analysis** | Converts a weak average-gain story into a mechanism story                                 | Inspect wins/losses for 2-3 representative models; group by query/window type                                  | Produce a small taxonomy with concrete examples                                                         | Short analysis section + appendix table                    |
+| P1       | **Selective DualEnd**                         | Highest-leverage method refinement; may preserve quality while reducing cost              | Start from best TopDown baseline and invoke DualEnd only on query-locally uncertain windows or final shortlist | Recover most of the DualEnd gain at much lower cost than full DualEnd                                   | New method + quality-cost table                            |
+| P1       | **Order-robust / bias-aware DualEnd**         | Converts the dual-worst bias reversal from analysis into method novelty                   | Use 2-3 controlled orderings only on query-locally uncertain windows                                           | Improves robustness or average quality enough to justify extra calls                                    | Bias-aware variant + ablation                              |
+| P2       | **Same-call worst-signal regularization**     | Tests whether the useful signal is the joint prompt rather than independent worst ranking | Use DualEnd same-call outputs to adjust local ordering or pruning, without standalone BottomUp fusion          | Small but consistent gain over vanilla DualEnd or better cost-quality tradeoff                          | Lightweight method note or appendix                        |
 
 ### 2026-04-09 Status Snapshot
 
@@ -1252,7 +1252,7 @@ produce passage-level exemplars in addition to the summary statistics.
 Outputs:
 - `results/analysis/topdown_heap_dualend_bubble_qualitative/WHEN_DUALEND_HELPS_SUMMARY.md`
 - `results/analysis/topdown_heap_dualend_bubble_qualitative/when_dualend_helps_summary.json`
-- per-model markdown summaries with query text and passage snippets
+- per-model Markdown summaries with query text and passage snippets
 
 Current paper-facing summary from the generated artifact (tested on all models, show a few for example):
 - `flan-t5-xl-dl19`: mean delta `-0.0017`, Help/Hurt/Tie `20 / 16 / 7`
@@ -1503,7 +1503,7 @@ If the next package lands well, the paper should say:
 
 ## 14. Immediate TODO Checklist
 
-### Must Do For The Current Paper
+### Must-Do For The Current Paper
 
 - [ ] Finish the representative BEIR subset first, before expanding any new ablation grid
 - [x] Build a quality-cost Pareto figure from existing TREC DL results
