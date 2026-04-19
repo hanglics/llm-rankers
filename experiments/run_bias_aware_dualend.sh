@@ -9,6 +9,7 @@
 #SBATCH --gres=gpu:h100:1
 #SBATCH --time=20:00:00
 #SBATCH --account=a_ai_collab
+#SBATCH --exclude=bun116
 
 # Order-robust / bias-aware DualEnd with controlled orderings on hard windows.
 

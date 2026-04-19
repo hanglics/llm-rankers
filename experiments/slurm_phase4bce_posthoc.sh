@@ -7,6 +7,7 @@
 #SBATCH --partition=general
 #SBATCH --time=01:00:00
 #SBATCH --account=a_ai_collab
+#SBATCH --exclude=bun116
 
 # Phase 4B/C/D/E: Post-hoc analyses — NO GPU needed
 # Runs on existing Phase 1-3 results, CPU only.
