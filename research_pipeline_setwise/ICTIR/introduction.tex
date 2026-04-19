@@ -25,7 +25,6 @@ Figure~\ref{fig:overview} illustrates the key differences between standard top-d
 
 \begin{figure}[!htbp]
 \centering
-\resizebox{\columnwidth}{!}{%
 \begin{tikzpicture}[
     doc/.style={rectangle, draw, minimum width=0.6cm, minimum height=0.5cm, font=\scriptsize},
     arrow/.style={-{Stealth[length=2mm]}, thick},
@@ -68,8 +67,7 @@ Figure~\ref{fig:overview} illustrates the key differences between standard top-d
 \node[doc, fill=gray!15] at (6.65, 0.25) {\scriptsize ?};
 \node[doc, fill=red!30] at (7.25, 0.25) {\scriptsize last};
 \end{tikzpicture}
-}
-\caption{Comparison of setwise ranking strategies. \topdown{} returns only the best document, \bottomup{} only the worst, and \dualend{} both, yielding about $1.79\times$ more ranking information per call.}
+\caption{Comparison of setwise ranking strategies. \topdown{} identifies only the best document per call. \bottomup{} identifies only the worst. \dualend{} identifies both, extracting $\sim$$1.79\times$ ranking information per LLM call.}
 \label{fig:overview}
 \end{figure}
 

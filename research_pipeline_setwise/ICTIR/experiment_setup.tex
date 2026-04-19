@@ -58,7 +58,6 @@ Table~\ref{tab:configs} summarizes all experimental configurations. For all setw
 \caption{Experimental configurations. All use $k{=}10$, hits${}={100}$, $c{=}3$.}
 \label{tab:configs}
 \small
-\resizebox{\columnwidth}{!}{%
 \begin{tabular}{llll}
 \toprule
 \textbf{Method} & \textbf{Direction} & \textbf{Algorithm} & \textbf{Extra} \\
@@ -73,7 +72,6 @@ Table~\ref{tab:configs} summarizes all experimental configurations. For all setw
 \bidir{}-Weighted & bidirectional & heapsort & $\alpha{=}0.7$ \\
 \bottomrule
 \end{tabular}
-}
 \end{table}
 
 \textbf{Implementation}: All methods are implemented in the \texttt{llm-rankers} framework~\citep{zhuang2024setwise}, extending the existing \texttt{SetwiseLlmRanker} class. The \texttt{BottomUpSetwiseLlmRanker}, \texttt{DualEndSetwiseLlmRanker}, and \texttt{BidirectionalEnsembleRanker} classes are added as new modules, alongside the three refinement variants \texttt{SelectiveDualEndSetwiseLlmRanker}, \texttt{BiasAwareDualEndSetwiseLlmRanker}, and \texttt{SameCallRegularizedSetwiseLlmRanker} described in \S\ref{sec:refinement}. The bidirectional ensemble uses Python's \texttt{\_\_new\_\_} constructor pattern to share model weights between the top-down and bottom-up rankers, avoiding redundant GPU memory usage. For Qwen3-family thinking models, output parsing handles \texttt{<think>...</think>} reasoning blocks via regex stripping, with \texttt{max\_new\_tokens}${}=256$ to allow the thinking block to complete before the answer (and 512 for the longer dual-output prompt). The causal likelihood follow-up scores short continuations such as \texttt{Passage A} with teacher forcing rather than assuming a single stable label token.

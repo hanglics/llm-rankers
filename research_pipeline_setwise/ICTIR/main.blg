@@ -6,7 +6,6 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
 Database file #1: references.bib
-Warning--I didn't find a database entry for "thakur2021beir"
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
 Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
@@ -47,6 +46,9 @@ Warning--empty publisher in sun2023chatgpt
 Warning--empty address in sun2023chatgpt
 Warning--empty publisher in tang2024found
 Warning--empty address in tang2024found
+Warning--empty publisher in thakur2021beir
+Warning--empty address in thakur2021beir
+Warning--page numbers missing in both pages and numpages fields in thakur2021beir
 Warning--no number and no volume in wisznia2025optimal
 Warning--page numbers missing in both pages and numpages fields in wisznia2025optimal
 Warning--no number and no volume in zeng2024llmrankfusion
@@ -57,45 +59,45 @@ Warning--no number and no volume in zhuang2025rankr1
 Warning--page numbers missing in both pages and numpages fields in zhuang2025rankr1
 Warning--empty publisher in zhuang2024setwise
 Warning--empty address in zhuang2024setwise
-You've used 22 entries,
+You've used 23 entries,
             6273 wiz_defined-function locations,
-            1623 strings with 23363 characters,
-and the built_in function-call counts, 25883 in all, are:
-= -- 3233
-> -- 1030
+            1626 strings with 23663 characters,
+and the built_in function-call counts, 26959 in all, are:
+= -- 3329
+> -- 1077
 < -- 0
-+ -- 359
-- -- 345
-* -- 1926
-:= -- 2543
-add.period$ -- 106
-call.type$ -- 22
-change.case$ -- 194
-chr.to.int$ -- 22
-cite$ -- 66
-duplicate$ -- 2210
-empty$ -- 1566
-format.name$ -- 417
-if$ -- 6388
++ -- 375
+- -- 360
+* -- 2011
+:= -- 2651
+add.period$ -- 110
+call.type$ -- 23
+change.case$ -- 203
+chr.to.int$ -- 23
+cite$ -- 70
+duplicate$ -- 2315
+empty$ -- 1640
+format.name$ -- 436
+if$ -- 6638
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 96
-newline$ -- 205
-num.names$ -- 154
-pop$ -- 1050
+missing$ -- 101
+newline$ -- 212
+num.names$ -- 161
+pop$ -- 1109
 preamble$ -- 1
-purify$ -- 369
+purify$ -- 386
 quote$ -- 0
-skip$ -- 750
+skip$ -- 786
 stack$ -- 0
-substring$ -- 1584
-swap$ -- 170
+substring$ -- 1637
+swap$ -- 175
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 491
-warning$ -- 44
-while$ -- 106
+type$ -- 521
+warning$ -- 47
+while$ -- 109
 width$ -- 0
-write$ -- 433
-(There were 45 warnings)
+write$ -- 450
+(There were 47 warnings)

@@ -48,7 +48,6 @@ We stratify queries by difficulty (measured by BM25 NDCG@10) into Easy / Medium 
 \caption{$\Delta$NDCG@10 vs.\ \topdown{}-Heap, stratified by BM25 difficulty terciles (Qwen3-14B, DL 2019, 43 queries). \dualend{}-Cocktail helps most on Medium and Hard queries; \bottomup{}-Heap hurts most on Hard queries.}
 \label{tab:difficulty}
 \small
-\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
 Method & Easy & Medium & Hard & Overall \\
@@ -57,7 +56,6 @@ Method & Easy & Medium & Hard & Overall \\
 \dualend{}-Cocktail & $-$.006 & +.019 & +.009 & +.007 \\
 \bottomrule
 \end{tabular}
-}
 \end{table}
 
 For Qwen3-14B, \dualend{}-Cocktail gains the most on medium queries (+.019) and is roughly neutral on easy and hard queries. \bottomup{}-Heap is consistently negative, with the largest hurt on hard queries ($-.103$). For Flan-T5-XL on DL 2019, the pattern is somewhat reversed at the extremes: \dualend{}-Cocktail helps on easy queries (+.014) and is mildly negative on medium and hard (--.010 / --.010), so the difficulty story should be presented as a trend conditional on model rather than as a universal rule. Across all 18 model--dataset configurations, the average DualEnd help is largest on the Easy and Medium terciles and shrinks on Hard, while BottomUp hurts roughly uniformly across terciles. Together these patterns motivate routing rather than universal use---if the gain is concentrated in particular query slices, the right place to spend DualEnd's extra calls is on those slices.
@@ -108,7 +106,7 @@ We compute a Pareto analysis over the existing TREC DL run folders so the paper 
 \caption{Global mean Pareto frontier members on TREC DL 2019 (NDCG@10 vs.\ each cost axis, averaged across all 9 models). The comparison- and token-frontier contains only three points: \topdown{}-Heap, \topdown{}-Bubble, and \dualend{}-Cocktail.}
 \label{tab:pareto}
 \small
-\begin{tabular}{lp{0.58\columnwidth}}
+\begin{tabular}{lc}
 \toprule
 Frontier & Members \\
 \midrule

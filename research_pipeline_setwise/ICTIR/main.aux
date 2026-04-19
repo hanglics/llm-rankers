@@ -14,6 +14,12 @@
 \citation{qin2024large,pradeep2021expando}
 \citation{qin2024large}
 \citation{pradeep2021expando}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Comparison of setwise ranking strategies. \textsc  {TopDown}{} identifies only the best document per call. \textsc  {BottomUp}{} identifies only the worst. \textsc  {DualEnd}{} identifies both, extracting $\sim $$1.79\times $ ranking information per LLM call.}}{2}{figure.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:overview}{{1}{2}{Comparison of setwise ranking strategies. \topdown {} identifies only the best document per call. \bottomup {} identifies only the worst. \dualend {} identifies both, extracting $\sim $$1.79\times $ ranking information per LLM call}{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}LLM-Based Document Ranking}{2}{subsection.2.1}\protected@file@percent }
 \citation{sun2023chatgpt,ma2023zero}
 \citation{sun2023chatgpt}
 \citation{zhang2025rankwithoutgpt}
@@ -21,12 +27,6 @@
 \citation{podolak2025beyond}
 \citation{chen2025tourrank}
 \citation{zhuang2025rankr1}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Comparison of setwise ranking strategies. \textsc  {TopDown}{} identifies only the best document per call. \textsc  {BottomUp}{} identifies only the worst. \textsc  {DualEnd}{} identifies both, extracting 2$\times $ ranking information per LLM call.}}{2}{figure.caption.5}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:overview}{{1}{2}{Comparison of setwise ranking strategies. \topdown {} identifies only the best document per call. \bottomup {} identifies only the worst. \dualend {} identifies both, extracting 2$\times $ ranking information per LLM call}{figure.caption.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}LLM-Based Document Ranking}{2}{subsection.2.1}\protected@file@percent }
 \citation{sato2026survey}
 \citation{wisznia2025optimal}
 \citation{chen2025tourrank}
@@ -35,73 +35,109 @@
 \citation{tang2024found}
 \citation{zeng2024llmrankfusion}
 \citation{zhuang2024setwise}
-\citation{zhuang2024setwise}
+\citation{zeng2024llmrankfusion}
+\citation{tang2024found}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Sorting Algorithms for LLM Ranking}{3}{subsection.2.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Position Bias in LLM Ranking}{3}{subsection.2.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{3}{section.3}\protected@file@percent }
-\newlabel{sec:method}{{3}{3}{Methodology}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Preliminaries: Setwise Ranking}{3}{subsection.3.1}\protected@file@percent }
-\newlabel{eq:fbest}{{1}{3}{Preliminaries: Setwise Ranking}{equation.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Bottom-Up Setwise Ranking}{3}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:bottomup}{{3.2}{3}{Bottom-Up Setwise Ranking}{subsection.3.2}{}}
-\newlabel{eq:fworst}{{2}{3}{Bottom-Up Setwise Ranking}{equation.2}{}}
-\citation{cormack2009reciprocal}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Negative Evidence in LLM Ranking}{3}{subsection.2.4}\protected@file@percent }
 \citation{zhuang2024setwise}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{4}{section.3}\protected@file@percent }
+\newlabel{sec:method}{{3}{4}{Methodology}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Preliminaries: Setwise Ranking}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{eq:fbest}{{1}{4}{Preliminaries: Setwise Ranking}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Bottom-Up Setwise Ranking}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:bottomup}{{3.2}{4}{Bottom-Up Setwise Ranking}{subsection.3.2}{}}
+\newlabel{eq:fworst}{{2}{4}{Bottom-Up Setwise Ranking}{equation.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Dual-End Setwise Ranking}{4}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:dualend}{{3.3}{4}{Dual-End Setwise Ranking}{subsection.3.3}{}}
 \newlabel{eq:fdual}{{3}{4}{Dual-End Setwise Ranking}{equation.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Bidirectional Ensemble}{4}{subsection.3.4}\protected@file@percent }
-\newlabel{sec:bidir}{{3.4}{4}{Bidirectional Ensemble}{subsection.3.4}{}}
+\citation{cormack2009reciprocal}
+\citation{zhuang2024setwise}
 \citation{knuth1997art}
-\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Cocktail Shaker Sort for Dual-End Setwise}}{5}{algorithm.1}\protected@file@percent }
-\newlabel{alg:cocktail}{{1}{5}{Cocktail Shaker Sort for Dual-End Setwise}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Bidirectional Ensemble}{5}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:bidir}{{3.4}{5}{Bidirectional Ensemble}{subsection.3.4}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Sorting Algorithms for Dual-End Comparisons}{5}{section.4}\protected@file@percent }
 \newlabel{sec:algorithms}{{4}{5}{Sorting Algorithms for Dual-End Comparisons}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Cocktail Shaker Sort}{5}{subsection.4.1}\protected@file@percent }
-\@writefile{loa}{\contentsline {algorithm}{\numberline {2}{\ignorespaces Double-Ended Selection Sort}}{5}{algorithm.2}\protected@file@percent }
-\newlabel{alg:deselection}{{2}{5}{Double-Ended Selection Sort}{algorithm.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Double-Ended Selection Sort}{5}{subsection.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Information-Theoretic Analysis}{5}{subsection.4.3}\protected@file@percent }
-\newlabel{sec:information}{{4.3}{5}{Information-Theoretic Analysis}{subsection.4.3}{}}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Cocktail Shaker Sort for Dual-End Setwise}}{6}{algorithm.1}\protected@file@percent }
+\newlabel{alg:cocktail}{{1}{6}{Cocktail Shaker Sort for Dual-End Setwise}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Double-Ended Selection Sort}{6}{subsection.4.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {2}{\ignorespaces Double-Ended Selection Sort}}{6}{algorithm.2}\protected@file@percent }
+\newlabel{alg:deselection}{{2}{6}{Double-Ended Selection Sort}{algorithm.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Refinement Variants}{6}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:refinement}{{4.3}{6}{Refinement Variants}{subsection.4.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Information-Theoretic Analysis}{6}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:information}{{4.4}{6}{Information-Theoretic Analysis}{subsection.4.4}{}}
 \citation{craswell2020overview}
 \citation{craswell2021overview}
 \citation{thakur2021beir}
 \citation{lin2021pyserini}
 \citation{zhuang2024setwise,sun2023chatgpt,qin2024large}
 \citation{zhuang2024setwise}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Information extracted per LLM call for different comparison strategies. Token overhead calculated for passages of 128 tokens.}}{7}{table.caption.6}\protected@file@percent }
+\newlabel{tab:infobits}{{1}{7}{Information extracted per LLM call for different comparison strategies. Token overhead calculated for passages of 128 tokens}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Experimental Setup}{7}{section.5}\protected@file@percent }
+\newlabel{sec:experiments}{{5}{7}{Experimental Setup}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Datasets and Metrics}{7}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Models}{7}{subsection.5.2}\protected@file@percent }
 \citation{zhuang2024setwise}
 \citation{zhuang2024setwise}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Information extracted per LLM call for different comparison strategies. Token overhead calculated for passages of 128 tokens.}}{6}{table.caption.6}\protected@file@percent }
-\newlabel{tab:infobits}{{1}{6}{Information extracted per LLM call for different comparison strategies. Token overhead calculated for passages of 128 tokens}{table.caption.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Experimental Setup}{6}{section.5}\protected@file@percent }
-\newlabel{sec:experiments}{{5}{6}{Experimental Setup}{section.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Datasets and Metrics}{6}{subsection.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Models}{6}{subsection.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Configurations}{6}{subsection.5.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Experimental configurations. All use $k{=}10$, hits${}={100}$.}}{7}{table.caption.7}\protected@file@percent }
-\newlabel{tab:configs}{{2}{7}{Experimental configurations. All use $k{=}10$, hits${}={100}$}{table.caption.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Results}{7}{section.6}\protected@file@percent }
-\newlabel{sec:results}{{6}{7}{Results}{section.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Main Results}{7}{subsection.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}RQ1: Bottom-Up vs. Top-Down Effectiveness}{7}{subsection.6.2}\protected@file@percent }
-\newlabel{sec:rq1}{{6.2}{7}{RQ1: Bottom-Up vs. Top-Down Effectiveness}{subsection.6.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}RQ2: Dual-End Effectiveness and Efficiency}{7}{subsection.6.3}\protected@file@percent }
-\newlabel{sec:rq2}{{6.3}{7}{RQ2: Dual-End Effectiveness and Efficiency}{subsection.6.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Configurations}{8}{subsection.5.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Experimental configurations. All use $k{=}10$, hits${}={100}$, $c{=}3$.}}{8}{table.caption.7}\protected@file@percent }
+\newlabel{tab:configs}{{2}{8}{Experimental configurations. All use $k{=}10$, hits${}={100}$, $c{=}3$}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Results}{8}{section.6}\protected@file@percent }
+\newlabel{sec:results}{{6}{8}{Results}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Main Results}{8}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}RQ1: Bottom-Up vs.\ Top-Down Effectiveness}{8}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:rq1}{{6.2}{8}{RQ1: Bottom-Up vs.\ Top-Down Effectiveness}{subsection.6.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Main results on TREC DL 2019 and 2020 (NDCG@10 and MAP@100). Best NDCG@10 result per model in \textbf  {bold}, second-best \underline  {underlined}. All use \texttt  {num\_child}=3, $k$=10, hits=100. The full 8-method block is shown for every model.}}{9}{table.caption.8}\protected@file@percent }
+\newlabel{tab:main}{{3}{9}{Main results on TREC DL 2019 and 2020 (NDCG@10 and MAP@100). Best NDCG@10 result per model in \textbf {bold}, second-best \underline {underlined}. All use \texttt {num\_child}=3, $k$=10, hits=100. The full 8-method block is shown for every model}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}RQ2: Dual-End Effectiveness and Efficiency}{10}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:rq2}{{6.3}{10}{RQ2: Dual-End Effectiveness and Efficiency}{subsection.6.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Efficiency comparison for top-$k{=}10$ ranking of $n{=}100$ documents with $c{=}3$. Theoretical complexity and empirical measurements (per query, averaged across DL 2019).}}{10}{table.caption.9}\protected@file@percent }
+\newlabel{tab:efficiency}{{4}{10}{Efficiency comparison for top-$k{=}10$ ranking of $n{=}100$ documents with $c{=}3$. Theoretical complexity and empirical measurements (per query, averaged across DL 2019)}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}RQ3: Bidirectional Ensemble}{10}{subsection.6.4}\protected@file@percent }
+\newlabel{sec:rq3}{{6.4}{10}{RQ3: Bidirectional Ensemble}{subsection.6.4}{}}
 \citation{zhuang2024setwise}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}RQ3: Bidirectional Ensemble}{8}{subsection.6.4}\protected@file@percent }
-\newlabel{sec:rq3}{{6.4}{8}{RQ3: Bidirectional Ensemble}{subsection.6.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Position Bias Analysis}{8}{subsection.6.5}\protected@file@percent }
-\newlabel{sec:bias}{{6.5}{8}{Position Bias Analysis}{subsection.6.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Ablation Studies}{11}{subsection.6.5}\protected@file@percent }
+\newlabel{sec:ablation}{{6.5}{11}{Ablation Studies}{subsection.6.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Effect of \texttt  {num\_child} ($c$) on \textsc  {DualEnd}{}-Cocktail (DL 2019). Optimal $c$ depends on model family.}}{11}{table.caption.10}\protected@file@percent }
+\newlabel{tab:ablation_nc}{{5}{11}{Effect of \texttt {num\_child} ($c$) on \dualend {}-Cocktail (DL 2019). Optimal $c$ depends on model family}{table.caption.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Effect of passage truncation length on NDCG@10 (DL 2019). T5-XL has a 512-token context limit; Qwen3-8B and Qwen3.5-9B have 32K+.}}{11}{table.caption.11}\protected@file@percent }
+\newlabel{tab:ablation_pl}{{6}{11}{Effect of passage truncation length on NDCG@10 (DL 2019). T5-XL has a 512-token context limit; Qwen3-8B and Qwen3.5-9B have 32K+}{table.caption.11}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Effect of fusion weight $\alpha $ for \textsc  {BiDir}{}-Weighted on DL 2019 (NDCG@10). $\alpha {=}1.0$ is pure \textsc  {TopDown}{}; $\alpha {=}0.0$ is pure \textsc  {BottomUp}{}.}}{11}{table.caption.12}\protected@file@percent }
+\newlabel{tab:ablation_alpha}{{7}{11}{Effect of fusion weight $\alpha $ for \bidir {}-Weighted on DL 2019 (NDCG@10). $\alpha {=}1.0$ is pure \topdown {}; $\alpha {=}0.0$ is pure \bottomup {}}{table.caption.12}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Analysis and Discussion}{11}{section.7}\protected@file@percent }
+\newlabel{sec:analysis}{{7}{11}{Analysis and Discussion}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Position Bias Analysis}{11}{subsection.7.1}\protected@file@percent }
+\newlabel{sec:bias}{{7.1}{11}{Position Bias Analysis}{subsection.7.1}{}}
 \citation{tang2024found}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Ablation Studies}{9}{subsection.6.6}\protected@file@percent }
-\newlabel{sec:ablation}{{6.6}{9}{Ablation Studies}{subsection.6.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Analysis and Discussion}{9}{section.7}\protected@file@percent }
-\newlabel{sec:analysis}{{7}{9}{Analysis and Discussion}{section.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}When Does Bottom-Up Help?}{9}{subsection.7.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Error Analysis}{9}{subsection.7.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Relationship to Tournament Theory}{9}{subsection.7.3}\protected@file@percent }
-\newlabel{sec:tournament}{{7.3}{9}{Relationship to Tournament Theory}{subsection.7.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Position D (last passage) selection frequency by comparison type, averaged over 9 models on DL19. The middle column shows that \textsc  {BottomUp}{} (\texttt  {worst}) collapses heavily onto position D, while \textsc  {DualEnd}{} (\texttt  {dual\_worst}) does the opposite.}}{12}{table.caption.13}\protected@file@percent }
+\newlabel{tab:posD}{{8}{12}{Position D (last passage) selection frequency by comparison type, averaged over 9 models on DL19. The middle column shows that \bottomup {} (\texttt {worst}) collapses heavily onto position D, while \dualend {} (\texttt {dual\_worst}) does the opposite}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Query Difficulty Stratification}{12}{subsection.7.2}\protected@file@percent }
+\newlabel{sec:difficulty}{{7.2}{12}{Query Difficulty Stratification}{subsection.7.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces $\Delta $NDCG@10 vs.\ \textsc  {TopDown}{}-Heap, stratified by BM25 difficulty terciles (Qwen3-14B, DL 2019, 43 queries). \textsc  {DualEnd}{}-Cocktail helps most on Medium and Hard queries; \textsc  {BottomUp}{}-Heap hurts most on Hard queries.}}{12}{table.caption.14}\protected@file@percent }
+\newlabel{tab:difficulty}{{9}{12}{$\Delta $NDCG@10 vs.\ \topdown {}-Heap, stratified by BM25 difficulty terciles (Qwen3-14B, DL 2019, 43 queries). \dualend {}-Cocktail helps most on Medium and Hard queries; \bottomup {}-Heap hurts most on Hard queries}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Ranking Agreement}{12}{subsection.7.3}\protected@file@percent }
+\newlabel{sec:agreement}{{7.3}{12}{Ranking Agreement}{subsection.7.3}{}}
 \citation{blitzrank2026}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}When Does DualEnd Help?}{13}{subsection.7.4}\protected@file@percent }
+\newlabel{sec:when_helps}{{7.4}{13}{When Does DualEnd Help?}{subsection.7.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-query help/hurt summary for \textsc  {DualEnd}{}-Cocktail vs.\ \textsc  {TopDown}{}-Heap on three representative DL19 settings (43 queries).}}{13}{table.caption.15}\protected@file@percent }
+\newlabel{tab:when_helps}{{10}{13}{Per-query help/hurt summary for \dualend {}-Cocktail vs.\ \topdown {}-Heap on three representative DL19 settings (43 queries)}{table.caption.15}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Quality--Cost Pareto Frontier}{13}{subsection.7.5}\protected@file@percent }
+\newlabel{sec:pareto}{{7.5}{13}{Quality--Cost Pareto Frontier}{subsection.7.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Global mean Pareto frontier members on TREC DL 2019 (NDCG@10 vs.\ each cost axis, averaged across all 9 models). The comparison- and token-frontier contains only three points: \textsc  {TopDown}{}-Heap, \textsc  {TopDown}{}-Bubble, and \textsc  {DualEnd}{}-Cocktail.}}{13}{table.caption.16}\protected@file@percent }
+\newlabel{tab:pareto}{{11}{13}{Global mean Pareto frontier members on TREC DL 2019 (NDCG@10 vs.\ each cost axis, averaged across all 9 models). The comparison- and token-frontier contains only three points: \topdown {}-Heap, \topdown {}-Bubble, and \dualend {}-Cocktail}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6}Error Analysis}{13}{subsection.7.6}\protected@file@percent }
+\newlabel{sec:errors}{{7.6}{13}{Error Analysis}{subsection.7.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.7}Relationship to Tournament Theory}{13}{subsection.7.7}\protected@file@percent }
+\newlabel{sec:tournament}{{7.7}{13}{Relationship to Tournament Theory}{subsection.7.7}{}}
+\citation{tang2024found}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Limitations}{14}{section.8}\protected@file@percent }
+\newlabel{sec:limitations}{{8}{14}{Limitations}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{14}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{9}{14}{Conclusion}{section.9}{}}
 \citation{zhuang2025rankr1}
 \bibstyle{ACM-Reference-Format}
 \bibdata{references}
@@ -112,11 +148,6 @@
 \bibcite{craswell2020overview}{{5}{2020}{{Craswell et~al\mbox  {.}}}{{}}}
 \bibcite{knuth1997art}{{6}{1997}{{Knuth}}{{}}}
 \bibcite{lin2021pyserini}{{7}{2021}{{Lin et~al\mbox  {.}}}{{}}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Limitations}{10}{subsection.7.4}\protected@file@percent }
-\newlabel{sec:limitations}{{7.4}{10}{Limitations}{subsection.7.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{10}{section.8}\protected@file@percent }
-\newlabel{sec:conclusion}{{8}{10}{Conclusion}{section.8}{}}
-\@writefile{toc}{\contentsline {section}{References}{10}{section*.15}\protected@file@percent }
 \bibcite{liu2024lost}{{8}{2024}{{Liu et~al\mbox  {.}}}{{}}}
 \bibcite{ma2023zero}{{9}{2023}{{Ma et~al\mbox  {.}}}{{}}}
 \bibcite{nogueira2020document}{{10}{2020}{{Nogueira et~al\mbox  {.}}}{{}}}
@@ -127,11 +158,12 @@
 \bibcite{sato2026survey}{{15}{2026}{{Sato}}{{}}}
 \bibcite{sun2023chatgpt}{{16}{2023}{{Sun et~al\mbox  {.}}}{{}}}
 \bibcite{tang2024found}{{17}{2024}{{Tang et~al\mbox  {.}}}{{}}}
-\bibcite{wisznia2025optimal}{{18}{2025}{{Wisznia et~al\mbox  {.}}}{{}}}
-\bibcite{zeng2024llmrankfusion}{{19}{2024}{{Zeng et~al\mbox  {.}}}{{}}}
-\bibcite{zhang2025rankwithoutgpt}{{20}{2025}{{Zhang et~al\mbox  {.}}}{{}}}
-\bibcite{zhuang2025rankr1}{{21}{2025}{{Zhuang et~al\mbox  {.}}}{{}}}
-\bibcite{zhuang2024setwise}{{22}{2024}{{Zhuang et~al\mbox  {.}}}{{}}}
+\bibcite{thakur2021beir}{{18}{2021}{{Thakur et~al\mbox  {.}}}{{}}}
+\bibcite{wisznia2025optimal}{{19}{2025}{{Wisznia et~al\mbox  {.}}}{{}}}
+\bibcite{zeng2024llmrankfusion}{{20}{2024}{{Zeng et~al\mbox  {.}}}{{}}}
+\bibcite{zhang2025rankwithoutgpt}{{21}{2025}{{Zhang et~al\mbox  {.}}}{{}}}
+\bibcite{zhuang2025rankr1}{{22}{2025}{{Zhuang et~al\mbox  {.}}}{{}}}
+\bibcite{zhuang2024setwise}{{23}{2024}{{Zhuang et~al\mbox  {.}}}{{}}}
 \newlabel{tocindent-1}{0pt}
 \newlabel{tocindent0}{0pt}
 \newlabel{tocindent1}{4.185pt}
@@ -139,7 +171,6 @@
 \newlabel{tocindent3}{0pt}
 \newlabel{tocindent4}{0pt}
 \newlabel{tocindent5}{0pt}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Main results on TREC DL 2019 and 2020 (NDCG@10). Best results per model in \textbf  {bold}, second-best \underline  {underlined}. Full 8-method results shown for representative models (T5-XL, Qwen3-4B); other models show key methods. All use \texttt  {num\_child}=3, $k$=10, hits=100.}}{12}{table.caption.8}\protected@file@percent }
-\newlabel{tab:main}{{3}{12}{Main results on TREC DL 2019 and 2020 (NDCG@10). Best results per model in \textbf {bold}, second-best \underline {underlined}. Full 8-method results shown for representative models (T5-XL, Qwen3-4B); other models show key methods. All use \texttt {num\_child}=3, $k$=10, hits=100}{table.caption.8}{}}
-\newlabel{TotPages}{{14}{14}{}{page.14}{}}
-\gdef \@abspage@last{14}
+\@writefile{toc}{\contentsline {section}{References}{15}{section*.18}\protected@file@percent }
+\newlabel{TotPages}{{15}{15}{}{page.15}{}}
+\gdef \@abspage@last{15}
