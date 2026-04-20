@@ -1,3 +1,9 @@
+Pause the following experiments for now, then do:
+
+1. Build results tables that have same method with same sorting algorithm on same dataset with same model, rather than just the overall best.
+2. Run Dualend with maximum amount of documents in set to fit the context window.
+(If Qwen can fit 10 doc at a time for its context window, then we fit 10, build top and bottom at the same time, so we cut cost in half.)
+
 # BEIR
 ## flan-t5-xl
 (Finished)
