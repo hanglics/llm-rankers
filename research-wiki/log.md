@@ -1,0 +1,38 @@
+# Research Wiki Log
+
+Append-only mutation timeline.
+
+- 2026-04-20T10:30:00+10:00 — Wiki initialized (empty scaffold only).
+- 2026-04-20T10:35:00+10:00 — Manual backfill from project artifacts:
+  - 13 papers ingested from `RESEARCH_BRIEF.md` / `LITERATURE_REVIEW.md`.
+  - 6 ideas, 21 experiment pages, 9 claims (C1–C9), 5 gaps.
+  - 86 edges added to `graph/edges.jsonl`.
+  - Sources: `research_pipeline_setwise/{RESEARCH_BRIEF,LITERATURE_REVIEW,IDEA_REPORT,PAPER_PLAN,FINDINGS,NARRATIVE_REPORT,IMPLEMENTATION_STATUS,RESULTS_REVIEW_V1,SIGNIFICANCE_TESTS}.md`, `Need_to_Run.txt`, `EXPERIMENT_PLAN.md`, `README.md`.
+- 2026-04-20T10:38:00+10:00 — Codex audit round 1 (gpt-5.4, xhigh reasoning, read-only). Found 3 critical, 7 high, 5 medium, 3 low issues. Verdict: NEEDS_MAJOR_REWRITE.
+- 2026-04-20T10:45:00+10:00 — Applied round 1 fixes:
+  - **Critical:** rewrote `gap_map.md` to be a pure view of `addresses_gap` edges (no claim references); corrected `idea:002` likelihood-path description to match `setwise_extended.py:476-491` (explicit best-only-proxy shortcut for T5 and all `--scoring likelihood` paths; only Qwen-generation does true joint elicitation); regenerated `graph/edges.jsonl` with missing `tested_by` / `addresses_gap` / `supports` edges.
+  - **High:** created `query_pack.md` (8000-char deterministic context pack); ingested 7 additional papers (nogueira2020_monot5, pradeep2021_expando_mono_duo, chen2025_tour_rank, blitzrank2026, ren2025_self_calibrated_listwise, zhang2025_rank_without_gpt, rank1_2025) — paper count 13 → 20; added claim:C10 capturing ICTIR-first conservative framing; added pending-work nodes for Need_to_Run priorities (`same_method_tables_pending`, `maxdoc_dualend_pending`) and missing analyses (`dualend_parse_success`, `query_difficulty_stratification`, `generalization_weakness`) — experiment count 21 → 27.
+  - **Medium:** fixed `qin2024_prp` author list (added Le Yan) and venue string; fixed `sato2026_sorting_survey` venue (DPC-TR-2026-001, removed arXiv implication); annotated `analysis_ranking_agreement` numbers as representative-model; split `likelihood_scoring_pending` T5 vs causal paths.
+  - **Low:** fixed `main_td_heap` `results_dir` placeholder; removed `idea:002 (as reference)` string-in-list from `tests:` field; added path to `WHEN_DUALEND_HELPS_SUMMARY.md` in `analysis_per_query_wins`; updated `analysis_significance_tests` `tests:` list to include C1 and C10.
+  - Current counts: 20 papers, 6 ideas, 27 experiments, 10 claims, 5 gaps, 130 edges.
+- 2026-04-20T10:48:00+10:00 — Applied Codex round 2 fixes:
+  - **Critical (graph reconciliation):** reconciled every remaining `tests:` frontmatter entry against the graph; added edges for `claim:C4 -> exp:analysis_significance_tests`, all 6 previously-orphan nodes (generalization_weakness, query_difficulty_stratification, maxdoc_dualend_pending, same_method_tables_pending, ablation_passage_length, chen2025_icr_attention), plus C9 -> maxdoc_dualend_pending, C10 -> generalization_weakness, C8 -> dualend_parse_success, C2 -> all newly-linked analyses.
+  - **High (overclaim):** scoped `claim:C2` statement to "On TREC DL19/DL20" with explicit reminder that out-of-domain claim is provisional until `exp:beir_generalization` and `exp:generalization_weakness` land.
+  - **High (factual):** rewrote `exp:dualend_parse_success` to accurately reflect FINDINGS.md:164-171 (near-perfect parse rates; <1% worst case on Qwen3-14B DL20; no "dual parse failures"; cascading parser always produces a result). Distinguishes parse-reliability (not a confound) from code-path divergence (the actual confound — disclosed on idea:002 and claim:C10).
+  - **High (connection):** added `tests:` to `same_method_tables_pending`, `ablation_passage_length`; updated `beir_generalization` to include C10.
+  - **Medium (semantics):** removed the semantically-invalid `paper:nogueira2020_monot5 -> paper:sun2023_rankgpt contradicts` edge. Index no longer advertises `contradicts` as part of vocabulary.
+  - **Low:** updated `query_pack.md` timestamp; index edge-count now 132.
+  - Current counts: 20 papers, 6 ideas, 27 experiments, 10 claims, 5 gaps, 142 edges.
+- 2026-04-20T10:50:00+10:00 — Codex audit round 3: found 4 residual `tests:` ↔ `tested_by` mismatches (main_bidir_rrf, main_bu_heap, main_de_cocktail each missing claim:C8 in tests; main_bidir_wt held an invalid experiment-to-experiment reference). Verdict: NEEDS_FIXES.
+- 2026-04-20T10:51:00+10:00 — Applied round 3 fixes:
+  - Added `claim:C8` to tests in main_bidir_rrf, main_bu_heap, main_de_cocktail.
+  - Added `claim:C1` to main_de_cocktail tests (also missing vs graph).
+  - Removed invalid `exp:ablation_alpha` string from main_bidir_wt tests.
+- 2026-04-20T10:52:00+10:00 — Codex audit round 4 verdict: **READY_TO_MERGE**. Full bijection check: TEST_MISMATCHES 0 across all 27 experiment pages; BROKEN_ENDPOINTS 0; DUPLICATES 0; SELF_LOOPS 0; EDGE_COUNT 142. No factual regressions. Wiki is mechanically reconciled and factually stable.
+- 2026-04-20T10:55:00+10:00 — Added **idea:007 MaxContext DualEnd** (one-prompt double-ended selection over ≤50-doc Qwen pools). Full plan at `/Users/hangli/projects/llm-rankers/IDEA_007.md` (Codex-audited, gpt-5.4 xhigh, 3 rounds: v1 MAJOR_REDESIGN → v2 NEEDS_REVISION → v3 READY_TO_EXECUTE). Wiki additions:
+  - 1 new idea page: `idea_007_maxcontext_dualend.md` (stage=active, outcome=pending, refines idea:002, addresses gaps G1 + G4).
+  - 4 new experiment pages: `maxcontext_dualend_pool_sweep.md` (Study A, 60 runs), `maxcontext_dualend_pl_sweep.md` (Study B + dualend-nc3 control arm, 96 runs), `maxcontext_dualend_order_pilot.md` (Study C launch gate, 12 runs), `maxcontext_dualend_baselines.md` (matched-`hits` predeclared baselines at {10, 30, 50}, 144 runs). Total new run budget: 312 staged across 5 phases with gates.
+  - 1 experiment page marked superseded: `maxdoc_dualend_pending.md` → retained for traceability, not for launch.
+  - 17 new edges added to `graph/edges.jsonl` (refines, inspired_by ×3, addresses_gap ×2, tested_by ×11).
+  - Updated `index.md` counts: 7 ideas, 31 experiments, 159 edges. Added idea:007 and 4 new exp entries; added "IDEA_007.md" to derived artifacts.
+  - Current counts: 20 papers, 7 ideas, 31 experiments, 10 claims, 5 gaps, 159 edges.

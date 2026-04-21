@@ -15,6 +15,10 @@ The codebase now supports the full directional-asymmetry study plus the follow-u
 - `BiasAwareDualEndSetwiseLlmRanker`
 - `SameCallRegularizedSetwiseLlmRanker`
 
+### Planned (idea:007 — see `/Users/hangli/projects/llm-rankers/IDEA_007.md`)
+
+- `MaxContextDualEndSetwiseLlmRanker` — one-prompt double-ended selection over the whole rerank pool. Qwen-generation only (hard gate); `pool_size == hits == ranker.k` invariant; numeric labels 1..N via a `CHARACTERS → self._labels` refactor (behaviour-preserving for existing letter-direction code); context-fit preflight uses actual tokenization; abort-on-bad-parse; `--scoring likelihood` disallowed (would silently collapse to best-only proxy). Codex-audited (gpt-5.4 xhigh, 3 rounds) to READY_TO_EXECUTE on 2026-04-20.
+
 ## Core Implementations
 
 ### `llmrankers/setwise_extended.py`
@@ -58,6 +62,7 @@ The codebase now supports the full directional-asymmetry study plus the follow-u
   - `selective_dualend`
   - `bias_aware_dualend`
   - `samecall_regularized`
+  - `maxcontext_dualend` **(planned, idea:007; see `IDEA_007.md`)**
 - Bias-aware DualEnd now rejects unsupported `heapsort`
 - Comparison logging hook remains available through `--log_comparisons`
 

@@ -1,0 +1,159 @@
+{"from": "paper:zhuang2025_rank_r1", "to": "paper:zhuang2024_setwise", "type": "extends", "note": "Adds reasoning/RL to setwise", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:podolak2025_setwise_insertion", "to": "paper:zhuang2024_setwise", "type": "extends", "note": "Adds insertion-sort warm-start efficiency layer", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:sato2026_sorting_survey", "to": "paper:zhuang2024_setwise", "type": "extends", "note": "Sorting-over-LLM survey includes setwise as a case", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:tang2024_found_in_middle", "to": "paper:liu2024_lost_in_middle", "type": "extends", "note": "Permutation self-consistency mitigates lost-in-middle bias at ranking level", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:hutter2025_positional_rag", "to": "paper:liu2024_lost_in_middle", "type": "extends", "note": "Shows position-bias varies by model family", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:zhuang2024_setwise", "to": "paper:sun2023_rankgpt", "type": "extends", "note": "Setwise prompting as efficient alternative to listwise RankGPT", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:ma2023_zero_shot_listwise", "to": "paper:sun2023_rankgpt", "type": "extends", "note": "Concurrent listwise on open-source LLMs", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:chen2025_tour_rank", "to": "paper:zhuang2024_setwise", "type": "extends", "note": "Tournament-graph variant of setwise", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:blitzrank2026", "to": "paper:zhuang2024_setwise", "type": "extends", "note": "Principled tournament graphs for setwise", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:ren2025_self_calibrated_listwise", "to": "paper:sun2023_rankgpt", "type": "extends", "note": "Listwise with self-calibration", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:zhang2025_rank_without_gpt", "to": "paper:sun2023_rankgpt", "type": "extends", "note": "Open-LLM listwise reranking", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:pradeep2021_expando_mono_duo", "to": "paper:nogueira2020_monot5", "type": "extends", "note": "Pipeline refinement over MonoT5", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:rank1_2025", "to": "paper:zhuang2025_rank_r1", "type": "extends", "note": "Test-time compute reasoning reranker — parallel to Rank-R1", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:001", "to": "paper:zhuang2024_setwise", "type": "inspired_by", "note": "Reverses the setwise prompt direction", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:001", "to": "paper:qin2024_prp", "type": "inspired_by", "note": "Pairwise positioning precedent", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "paper:zhuang2024_setwise", "type": "inspired_by", "note": "Extends setwise to dual-output comparator", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "paper:sato2026_sorting_survey", "type": "inspired_by", "note": "Borrows cocktail-shaker / double-ended selection terminology", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "paper:zeng2024_llm_rankfusion", "type": "inspired_by", "note": "Rank-fusion theory of LLM inconsistency", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "paper:tang2024_found_in_middle", "type": "inspired_by", "note": "Self-consistency via aggregation across orderings", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:004", "to": "paper:podolak2025_setwise_insertion", "type": "inspired_by", "note": "Selective / warm-start invocation pattern", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:005", "to": "paper:tang2024_found_in_middle", "type": "inspired_by", "note": "Controlled orderings + majority vote", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:005", "to": "paper:qin2024_prp", "type": "inspired_by", "note": "Two-ordering bias mitigation trick", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:006", "to": "paper:zhuang2024_setwise", "type": "inspired_by", "note": "Keeps TopDown head-focused structure; adds regularization", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "paper:zhuang2024_setwise", "to": "gap:G1", "type": "addresses_gap", "note": "Setwise paradigm already extracts more info than pointwise; partial precedent", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:podolak2025_setwise_insertion", "to": "gap:G4", "type": "addresses_gap", "note": "Warm-start + insertion sort efficiency", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:peng2025_flops_reranking", "to": "gap:G4", "type": "addresses_gap", "note": "Hardware-independent efficiency metrics", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:chen2025_icr_attention", "to": "gap:G4", "type": "addresses_gap", "note": "Alternative efficiency axis: attention-only rerankers", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "paper:tang2024_found_in_middle", "to": "gap:G2", "type": "addresses_gap", "note": "Permutation self-consistency as mitigation", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "paper:hutter2025_positional_rag", "to": "gap:G5", "type": "addresses_gap", "note": "Documents model-family-dependent bias", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:001", "to": "gap:G1", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:001", "to": "gap:G3", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "gap:G1", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "gap:G2", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "gap:G3", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "gap:G1", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:004", "to": "gap:G1", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:004", "to": "gap:G4", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:004", "to": "gap:G5", "type": "addresses_gap", "note": "Implicit model-family routing via query-local gates", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:005", "to": "gap:G2", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:005", "to": "gap:G4", "type": "addresses_gap", "note": "Routes expensive controlled orderings only to hard windows", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:005", "to": "gap:G5", "type": "addresses_gap", "note": "Gate-based model-family routing", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:006", "to": "gap:G1", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:006", "to": "gap:G3", "type": "addresses_gap", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:006", "to": "gap:G4", "type": "addresses_gap", "note": "Near-zero added cost vs vanilla DualEnd", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:006", "to": "gap:G5", "type": "addresses_gap", "note": "Preserves TD head focus; orthogonal to family-specific routing", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:004", "to": "idea:002", "type": "refines", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:005", "to": "idea:002", "type": "refines", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:006", "to": "idea:002", "type": "refines", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:001", "to": "exp:main_bu_heap", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:001", "to": "exp:main_bu_bubble", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:001", "to": "exp:beir_generalization", "type": "tested_by", "note": "Out-of-domain BU runs", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:002", "to": "exp:main_de_cocktail", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "exp:main_de_selection", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:002", "to": "exp:beir_generalization", "type": "tested_by", "note": "Out-of-domain DualEnd runs", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:002", "to": "exp:likelihood_scoring_pending", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:002", "to": "exp:dualend_parse_success", "type": "tested_by", "note": "Validates the joint-elicitation path end-to-end", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:002", "to": "exp:maxdoc_dualend_pending", "type": "tested_by", "note": "Max-window DualEnd is a cost-optimized variant", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "idea:003", "to": "exp:main_bidir_rrf", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "exp:main_bidir_wt", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "exp:ablation_alpha", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:003", "to": "exp:beir_generalization", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "idea:004", "to": "exp:selective_dualend_flan_t5_xl", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:004", "to": "exp:selective_dualend_qwen_pending", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:005", "to": "exp:bias_aware_dualend_pending", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:006", "to": "exp:samecall_regularized_pending", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C1", "to": "exp:main_bu_heap", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C1", "to": "exp:main_bu_bubble", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C1", "to": "exp:main_de_cocktail", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C1", "to": "exp:analysis_position_bias", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C1", "to": "exp:analysis_significance_tests", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C2", "to": "exp:main_td_heap", "type": "tested_by", "note": "Baseline reference for challenger comparisons", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C2", "to": "exp:main_td_bubble", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C2", "to": "exp:main_de_cocktail", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C2", "to": "exp:main_de_selection", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C2", "to": "exp:analysis_significance_tests", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C2", "to": "exp:analysis_per_query_wins", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C2", "to": "exp:beir_generalization", "type": "tested_by", "note": "Out-of-domain generalization of DualEnd pattern", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C2", "to": "exp:generalization_weakness", "type": "tested_by", "note": "Risk analysis: if BEIR fails, C2 scopes to TREC DL", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C2", "to": "exp:query_difficulty_stratification", "type": "tested_by", "note": "Tercile-level analysis of where DualEnd helps", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C2", "to": "exp:same_method_tables_pending", "type": "tested_by", "note": "Same-method consolidated tables are required to defend C2 like-with-like", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C2", "to": "exp:ablation_passage_length", "type": "tested_by", "note": "Sanity-checks that C2 holds across passage length configurations", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C2", "to": "exp:dualend_parse_success", "type": "tested_by", "note": "Parse-reliability diagnostic ensures C2 is not an artifact of parse fallbacks", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C3", "to": "exp:main_bu_heap", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C3", "to": "exp:main_bu_bubble", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C3", "to": "exp:analysis_significance_tests", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C4", "to": "exp:main_bidir_rrf", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C4", "to": "exp:main_bidir_wt", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C4", "to": "exp:ablation_alpha", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C4", "to": "exp:analysis_ranking_agreement", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C4", "to": "exp:analysis_per_query_wins", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C4", "to": "exp:analysis_significance_tests", "type": "tested_by", "note": "Significance table includes BiDir family losses", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C5", "to": "exp:analysis_position_bias", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C5", "to": "exp:main_de_cocktail", "type": "tested_by", "note": "The DualEnd runs are the source of dual_best/dual_worst bias curves", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C5", "to": "exp:bias_aware_dualend_pending", "type": "tested_by", "note": "Will test whether dual_worst primacy survives controlled orderings", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C6", "to": "exp:analysis_significance_tests", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C6", "to": "exp:main_td_bubble", "type": "tested_by", "note": "TD-Bubble is the reference point the DualEnd deltas are computed against", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C6", "to": "exp:main_de_cocktail", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C6", "to": "exp:main_de_selection", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C6", "to": "exp:analysis_per_query_wins", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C6", "to": "exp:same_method_tables_pending", "type": "tested_by", "note": "Like-with-like tables are required to judge significance fairly", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C7", "to": "exp:ablation_num_child", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C7", "to": "exp:ablation_passage_length", "type": "tested_by", "note": "Second model-family interaction ablation", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C8", "to": "exp:analysis_ranking_agreement", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C8", "to": "exp:main_bu_heap", "type": "tested_by", "note": "BU failure is part of the supporting evidence triad", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C8", "to": "exp:main_bidir_rrf", "type": "tested_by", "note": "BiDir failure is part of the supporting evidence triad", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C8", "to": "exp:main_de_cocktail", "type": "tested_by", "note": "DualEnd partial success completes the evidence triad", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C8", "to": "exp:dualend_parse_success", "type": "tested_by", "note": "Confirms joint elicitation is actually exercised in the measured path", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C9", "to": "exp:analysis_pareto", "type": "tested_by", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "claim:C9", "to": "exp:main_td_heap", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C9", "to": "exp:main_td_bubble", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C9", "to": "exp:main_de_cocktail", "type": "tested_by", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C9", "to": "exp:selective_dualend_flan_t5_xl", "type": "tested_by", "note": "Selective DualEnd targets the empty region on the frontier", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C9", "to": "exp:maxdoc_dualend_pending", "type": "tested_by", "note": "Max-window DualEnd would add a new frontier point", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "claim:C10", "to": "exp:analysis_significance_tests", "type": "tested_by", "note": "Framing is constrained by the significance evidence", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C10", "to": "exp:beir_generalization", "type": "tested_by", "note": "Generalization evidence gates ICTIR vs ARR framing", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "claim:C10", "to": "exp:generalization_weakness", "type": "tested_by", "note": "Explicit risk-to-framing analysis", "created_at": "2026-04-20T10:47:00+10:00"}
+{"from": "exp:main_bu_heap", "to": "claim:C1", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bu_heap", "to": "claim:C3", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bu_bubble", "to": "claim:C1", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bu_bubble", "to": "claim:C3", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_de_cocktail", "to": "claim:C2", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_de_cocktail", "to": "claim:C5", "type": "supports", "created_at": "2026-04-20T10:40:00+10:00"}
+{"from": "exp:main_de_selection", "to": "claim:C2", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bidir_rrf", "to": "claim:C4", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bidir_wt", "to": "claim:C4", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:ablation_alpha", "to": "claim:C4", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:ablation_num_child", "to": "claim:C7", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_position_bias", "to": "claim:C1", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_position_bias", "to": "claim:C5", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_significance_tests", "to": "claim:C2", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_significance_tests", "to": "claim:C3", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_significance_tests", "to": "claim:C4", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_significance_tests", "to": "claim:C6", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_ranking_agreement", "to": "claim:C4", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_ranking_agreement", "to": "claim:C8", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:analysis_pareto", "to": "claim:C9", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bu_heap", "to": "idea:001", "type": "invalidates", "note": "BottomUp alone fails; idea:001 marked failed", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bu_bubble", "to": "idea:001", "type": "invalidates", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bidir_rrf", "to": "idea:003", "type": "invalidates", "note": "BiDir fusion fails; idea:003 marked failed", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_bidir_wt", "to": "idea:003", "type": "invalidates", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_de_cocktail", "to": "idea:002", "type": "supports", "note": "14/18 directional wins, 1 Bonferroni-sig; partial success", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "exp:main_de_selection", "to": "idea:002", "type": "supports", "created_at": "2026-04-20T10:35:00+10:00"}
+{"from": "idea:007", "to": "idea:002", "type": "refines", "note": "MaxContext DualEnd extends joint best+worst prompting to whole-pool windows", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "paper:zhuang2024_setwise", "type": "inspired_by", "note": "Setwise foundation", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "paper:sato2026_sorting_survey", "type": "inspired_by", "note": "Cocktail/double-ended selection sort framing", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "paper:zhuang2025_rank_r1", "type": "inspired_by", "note": "num_child=19 (20-way setwise) precedent for large windows", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "gap:G1", "type": "addresses_gap", "note": "Extracts more info per call by fitting whole pool", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "gap:G4", "type": "addresses_gap", "note": "Targets the empty TD-Bubble \u2192 DE-Cocktail frontier gap", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_dualend_pool_sweep", "type": "tested_by", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_dualend_pl_sweep", "type": "tested_by", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_dualend_order_pilot", "type": "tested_by", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_dualend_baselines", "type": "tested_by", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxdoc_dualend_pending", "type": "tested_by", "note": "Supersedes this pending node; retained for traceability", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C2", "to": "exp:maxcontext_dualend_pool_sweep", "type": "tested_by", "note": "Will extend C2 if MaxContext wins replicate", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C2", "to": "exp:maxcontext_dualend_pl_sweep", "type": "tested_by", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C2", "to": "exp:maxcontext_dualend_baselines", "type": "tested_by", "note": "Baselines anchor the MaxContext-vs-DE-Cocktail comparison for C2", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C7", "to": "exp:maxcontext_dualend_pl_sweep", "type": "tested_by", "note": "pl-sweep probes window-size \u00d7 model-family interaction at w=pool_size", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C9", "to": "exp:maxcontext_dualend_pool_sweep", "type": "tested_by", "note": "Whether MaxContext lands in the empty TD-Bubble \u2192 DE-Cocktail frontier region", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "claim:C9", "to": "exp:maxcontext_dualend_baselines", "type": "tested_by", "note": "Matched-hits baselines anchor frontier comparison", "created_at": "2026-04-20T10:55:00+10:00"}
