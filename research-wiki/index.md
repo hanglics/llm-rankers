@@ -82,7 +82,7 @@
 - [exp:samecall_regularized_pending](experiments/samecall_regularized_pending.md) — 12 runs pending
 - [exp:beir_generalization](experiments/beir_generalization.md) — flan-t5-xl done, Qwen3-8B 5/6, Qwen3.5-9B pending
 - [exp:likelihood_scoring_pending](experiments/likelihood_scoring_pending.md) — 6 runs pending
-- [exp:same_method_tables_pending](experiments/same_method_tables_pending.md) — Need_to_Run top priority
+- [exp:same_method_tables_pending](experiments/same_method_tables_pending.md) — **completed 2026-04-21**; 12 pairwise tables + SIGNIFICANCE_TESTS_PAIRWISE.{md,json}
 - [exp:maxdoc_dualend_pending](experiments/maxdoc_dualend_pending.md) — superseded by idea:007
 
 ### idea:007 MaxContext DualEnd matrix (plan at `IDEA_007.md`)

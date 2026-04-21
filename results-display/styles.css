@@ -434,6 +434,13 @@ body::before {
   border-bottom: none;
 }
 
+.results-table td .muted {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-left: 4px;
+  font-weight: 400;
+}
+
 .mini-list {
   margin: 0;
   padding-left: 18px;

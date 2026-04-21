@@ -36,3 +36,10 @@ Append-only mutation timeline.
   - 17 new edges added to `graph/edges.jsonl` (refines, inspired_by ×3, addresses_gap ×2, tested_by ×11).
   - Updated `index.md` counts: 7 ideas, 31 experiments, 159 edges. Added idea:007 and 4 new exp entries; added "IDEA_007.md" to derived artifacts.
   - Current counts: 20 papers, 7 ideas, 31 experiments, 10 claims, 5 gaps, 159 edges.
+- 2026-04-21T19:50:00+10:00 — Closed `exp:same_method_tables_pending` (Need_to_Run priority #1). Produced 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired-AR + Bonferroni per (grouping, dataset). Artifacts:
+  - `analysis/significance_tests_pairwise.py` (new driver; reuses `significance_tests.py` helpers).
+  - `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.md` + `.json` (authoritative numbers).
+  - `results-display/_pairwise_tables_fragment.html` (regenerable) → inlined into `results-display/index.html` under `section id="pairwise-tables"` with intro copy.
+  - CSS touched: added `.results-table td .muted` style for the `(baseline)` annotation in baseline rows.
+  - Updated `exp:same_method_tables_pending` status `not_submitted` → `completed`, added artifact paths and headline findings.
+  - Headline: cleanest positive finding is DualEnd (DE-Cocktail + DE-Selection) vs TD-Bubble on DL19 — 2 Bonferroni-sig wins on Qwen3-8B. All BU and BiDir groupings confirm the existing directional-asymmetry pattern with multiple Bonferroni-sig losses.
