@@ -13,9 +13,14 @@ Phase gates:
 4. Phase 4 runs Study A plus the predeclared matched-hits baselines.
 5. Phase 5 runs Study B after Study A fixes the predeclared pool size.
 
-All commands below assume you are at repo root: `/Users/hangli/projects/llm-rankers`.
+All commands below run from the cluster login node. If your cluster root differs, replace `/scratch/project/neural_ir/hang/llm-rankers` consistently in this sheet and the four `experiments/run_maxcontext_dualend*.sh` launchers.
+
+The setup block below defines unexported shell variables and functions on your login-node shell. They exist only to build `sbatch` command lines, and their values are string-interpolated into positional arguments before `sbatch` is invoked. `sbatch` forwards the login-node environment to the compute node by default (`--export=ALL`), but this sheet does not rely on that. Every compute-node launcher re-establishes its own environment from scratch with `module load`, `conda activate`, `export HF_*`, and an explicit `cd /scratch/project/neural_ir/hang/llm-rankers` inside the script itself.
 
 ```bash
+REPO_ROOT=/scratch/project/neural_ir/hang/llm-rankers
+cd "$REPO_ROOT"
+
 mkdir -p logs results/maxcontext_dualend
 
 DL19_DATASET="msmarco-passage/trec-dl-2019/judged"
@@ -52,51 +57,19 @@ submit_order_job () {
   local RUN_PATH="$3"
   local OUTPUT_DIR="$4"
   local ORDERING="$5"
-  local ORDER_FLAG=""
-  local ORDER_TAG="$ORDERING"
-  if [[ "$ORDERING" == "inverse" ]]; then
-    ORDER_FLAG="--shuffle_ranking inverse"
-  elif [[ "$ORDERING" == "random" ]]; then
-    ORDER_FLAG="--shuffle_ranking random"
-  fi
 
   local MODEL_TAG
   MODEL_TAG=$(model_tag "$MODEL")
   local DATASET_TAG
   DATASET_TAG=$(dataset_short "$DATASET")
-  local JOB_TAG="mc-order-${MODEL_TAG}-${DATASET_TAG}-${ORDER_TAG}"
+  local JOB_TAG="mc-order-${MODEL_TAG}-${DATASET_TAG}-${ORDERING}"
 
   sbatch -J "${JOB_TAG}" \
     -o "logs/${JOB_TAG}-%j.out" \
     -e "logs/${JOB_TAG}-%j.err" \
-    --wrap "cd /scratch/project/neural_ir/hang/llm-rankers && \
-      module load anaconda3/2023.09-0 && \
-      source \$EBROOTANACONDA3/etc/profile.d/conda.sh && \
-      module load cuda/12.2.0 && \
-      conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env && \
-      export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf && \
-      export HF_DATASETS_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf && \
-      export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini && \
-      export IR_DATASETS_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini && \
-      mkdir -p \"${OUTPUT_DIR}\" results/analysis/position_bias_maxcontext/$(basename "${OUTPUT_DIR}") && \
-      python run.py \
-        run --model_name_or_path \"${MODEL}\" \
-            --ir_dataset_name \"${DATASET}\" \
-            --run_path \"${RUN_PATH}\" \
-            --save_path \"${OUTPUT_DIR}/maxcontext_dualend_${ORDER_TAG}.txt\" \
-            --device cuda \
-            --scoring generation \
-            --hits 50 \
-            --query_length 128 \
-            --passage_length 512 \
-            ${ORDER_FLAG} \
-            --log_comparisons \"results/analysis/position_bias_maxcontext/$(basename "${OUTPUT_DIR}")/maxcontext_dualend_${ORDER_TAG}_comparisons.jsonl\" \
-        setwise --num_child 3 \
-                --method selection \
-                --k 50 \
-                --num_permutation 1 \
-                --direction maxcontext_dualend \
-        2>&1 | tee \"${OUTPUT_DIR}/maxcontext_dualend_${ORDER_TAG}.log\""
+    experiments/run_maxcontext_dualend_order.sh \
+    "${MODEL}" "${DATASET}" "${RUN_PATH}" "${OUTPUT_DIR}" \
+    cuda generation 50 512 "${ORDERING}"
 }
 ```
 
@@ -214,33 +187,25 @@ python -m pyserini.eval.trec_eval -c -l 2 \
 
 ### Phase 4A — Study A pool sweep (60 runs)
 
-6 models × 2 datasets × 5 pool sizes. Each wrapper call below submits 5 MaxContext jobs.
+6 models × 2 datasets × 5 pool sizes. Each direct call below submits 5 MaxContext jobs.
 
 ```bash
 for MODEL in "${MODELS[@]}"; do
   MODEL_TAG=$(model_tag "${MODEL}")
 
-  sbatch -J "mc-studyA-${MODEL_TAG}-dl19" \
-    -o "logs/mc-studyA-${MODEL_TAG}-dl19-%j.out" \
-    -e "logs/mc-studyA-${MODEL_TAG}-dl19-%j.err" \
-    --wrap "cd /Users/hangli/projects/llm-rankers && \
-      bash experiments/run_maxcontext_dualend_pool_sweep.sh \
-        \"${MODEL}\" \
-        \"${DL19_DATASET}\" \
-        \"${DL19_RUN}\" \
-        \"results/maxcontext_dualend/phase4/study_a/${MODEL_TAG}-dl19\" \
-        cuda generation 512"
+  bash experiments/run_maxcontext_dualend_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL19_DATASET}" \
+    "${DL19_RUN}" \
+    "results/maxcontext_dualend/phase4/study_a/${MODEL_TAG}-dl19" \
+    cuda generation 512
 
-  sbatch -J "mc-studyA-${MODEL_TAG}-dl20" \
-    -o "logs/mc-studyA-${MODEL_TAG}-dl20-%j.out" \
-    -e "logs/mc-studyA-${MODEL_TAG}-dl20-%j.err" \
-    --wrap "cd /Users/hangli/projects/llm-rankers && \
-      bash experiments/run_maxcontext_dualend_pool_sweep.sh \
-        \"${MODEL}\" \
-        \"${DL20_DATASET}\" \
-        \"${DL20_RUN}\" \
-        \"results/maxcontext_dualend/phase4/study_a/${MODEL_TAG}-dl20\" \
-        cuda generation 512"
+  bash experiments/run_maxcontext_dualend_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL20_DATASET}" \
+    "${DL20_RUN}" \
+    "results/maxcontext_dualend/phase4/study_a/${MODEL_TAG}-dl20" \
+    cuda generation 512
 done
 ```
 
@@ -305,33 +270,25 @@ PREDECLARED_POOL_SIZE=30
 CONTROL_METHOD=selection
 ```
 
-Treatment arm: 48 MaxContext runs. Each wrapper call below submits 4 jobs (`pl ∈ {64, 128, 256, 512}`).
+Treatment arm: 48 MaxContext runs. Each direct call below submits 4 jobs (`pl ∈ {64, 128, 256, 512}`).
 
 ```bash
 for MODEL in "${MODELS[@]}"; do
   MODEL_TAG=$(model_tag "${MODEL}")
 
-  sbatch -J "mc-studyB-max-${MODEL_TAG}-dl19" \
-    -o "logs/mc-studyB-max-${MODEL_TAG}-dl19-%j.out" \
-    -e "logs/mc-studyB-max-${MODEL_TAG}-dl19-%j.err" \
-    --wrap "cd /Users/hangli/projects/llm-rankers && \
-      bash experiments/run_maxcontext_dualend_pl_sweep.sh \
-        \"${MODEL}\" \
-        \"${DL19_DATASET}\" \
-        \"${DL19_RUN}\" \
-        \"results/maxcontext_dualend/phase5/study_b/treatment/${MODEL_TAG}-dl19\" \
-        cuda generation ${PREDECLARED_POOL_SIZE}"
+  bash experiments/run_maxcontext_dualend_pl_sweep.sh \
+    "${MODEL}" \
+    "${DL19_DATASET}" \
+    "${DL19_RUN}" \
+    "results/maxcontext_dualend/phase5/study_b/treatment/${MODEL_TAG}-dl19" \
+    cuda generation "${PREDECLARED_POOL_SIZE}"
 
-  sbatch -J "mc-studyB-max-${MODEL_TAG}-dl20" \
-    -o "logs/mc-studyB-max-${MODEL_TAG}-dl20-%j.out" \
-    -e "logs/mc-studyB-max-${MODEL_TAG}-dl20-%j.err" \
-    --wrap "cd /Users/hangli/projects/llm-rankers && \
-      bash experiments/run_maxcontext_dualend_pl_sweep.sh \
-        \"${MODEL}\" \
-        \"${DL20_DATASET}\" \
-        \"${DL20_RUN}\" \
-        \"results/maxcontext_dualend/phase5/study_b/treatment/${MODEL_TAG}-dl20\" \
-        cuda generation ${PREDECLARED_POOL_SIZE}"
+  bash experiments/run_maxcontext_dualend_pl_sweep.sh \
+    "${MODEL}" \
+    "${DL20_DATASET}" \
+    "${DL20_RUN}" \
+    "results/maxcontext_dualend/phase5/study_b/treatment/${MODEL_TAG}-dl20" \
+    cuda generation "${PREDECLARED_POOL_SIZE}"
 done
 ```
 
@@ -392,6 +349,45 @@ bash experiments/eval_all.sh \
   results/maxcontext_dualend/phase3/maxcontext/qwen3-8b-dl19 \
   results/maxcontext_dualend/phase3/dualend_cocktail/qwen3-8b-dl19
 ```
+
+## Dry-run validation
+
+The dry-run must intercept both the top-level `sbatch` calls in this sheet and the nested `sbatch` calls inside `experiments/run_maxcontext_dualend_pool_sweep.sh` and `experiments/run_maxcontext_dualend_pl_sweep.sh`. The safest approach is to put a stub `sbatch` binary first on `PATH`, then launch a clean non-login bash that preserves that `PATH`.
+
+```bash
+# 1. Build the stub binary.
+DRYRUN_DIR=$(mktemp -d)
+cat > "$DRYRUN_DIR/sbatch" <<'STUB'
+#!/usr/bin/env bash
+echo "STUB sbatch $*"
+STUB
+chmod +x "$DRYRUN_DIR/sbatch"
+export PATH="$DRYRUN_DIR:$PATH"
+
+# 2. Position yourself at the repo root and start a fresh non-login bash so
+# /etc/profile.d/* and ~/.bash_profile cannot rewrite PATH and unshadow the
+# stub. A non-login, non-interactive bash inherits the parent's exported PATH
+# as-is.
+REPO_ROOT=/scratch/project/neural_ir/hang/llm-rankers
+cd "$REPO_ROOT"
+bash --noprofile --norc
+
+# 3. Inside that bash, verify the stub is still first on PATH before pasting
+# any phase block. If the output is not "$DRYRUN_DIR/sbatch", stop and do not
+# proceed.
+command -v sbatch
+type -a sbatch
+
+# 4. Paste only the bash code body from the setup block above, then paste each
+# phase block you want to inspect.
+```
+
+Expected after the dry-run:
+
+1. `type model_tag`, `type submit_order_job`, `echo "${DL19_DATASET}"`, and `echo "${DL19_RUN}"` all resolve in the child bash.
+2. Every `STUB sbatch` line contains no local-machine path and uses fully resolved positional arguments after the launcher name.
+3. Nothing actually submits; `squeue -u "$USER"` stays empty.
+4. Phase 1 stays a single stubbed submission, Phase 2 shows one stubbed order-launcher submission per ordering, and Phase 4A / Phase 5 show one stubbed submission per pool size or passage length via the sweep scripts' internal loops.
 
 Notes:
 - Monitor jobs with `squeue -u $USER`.
