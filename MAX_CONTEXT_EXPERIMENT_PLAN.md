@@ -76,6 +76,10 @@ submit_order_job () {
 ## Phase 1 — Unit sanity
 
 One GPU run, Qwen3-4B, DL19, pool=10, pl=512.
+One GPU run, Qwen3-4B, DL19, pool=20, pl=512.
+One GPU run, Qwen3-4B, DL19, pool=30, pl=512.
+One GPU run, Qwen3-4B, DL19, pool=40, pl=512.
+One GPU run, Qwen3-4B, DL19, pool=50, pl=512.
 
 ```bash
 sbatch -J mc-sanity-q3-4b-dl19 \
@@ -85,7 +89,7 @@ sbatch -J mc-sanity-q3-4b-dl19 \
   "Qwen/Qwen3-4B" \
   "${DL19_DATASET}" \
   "${DL19_RUN}" \
-  "results/maxcontext_dualend/phase1/qwen3-4b-dl19" \
+  "results/maxcontext_dualend/phase1/qwen3-4b-dl19/top10" \
   cuda generation 10 512
 ```
 
