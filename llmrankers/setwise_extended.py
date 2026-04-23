@@ -578,6 +578,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         output_upper = self._clean_generation_output(output).upper().strip()
         valid_chars = set(self.CHARACTERS[:n_docs])
         strict = getattr(self, "strict_no_parse_fallback", False)
+        is_numeric_scheme = getattr(self, "label_scheme", None) == "numeric_1_based"
 
         # Label pattern: bare letter or letter in square brackets, e.g. A, [A]
         _L = r'\[?([A-W])\]?'
@@ -592,19 +593,20 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 return invalid_pair
             return None
 
-        # --- Pattern 1: "Best: X, Worst: Y" with letter labels ---
-        best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-        worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-        if best_match or worst_match:
-            if not (best_match and worst_match):
-                if strict:
-                    return None
-            else:
-                parsed = validate_pair(best_match.group(1), worst_match.group(1))
-                if parsed is invalid_pair:
-                    return None
-                if parsed is not None:
-                    return parsed
+        if not is_numeric_scheme:
+            # --- Pattern 1: "Best: X, Worst: Y" with letter labels ---
+            best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+            worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+            if best_match or worst_match:
+                if not (best_match and worst_match):
+                    if strict:
+                        return None
+                else:
+                    parsed = validate_pair(best_match.group(1), worst_match.group(1))
+                    if parsed is invalid_pair:
+                        return None
+                    if parsed is not None:
+                        return parsed
 
         # --- Pattern 2: "Best: N, Worst: M" with numeric labels (1-based) ---
         best_num_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
@@ -623,51 +625,52 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 if parsed is not None:
                     return parsed
 
-        # --- Pattern 3: "most relevant: X ... least relevant: Y" ---
-        most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-        least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-        if most_match or least_match:
-            if not (most_match and least_match):
-                if strict:
-                    return None
-            else:
-                parsed = validate_pair(most_match.group(1), least_match.group(1))
-                if parsed is invalid_pair:
-                    return None
-                if parsed is not None:
-                    return parsed
+        if not is_numeric_scheme:
+            # --- Pattern 3: "most relevant: X ... least relevant: Y" ---
+            most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+            least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
+            if most_match or least_match:
+                if not (most_match and least_match):
+                    if strict:
+                        return None
+                else:
+                    parsed = validate_pair(most_match.group(1), least_match.group(1))
+                    if parsed is invalid_pair:
+                        return None
+                    if parsed is not None:
+                        return parsed
 
-        # --- Pattern 4: "Passage X" patterns (at least 2) ---
-        passage_matches = re.findall(r'PASSAGE\s*' + _L, output_upper)
-        passage_matches = [c for c in passage_matches if c in valid_chars]
-        if passage_matches:
-            if len(passage_matches) < 2:
-                if strict:
-                    return None
-            else:
-                parsed = validate_pair(passage_matches[0], passage_matches[1])
-                if parsed is invalid_pair:
-                    return None
-                if parsed is not None:
-                    return parsed
+            # --- Pattern 4: "Passage X" patterns (at least 2) ---
+            passage_matches = re.findall(r'PASSAGE\s*' + _L, output_upper)
+            passage_matches = [c for c in passage_matches if c in valid_chars]
+            if passage_matches:
+                if len(passage_matches) < 2:
+                    if strict:
+                        return None
+                else:
+                    parsed = validate_pair(passage_matches[0], passage_matches[1])
+                    if parsed is invalid_pair:
+                        return None
+                    if parsed is not None:
+                        return parsed
 
-        # --- Pattern 5: comma/space-separated letters or bracketed letters ---
-        parts = re.split(r'[,\s]+', output_upper)
-        found_chars = []
-        for p in parts:
-            m = re.fullmatch(r'\[?([A-W])\]?', p)
-            if m and m.group(1) in valid_chars:
-                found_chars.append(m.group(1))
-        if found_chars:
-            if len(found_chars) < 2:
-                if strict:
-                    return None
-            else:
-                parsed = validate_pair(found_chars[0], found_chars[1])
-                if parsed is invalid_pair:
-                    return None
-                if parsed is not None:
-                    return parsed
+            # --- Pattern 5: comma/space-separated letters or bracketed letters ---
+            parts = re.split(r'[,\s]+', output_upper)
+            found_chars = []
+            for p in parts:
+                m = re.fullmatch(r'\[?([A-W])\]?', p)
+                if m and m.group(1) in valid_chars:
+                    found_chars.append(m.group(1))
+            if found_chars:
+                if len(found_chars) < 2:
+                    if strict:
+                        return None
+                else:
+                    parsed = validate_pair(found_chars[0], found_chars[1])
+                    if parsed is invalid_pair:
+                        return None
+                    if parsed is not None:
+                        return parsed
 
         # --- Pattern 6: two distinct numbers (1-based) anywhere in the output ---
         all_nums = re.findall(r'\b(\d+)\b', output_upper)

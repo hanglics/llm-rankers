@@ -231,9 +231,20 @@ def test_maxcontext_init_invariants():
 
 def build_dualend_stub(*, strict=False):
     ranker = object.__new__(DualEndSetwiseLlmRanker)
-    ranker.CHARACTERS = ["A", "B", "C", "D"]
+    ranker.CHARACTERS = [chr(ord("A") + i) for i in range(23)]
     ranker.strict_no_parse_fallback = strict
     ranker.strict_no_truncation = False
+    ranker._comparison_log_path = None
+    ranker._current_qid = None
+    return ranker
+
+
+def build_numeric_dualend_stub():
+    ranker = object.__new__(DualEndSetwiseLlmRanker)
+    ranker.CHARACTERS = [str(i + 1) for i in range(10)]
+    ranker.strict_no_parse_fallback = True
+    ranker.strict_no_truncation = False
+    ranker.label_scheme = "numeric_1_based"
     ranker._comparison_log_path = None
     ranker._current_qid = None
     return ranker
@@ -252,8 +263,26 @@ def test_parse_invariants():
         "parse failed",
     )
 
+    numeric_ranker = build_numeric_dualend_stub()
+    assert numeric_ranker._try_parse_dual_output("Best: Passage 3  \nWorst: Passage 4", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("Best: 3, Worst: 4", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("Best: 3 and Worst: 4", 10) == ("3", "4")
+    assert (
+        numeric_ranker._try_parse_dual_output(
+            "Most relevant: Passage 3 ... Least relevant: Passage 4",
+            10,
+        )
+        == ("3", "4")
+    )
+    assert numeric_ranker._try_parse_dual_output("Best: Passage 10, Worst: Passage 2", 10) == ("10", "2")
+    assert numeric_ranker._parse_dual_output("Best: Passage 3  \nWorst: Passage 4", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("Best: 3, Worst: 3", 10) is None
+    assert numeric_ranker._try_parse_dual_output("Best: 17, Worst: 42", 10) is None
+
     relaxed_ranker = build_dualend_stub(strict=False)
+    assert relaxed_ranker._try_parse_dual_output("Best: Passage A, Worst: Passage B", 4) == ("A", "B")
     assert relaxed_ranker._parse_dual_output("Best: 1, Worst: 1", 3) == ("A", "A")
+    assert relaxed_ranker._parse_dual_output("mangled output", 4) == ("A", "D")
     assert relaxed_ranker._parse_dual_output("###", 3) == ("A", "C")
 
 
