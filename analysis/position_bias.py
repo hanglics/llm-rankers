@@ -45,6 +45,14 @@ def main():
         print("No comparison entries found.")
         return
 
+    schemes = {entry.get("label_scheme", "letters_a_w") for entry in all_entries}
+    if len(schemes) > 1:
+        raise ValueError(
+            f"Mixed label_scheme values in input logs: {schemes}. "
+            "Run analysis separately per scheme."
+        )
+    scheme = schemes.pop()
+
     # Separate by comparison type
     by_type = defaultdict(list)
     for entry in all_entries:
@@ -56,9 +64,17 @@ def main():
         lines.append(s)
         print(s)
 
+    def render_label(index: int) -> str:
+        if scheme == "letters_a_w":
+            return chr(ord('A') + index)
+        if scheme == "numeric_1_based":
+            return str(index + 1)
+        raise ValueError(f"Unsupported label_scheme: {scheme}")
+
     out("=" * 70)
     out("Position Bias Analysis")
     out(f"Total comparisons: {len(all_entries)}")
+    out(f"Label scheme: {scheme}")
     out(f"Types: {', '.join(f'{t}={len(v)}' for t, v in sorted(by_type.items()))}")
     out("=" * 70)
 
@@ -89,7 +105,7 @@ def main():
             count = position_counts.get(i, 0)
             freq = count / total
             expected = 1.0 / n_positions
-            label = chr(ord('A') + i)
+            label = render_label(i)
             bias = "▲" if freq > expected * 1.3 else ("▼" if freq < expected * 0.7 else " ")
             out(f"  {i:<12} {label:<8} {count:>8} {freq:>8.3f} {expected:>10.3f} {bias}")
 
@@ -142,7 +158,10 @@ def main():
                             elif comp_type in ("worst", "dual_worst"):
                                 if rels[idx] == min(rels):
                                     pos_correct += 1
-                        out(f"    Position {i} ({chr(ord('A')+i)}): {pos_correct}/{len(pos_entries)} = {pos_correct/len(pos_entries):.3f}")
+                        out(
+                            f"    Position {i} ({render_label(i)}): "
+                            f"{pos_correct}/{len(pos_entries)} = {pos_correct/len(pos_entries):.3f}"
+                        )
 
     if args.output:
         with open(args.output, 'w') as f:

@@ -10,6 +10,7 @@ from llmrankers.setwise_extended import (
     BidirectionalEnsembleRanker,
     BottomUpSetwiseLlmRanker,
     DualEndSetwiseLlmRanker,
+    MaxContextDualEndSetwiseLlmRanker,
     SameCallRegularizedSetwiseLlmRanker,
     SelectiveDualEndSetwiseLlmRanker,
 )
@@ -168,6 +169,35 @@ def main(args):
                                                 fusion=args.setwise.fusion,
                                                 alpha=args.setwise.alpha,
                                                 cache_dir=args.run.cache_dir)
+        elif args.setwise.direction == 'maxcontext_dualend':
+            if args.run.hits != args.setwise.k:
+                raise ValueError(
+                    "maxcontext_dualend requires --hits == --k (pool_size)."
+                )
+            if args.run.scoring != "generation":
+                raise ValueError(
+                    "maxcontext_dualend requires --scoring generation."
+                )
+            if args.setwise.num_permutation != 1:
+                raise ValueError(
+                    "maxcontext_dualend requires --num_permutation 1."
+                )
+            if args.setwise.method != "selection":
+                raise ValueError(
+                    "maxcontext_dualend requires --method selection."
+                )
+            ranker = MaxContextDualEndSetwiseLlmRanker(
+                model_name_or_path=args.run.model_name_or_path,
+                tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                device=args.run.device,
+                cache_dir=args.run.cache_dir,
+                num_child=args.setwise.num_child,
+                scoring=args.run.scoring,
+                method=args.setwise.method,
+                num_permutation=args.setwise.num_permutation,
+                k=args.setwise.k,
+                pool_size=args.setwise.k,
+            )
         else:
             raise ValueError(f'Unknown direction: {args.setwise.direction}')
 
@@ -355,12 +385,14 @@ if __name__ == '__main__':
     setwise_parser.add_argument('--num_permutation', type=int, default=1)
     setwise_parser.add_argument('--direction', type=str, default='topdown',
                                 choices=['topdown', 'bottomup', 'dualend', 'selective_dualend',
-                                         'bias_aware_dualend', 'samecall_regularized', 'bidirectional'],
+                                         'bias_aware_dualend', 'samecall_regularized', 'bidirectional',
+                                         'maxcontext_dualend'],
                                 help='Ranking direction: topdown (standard), bottomup (reverse), '
                                      'dualend (simultaneous best-worst), selective_dualend '
                                      '(TopDown with selective joint prompting), bias_aware_dualend '
                                      '(order-robust joint prompting), samecall_regularized '
-                                     '(TopDown with worst-signal regularization), bidirectional (ensemble)')
+                                     '(TopDown with worst-signal regularization), bidirectional (ensemble), '
+                                     'maxcontext_dualend (full-pool numeric DualEnd selection)')
     setwise_parser.add_argument('--fusion', type=str, default='rrf',
                                 choices=['rrf', 'combsum', 'weighted'],
                                 help='Fusion method for bidirectional ensemble')

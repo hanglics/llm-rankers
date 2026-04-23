@@ -28,9 +28,42 @@ CAUSAL_MODEL_TYPES = {"llama", "qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
 QWEN_MODEL_TYPES = {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
 
 
+def compute_max_fit_window(
+    ranker: "SetwiseLlmRanker",
+    query: str,
+    docs: list,
+    reserved_output_tokens: int = 128,
+) -> tuple[bool, int, int]:
+    """Render the full MaxContext prompt via the runtime prompt path.
+
+    Returns:
+        (fits, rendered_length, budget)
+    """
+    if ranker.max_input_tokens is None:
+        raise ValueError("Cannot compute MaxContext fit window without max_input_tokens.")
+
+    passages = ranker._format_passages(docs)
+    input_text = (
+        f'Given a query "{query}", which of the following passages is the most relevant '
+        f'and which is the least relevant to the query?\n\n'
+        + passages
+        + '\n\nOutput only in the format: Best: [label], Worst: [label]'
+    )
+
+    rendered_prompt = input_text
+    if ranker._is_supported_causal_model():
+        rendered_prompt = ranker._build_chat_prompt([{"role": "user", "content": input_text}])
+
+    rendered_ids = ranker.tokenizer.encode(rendered_prompt, add_special_tokens=True)
+    rendered_length = len(rendered_ids)
+    budget = ranker.max_input_tokens - reserved_output_tokens
+    return rendered_length <= budget, rendered_length, budget
+
+
 class SetwiseLlmRanker(LlmRanker):
     CHARACTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
                   "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W"]  # "Passage X" and "Passage Y" will be tokenized into 3 tokens, so we dont use for now
+    strict_no_truncation: bool = False
 
     def __init__(self,
                  model_name_or_path,
@@ -121,6 +154,9 @@ class SetwiseLlmRanker(LlmRanker):
         }
         if docs is not None:
             entry["docids"] = [d.docid for d in docs]
+        label_scheme = getattr(self, "label_scheme", None)
+        if label_scheme:
+            entry["label_scheme"] = label_scheme
         with open(log_path, 'a') as f:
             f.write(_json.dumps(entry) + "\n")
 
@@ -201,13 +237,18 @@ class SetwiseLlmRanker(LlmRanker):
             self.max_input_tokens is not None
             and lengths
             and max(lengths) > self.max_input_tokens
-            and not self._warned_input_truncation
         ):
-            print(
-                f"Warning: prompt length {max(lengths)} exceeds model limit {self.max_input_tokens}; "
-                "truncating the encoded prompt. Lower --passage_length or --query_length for cleaner comparisons."
-            )
-            self._warned_input_truncation = True
+            if self.strict_no_truncation:
+                raise ValueError(
+                    f"Prompt length {max(lengths)} exceeds model input limit "
+                    f"{self.max_input_tokens} and strict_no_truncation=True."
+                )
+            if not self._warned_input_truncation:
+                print(
+                    f"Warning: prompt length {max(lengths)} exceeds model limit {self.max_input_tokens}; "
+                    "truncating the encoded prompt. Lower --passage_length or --query_length for cleaner comparisons."
+                )
+                self._warned_input_truncation = True
 
         kwargs = {
             "return_tensors": "pt",

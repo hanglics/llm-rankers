@@ -9,7 +9,7 @@ Reference: Extends the setwise approach from Zhuang et al. (SIGIR 2024)
 
 from typing import Dict, List, Optional, Sequence, Tuple
 from .rankers import LlmRanker, SearchResult
-from .setwise import SetwiseLlmRanker, QWEN_MODEL_TYPES
+from .setwise import SetwiseLlmRanker, QWEN_MODEL_TYPES, compute_max_fit_window
 import copy
 import math
 import re
@@ -18,6 +18,8 @@ import random
 from collections import Counter
 
 random.seed(929)
+
+MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({"qwen3", "qwen3_moe", "qwen3_5"})
 
 
 class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
@@ -400,6 +402,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
     - 'heapsort': Standard heapsort (uses parent compare for heap, bonus worst tracking)
     - 'selection': Double-ended selection sort
     """
+    strict_no_parse_fallback: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -492,6 +495,8 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
         # Safety check: ensure best and worst are different
         if best == worst:
+            if self.strict_no_parse_fallback:
+                raise ValueError(f"Duplicate best/worst label {best!r} under strict mode")
             print(f"Warning: best and worst are the same ({best}), defaulting worst to last character")
             for c in reversed(self.CHARACTERS[:len(docs)]):
                 if c != best:
@@ -559,7 +564,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             return self.CHARACTERS[idx]
         return None
 
-    def _try_parse_dual_output(self, output: str, n_docs: int) -> Tuple[Optional[str], Optional[str]]:
+    def _try_parse_dual_output(self, output: str, n_docs: int) -> Optional[Tuple[str, str]]:
         """Parse the dual output from the LLM.
 
         Handles various output formats:
@@ -572,43 +577,79 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         """
         output_upper = self._clean_generation_output(output).upper().strip()
         valid_chars = set(self.CHARACTERS[:n_docs])
+        strict = getattr(self, "strict_no_parse_fallback", False)
 
         # Label pattern: bare letter or letter in square brackets, e.g. A, [A]
         _L = r'\[?([A-W])\]?'
+        invalid_pair = object()
+
+        def validate_pair(best: Optional[str], worst: Optional[str]):
+            if best in valid_chars and worst in valid_chars:
+                if strict and best == worst:
+                    return invalid_pair
+                return best, worst
+            if strict and (best is not None or worst is not None):
+                return invalid_pair
+            return None
 
         # --- Pattern 1: "Best: X, Worst: Y" with letter labels ---
         best_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         worst_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-
-        if best_match and worst_match:
-            best = best_match.group(1)
-            worst = worst_match.group(1)
-            if best in valid_chars and worst in valid_chars:
-                return best, worst
+        if best_match or worst_match:
+            if not (best_match and worst_match):
+                if strict:
+                    return None
+            else:
+                parsed = validate_pair(best_match.group(1), worst_match.group(1))
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         # --- Pattern 2: "Best: N, Worst: M" with numeric labels (1-based) ---
         best_num_match = re.search(r'BEST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
         worst_num_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
-        if best_num_match and worst_num_match:
-            best = self._num_to_label(int(best_num_match.group(1)), n_docs)
-            worst = self._num_to_label(int(worst_num_match.group(1)), n_docs)
-            if best is not None and worst is not None:
-                return best, worst
+        if best_num_match or worst_num_match:
+            if not (best_num_match and worst_num_match):
+                if strict:
+                    return None
+            else:
+                parsed = validate_pair(
+                    self._num_to_label(int(best_num_match.group(1)), n_docs),
+                    self._num_to_label(int(worst_num_match.group(1)), n_docs),
+                )
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         # --- Pattern 3: "most relevant: X ... least relevant: Y" ---
         most_match = re.search(r'MOST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
         least_match = re.search(r'LEAST\s+RELEVANT[:\s]*(?:PASSAGE\s*)?' + _L, output_upper)
-        if most_match and least_match:
-            best = most_match.group(1)
-            worst = least_match.group(1)
-            if best in valid_chars and worst in valid_chars:
-                return best, worst
+        if most_match or least_match:
+            if not (most_match and least_match):
+                if strict:
+                    return None
+            else:
+                parsed = validate_pair(most_match.group(1), least_match.group(1))
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         # --- Pattern 4: "Passage X" patterns (at least 2) ---
         passage_matches = re.findall(r'PASSAGE\s*' + _L, output_upper)
         passage_matches = [c for c in passage_matches if c in valid_chars]
-        if len(passage_matches) >= 2:
-            return passage_matches[0], passage_matches[1]
+        if passage_matches:
+            if len(passage_matches) < 2:
+                if strict:
+                    return None
+            else:
+                parsed = validate_pair(passage_matches[0], passage_matches[1])
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         # --- Pattern 5: comma/space-separated letters or bracketed letters ---
         parts = re.split(r'[,\s]+', output_upper)
@@ -617,8 +658,16 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             m = re.fullmatch(r'\[?([A-W])\]?', p)
             if m and m.group(1) in valid_chars:
                 found_chars.append(m.group(1))
-        if len(found_chars) >= 2:
-            return found_chars[0], found_chars[1]
+        if found_chars:
+            if len(found_chars) < 2:
+                if strict:
+                    return None
+            else:
+                parsed = validate_pair(found_chars[0], found_chars[1])
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         # --- Pattern 6: two distinct numbers (1-based) anywhere in the output ---
         all_nums = re.findall(r'\b(\d+)\b', output_upper)
@@ -628,9 +677,16 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             if label is not None and (not found_num_labels or label != found_num_labels[-1]):
                 found_num_labels.append(label)
             if len(found_num_labels) >= 2:
-                return found_num_labels[0], found_num_labels[1]
+                parsed = validate_pair(found_num_labels[0], found_num_labels[1])
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
-        return None, None
+        if strict and all_nums:
+            return None
+
+        return None
 
     def _parse_dual_output(self, output: str, n_docs: int) -> Tuple[str, str]:
         """Parse dual output with guaranteed return — never returns None.
@@ -640,9 +696,14 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         2. If one number found: map to label, default the other
         3. Last resort: default to first and last
         """
-        best, worst = self._try_parse_dual_output(output, n_docs)
-        if best is not None and worst is not None:
-            return best, worst
+        parsed = self._try_parse_dual_output(output, n_docs)
+        if parsed is not None:
+            return parsed
+
+        if getattr(self, 'strict_no_parse_fallback', False):
+            raise ValueError(
+                f"MaxContext dual-output parse failed. Raw text: {output!r}"
+            )
 
         cleaned = self._clean_generation_output(output)
         output_upper = cleaned.upper().strip()
@@ -994,6 +1055,79 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 next_round.append(group_indices[worst_idx])
             current_indices = next_round
         return current_indices[0]
+
+
+class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
+    def __init__(self, *args, pool_size: int, **kwargs):
+        self._early_reject_non_qwen3(
+            kwargs.get("model_name_or_path") or (args[0] if args else None)
+        )
+        super().__init__(*args, **kwargs)
+        self._assert_maxcontext_invariants(pool_size)
+        self.CHARACTERS = [str(i + 1) for i in range(pool_size)]
+        self.num_child = pool_size - 1
+        self.method = "selection"
+        self.strict_no_truncation = True
+        self.strict_no_parse_fallback = True
+        self.label_scheme = "numeric_1_based"
+        self._maxcontext_pool_size = pool_size
+
+    @staticmethod
+    def _early_reject_non_qwen3(model_name: Optional[str]) -> None:
+        if not model_name:
+            return
+        lowered = model_name.lower()
+        if ("qwen3" in lowered) or ("qwen3.5" in lowered) or ("qwen3_5" in lowered):
+            return
+        raise ValueError(
+            "MaxContextDualEnd supports Qwen3 / Qwen3.5 only; got "
+            f"{model_name!r}. (Qwen2 is explicitly not supported.)"
+        )
+
+    def _assert_maxcontext_invariants(self, pool_size: int) -> None:
+        if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
+            raise ValueError(
+                f"MaxContextDualEnd requires a Qwen3 / Qwen3.5 model_type; "
+                f"got {self.config.model_type!r}."
+            )
+        if self.scoring != "generation":
+            raise ValueError("MaxContextDualEnd requires --scoring generation.")
+        if self.k != pool_size:
+            raise ValueError(f"pool_size={pool_size} but ranker.k={self.k}.")
+        if self.num_permutation != 1:
+            raise ValueError(
+                "MaxContextDualEnd requires --num_permutation 1 "
+                "(compare_both does not permute)."
+            )
+        if self.method != "selection":
+            raise ValueError(
+                "MaxContextDualEnd requires method='selection' "
+                "(_double_ended_selection is the only supported algorithm)."
+            )
+
+    def rerank(self, query: str, docs: List[SearchResult]) -> List[SearchResult]:
+        if len(docs) != self._maxcontext_pool_size:
+            raise ValueError(
+                f"MaxContextDualEnd expects exactly pool_size="
+                f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
+            )
+        self._assert_maxcontext_fits(query, docs)
+        return super().rerank(query, docs)
+
+    def _assert_maxcontext_fits(self, query: str, docs: List[SearchResult]) -> None:
+        ok, rendered_length, limit = compute_max_fit_window(
+            ranker=self,
+            query=query,
+            docs=docs,
+            reserved_output_tokens=128,
+        )
+        if not ok:
+            raise ValueError(
+                f"MaxContextDualEnd preflight failed: rendered prompt is "
+                f"{rendered_length} tokens but the budget is {limit} "
+                f"(max_input_tokens - reserved_output_tokens). "
+                "Reduce --passage_length or --k, or pick a Qwen3.5 variant with larger context."
+            )
 
 
 class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRanker):
