@@ -99,7 +99,7 @@ Evaluation after completion:
 python -m pyserini.eval.trec_eval -c -l 2 \
   -m ndcg_cut.10 -m ndcg_cut.100 -m map_cut.10 -m map_cut.100 -m recall.1000 \
   "${QRELS_DL19}" \
-  results/maxcontext_dualend/phase1/qwen3-4b-dl19/maxcontext_dualend.txt
+  results/maxcontext_dualend/phase1/qwen3-4b-dl19/top10/maxcontext_dualend.txt
 ```
 
 ## Phase 2 — Order-robustness pilot (12 runs)
