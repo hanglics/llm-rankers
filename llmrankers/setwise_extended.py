@@ -23,11 +23,10 @@ MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({"qwen3", "qwen3_moe", "qwen3_5"})
 
 
 class _TokenTrieNode:
-    __slots__ = ("children", "is_pair_end")
+    __slots__ = ("children",)
 
     def __init__(self):
         self.children: Dict[int, "_TokenTrieNode"] = {}
-        self.is_pair_end: bool = False
 
 
 class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
@@ -1210,29 +1209,32 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
                     node.children[token_id] = child
                 node = child
 
-            node.is_pair_end = True
+            if node.children and set(node.children.keys()) != {eos_token_id}:
+                raise AssertionError("Terminal trie node exposes non-EOS children.")
+            node.children.setdefault(eos_token_id, _TokenTrieNode())
             normalized_paths[(best_label, worst_label)] = tuple(int(token_id) for token_id in continuation_ids)
 
         if not trie_root.children:
             raise AssertionError("Dual-output trie root has no children.")
 
-        visited_pair_ends = 0
+        leaf_count = 0
         stack = [trie_root]
         while stack:
             node = stack.pop()
-            if node.is_pair_end:
-                visited_pair_ends += 1
-            if not node.children and not node.is_pair_end:
-                raise AssertionError(
-                    "Dual-output trie has a node that is neither pair-end nor non-leaf."
-                )
+            if not node.children:
+                continue
+            child_keys = set(node.children.keys())
+            if child_keys == {eos_token_id}:
+                leaf_count += 1
+                continue
+            if eos_token_id in child_keys:
+                raise AssertionError("Non-terminal trie node mixes EOS with other children.")
             stack.extend(node.children.values())
 
-        expected_pair_end_count = n_docs * (n_docs - 1)
-        if visited_pair_ends != expected_pair_end_count:
+        expected_leaf_count = n_docs * (n_docs - 1)
+        if leaf_count != expected_leaf_count:
             raise AssertionError(
-                f"Dual-output trie pair-end count {visited_pair_ends} != expected "
-                f"{expected_pair_end_count}."
+                f"Dual-output trie leaf count {leaf_count} != expected {expected_leaf_count}."
             )
 
         return trie_root, eos_token_id, normalized_paths
@@ -1261,10 +1263,7 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
                 if child is None:
                     return []
                 node = child
-            allowed = list(node.children.keys())
-            if node.is_pair_end:
-                allowed.append(eos_token_id)
-            return allowed
+            return list(node.children.keys())
 
         return prefix_allowed_tokens_fn
 
