@@ -561,6 +561,7 @@ def test_parse_invariants():
 def test_dual_prefix_trie_invariants():
     test_cases = [
         (
+            "baseline-small-merged",
             2,
             FakeBPETokenizer(
                 merge_two_digit=True,
@@ -570,6 +571,7 @@ def test_dual_prefix_trie_invariants():
             [(1, 2), (2, 1)],
         ),
         (
+            "baseline-split-separators",
             10,
             FakeBPETokenizer(
                 merge_two_digit=True,
@@ -579,6 +581,7 @@ def test_dual_prefix_trie_invariants():
             [(9, 10), (10, 9)],
         ),
         (
+            "baseline-large-merged",
             40,
             FakeBPETokenizer(
                 merge_two_digit=True,
@@ -587,9 +590,29 @@ def test_dual_prefix_trie_invariants():
             ),
             [(1, 40), (25, 1), (40, 33)],
         ),
+        (
+            "collision-qwen-like-worst-slot",
+            10,
+            FakeBPETokenizer(
+                merge_two_digit=False,
+                merge_leading_space_digit=True,
+                merge_trailing_comma=True,
+            ),
+            [(5, 1), (5, 10)],
+        ),
+        (
+            "collision-fully-split-best-and-worst",
+            10,
+            FakeBPETokenizer(
+                merge_two_digit=False,
+                merge_leading_space_digit=False,
+                merge_trailing_comma=False,
+            ),
+            [(1, 2), (1, 10), (10, 2)],
+        ),
     ]
 
-    for n_docs, tokenizer, sample_pairs in test_cases:
+    for case_name, n_docs, tokenizer, sample_pairs in test_cases:
         ranker = build_maxcontext_stub(pool_size=n_docs, tokenizer=tokenizer)
         docs = make_docs(n_docs)
         prompt = render_dual_runtime_prompt(ranker, "query", docs)
@@ -599,7 +622,9 @@ def test_dual_prefix_trie_invariants():
             prompt=prompt,
             prompt_length=len(prompt_ids),
         )
-        assert len(normalized_paths) == n_docs * (n_docs - 1)
+        expected_pair_count = n_docs * (n_docs - 1)
+        assert len(normalized_paths) == expected_pair_count
+        assert len(set(normalized_paths.values())) == len(normalized_paths) == expected_pair_count
 
         allowed_fn = ranker._get_dual_prefix_allowed_tokens_fn(
             n_docs=n_docs,
@@ -613,75 +638,143 @@ def test_dual_prefix_trie_invariants():
         if n_docs == 2:
             assert set(normalized_paths.keys()) == {(1, 2), (2, 1)}
 
-        terminal_leaf_count = 0
+        pair_end_count = 0
         stack = [trie_root]
         while stack:
             node = stack.pop()
-            if not node.children:
-                continue
-            child_keys = set(node.children.keys())
-            if child_keys == {eos_token_id}:
-                terminal_leaf_count += 1
-                continue
-            assert node.children
-            assert eos_token_id not in child_keys
+            if node.is_pair_end:
+                pair_end_count += 1
+            assert node.children or node.is_pair_end
             stack.extend(node.children.values())
 
-        assert terminal_leaf_count == n_docs * (n_docs - 1)
+        assert pair_end_count == expected_pair_count
+
+        if case_name == "collision-qwen-like-worst-slot":
+            worst_one_path = normalized_paths[(5, 1)]
+            worst_ten_path = normalized_paths[(5, 10)]
+            allowed_at_worst_one = allowed_fn(
+                0,
+                torch.tensor(prompt_ids + list(worst_one_path), dtype=torch.long),
+            )
+            zero_token_id = worst_ten_path[len(worst_one_path)]
+            assert eos_token_id in allowed_at_worst_one
+            assert zero_token_id in allowed_at_worst_one
+            assert tokenizer.decode([zero_token_id]) == "0"
+            assert worst_ten_path == worst_one_path + (zero_token_id,)
+            assert (
+                allowed_fn(
+                    0,
+                    torch.tensor(prompt_ids + list(worst_one_path) + [eos_token_id], dtype=torch.long),
+                )
+                == []
+            )
+            allowed_at_worst_ten = allowed_fn(
+                0,
+                torch.tensor(prompt_ids + list(worst_ten_path), dtype=torch.long),
+            )
+            assert eos_token_id in allowed_at_worst_ten
+
+        if case_name == "collision-fully-split-best-and-worst":
+            best_one_prefix = compute_continuation_ids(ranker, prompt, " Best: 1")
+            allowed_at_best_one = allowed_fn(
+                0,
+                torch.tensor(prompt_ids + list(best_one_prefix), dtype=torch.long),
+            )
+            comma_token_id = normalized_paths[(1, 2)][len(best_one_prefix)]
+            zero_token_id = normalized_paths[(10, 2)][len(best_one_prefix)]
+            assert comma_token_id in allowed_at_best_one
+            assert zero_token_id in allowed_at_best_one
+            assert eos_token_id not in allowed_at_best_one
+            assert tokenizer.decode([comma_token_id]) == ","
+            assert tokenizer.decode([zero_token_id]) == "0"
+
+            best_one_worst_one_prefix = compute_continuation_ids(
+                ranker,
+                prompt,
+                " Best: 1, Worst: 1",
+            )
+            allowed_at_best_one_worst_one = allowed_fn(
+                0,
+                torch.tensor(prompt_ids + list(best_one_worst_one_prefix), dtype=torch.long),
+            )
+            zero_token_id = normalized_paths[(1, 10)][len(best_one_worst_one_prefix)]
+            assert eos_token_id not in allowed_at_best_one_worst_one
+            assert zero_token_id in allowed_at_best_one_worst_one
+            assert tokenizer.decode([zero_token_id]) == "0"
 
 
 def test_dual_prefix_invalid_label_guards():
-    tokenizer = FakeBPETokenizer(
-        merge_two_digit=True,
-        merge_leading_space_digit=True,
-        merge_trailing_comma=True,
+    best_tokenizer = FakeBPETokenizer(
+        merge_two_digit=False,
+        merge_leading_space_digit=False,
+        merge_trailing_comma=False,
     )
-    ranker = build_maxcontext_stub(pool_size=40, tokenizer=tokenizer)
-    docs = make_docs(40)
-    prompt = render_dual_runtime_prompt(ranker, "query", docs)
-    prompt_ids = ranker.tokenizer(prompt, **ranker._raw_tokenizer_kwargs())["input_ids"]
-    allowed_fn = ranker._get_dual_prefix_allowed_tokens_fn(
+    best_ranker = build_maxcontext_stub(pool_size=40, tokenizer=best_tokenizer)
+    best_docs = make_docs(40)
+    best_prompt = render_dual_runtime_prompt(best_ranker, "query", best_docs)
+    best_prompt_ids = best_ranker.tokenizer(best_prompt, **best_ranker._raw_tokenizer_kwargs())["input_ids"]
+    best_allowed_fn = best_ranker._get_dual_prefix_allowed_tokens_fn(
         n_docs=40,
-        prompt=prompt,
-        prompt_length=len(prompt_ids),
+        prompt=best_prompt,
+        prompt_length=len(best_prompt_ids),
     )
 
-    best_slot_prefix = compute_continuation_ids(ranker, prompt, " Best:")
-    allowed_at_best = allowed_fn(
+    best_slot_prefix = compute_continuation_ids(best_ranker, best_prompt, " Best: 4")
+    allowed_at_best_four = best_allowed_fn(
         0,
-        torch.tensor(prompt_ids + list(best_slot_prefix), dtype=torch.long),
+        torch.tensor(best_prompt_ids + list(best_slot_prefix), dtype=torch.long),
     )
+    valid_best_four_continuation = compute_continuation_ids(
+        best_ranker,
+        best_prompt,
+        " Best: 4, Worst: 1",
+    )
+    valid_best_forty_continuation = compute_continuation_ids(
+        best_ranker,
+        best_prompt,
+        " Best: 40",
+    )
+    assert valid_best_four_continuation[len(best_slot_prefix)] in allowed_at_best_four
+    assert valid_best_forty_continuation[len(best_slot_prefix)] in allowed_at_best_four
     for invalid_label in range(41, 45):
-        invalid_best_ids = compute_continuation_ids(ranker, prompt, f" Best: {invalid_label}")
+        invalid_best_ids = compute_continuation_ids(best_ranker, best_prompt, f" Best: {invalid_label}")
         invalid_best_token = invalid_best_ids[len(best_slot_prefix)]
-        assert invalid_best_token not in allowed_at_best
+        assert invalid_best_token not in allowed_at_best_four
 
-    for best_label in (1, 10, 40):
-        worst_slot_prefix = compute_continuation_ids(
-            ranker,
-            prompt,
-            f" Best: {best_label}, Worst:",
-        )
-        allowed_at_worst = allowed_fn(
-            0,
-            torch.tensor(prompt_ids + list(worst_slot_prefix), dtype=torch.long),
-        )
+    worst_tokenizer = FakeBPETokenizer(
+        merge_two_digit=False,
+        merge_leading_space_digit=False,
+        merge_trailing_comma=False,
+    )
+    worst_ranker = build_maxcontext_stub(pool_size=10, tokenizer=worst_tokenizer)
+    worst_docs = make_docs(10)
+    worst_prompt = render_dual_runtime_prompt(worst_ranker, "query", worst_docs)
+    worst_prompt_ids = worst_ranker.tokenizer(
+        worst_prompt,
+        **worst_ranker._raw_tokenizer_kwargs(),
+    )["input_ids"]
+    worst_allowed_fn = worst_ranker._get_dual_prefix_allowed_tokens_fn(
+        n_docs=10,
+        prompt=worst_prompt,
+        prompt_length=len(worst_prompt_ids),
+    )
 
-        duplicate_worst_ids = compute_continuation_ids(
-            ranker,
-            prompt,
-            f" Best: {best_label}, Worst: {best_label}",
-        )
-        duplicate_worst_token = duplicate_worst_ids[len(worst_slot_prefix)]
-        assert duplicate_worst_token not in allowed_at_worst
-
-        invalid_worst_ids = compute_continuation_ids(
-            ranker,
-            prompt,
-            f" Best: {best_label}, Worst: 44",
-        )
-        invalid_worst_token = invalid_worst_ids[len(worst_slot_prefix)]
-        assert invalid_worst_token not in allowed_at_worst
+    duplicate_worst_prefix = compute_continuation_ids(
+        worst_ranker,
+        worst_prompt,
+        " Best: 1, Worst: 1",
+    )
+    allowed_at_duplicate_worst = worst_allowed_fn(
+        0,
+        torch.tensor(worst_prompt_ids + list(duplicate_worst_prefix), dtype=torch.long),
+    )
+    valid_worst_ten_continuation = compute_continuation_ids(
+        worst_ranker,
+        worst_prompt,
+        " Best: 1, Worst: 10",
+    )
+    assert worst_ranker._resolve_dual_eos_token_id() not in allowed_at_duplicate_worst
+    assert valid_worst_ten_continuation[len(duplicate_worst_prefix)] in allowed_at_duplicate_worst
 
 
 def test_compare_both_duplicate_rewrite_guard():
