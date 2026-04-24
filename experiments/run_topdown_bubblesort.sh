@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:h100:1
 #SBATCH --time=7-00:00:00
 #SBATCH --account=a_ai_collab
-#SBATCH --exclude=bun116
+#SBATCH --exclude=bun116,bun073
 
 module load anaconda3/2023.09-0
 # module load java/21.0.8
