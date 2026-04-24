@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Sequence
+from typing import List, Optional, Sequence
 from .rankers import LlmRanker, SearchResult
 import openai
 import os
@@ -43,16 +43,11 @@ def compute_max_fit_window(
         raise ValueError("Cannot compute MaxContext fit window without max_input_tokens.")
 
     passages = ranker._format_passages(docs)
-    footer_builder = getattr(ranker, "_build_dual_prompt_footer", None)
-    if callable(footer_builder):
-        footer = footer_builder(len(docs))
-    else:
-        footer = '\n\nOutput only in the format: Best: [label], Worst: [label]'
     input_text = (
         f'Given a query "{query}", which of the following passages is the most relevant '
         f'and which is the least relevant to the query?\n\n'
         + passages
-        + footer
+        + '\n\nOutput only in the format: Best: [label], Worst: [label]'
     )
 
     rendered_prompt = input_text
@@ -347,13 +342,7 @@ class SetwiseLlmRanker(LlmRanker):
             f"Likelihood scoring is not implemented for model type {self.config.model_type}."
         )
 
-    def _generate(
-        self,
-        model_inputs,
-        max_new_tokens,
-        decoder_input_ids=None,
-        prefix_allowed_tokens_fn: Optional[Callable] = None,
-    ):
+    def _generate(self, model_inputs, max_new_tokens, decoder_input_ids=None):
         kwargs = {
             "input_ids": model_inputs.input_ids,
             "attention_mask": model_inputs.attention_mask,
@@ -361,8 +350,6 @@ class SetwiseLlmRanker(LlmRanker):
         }
         if decoder_input_ids is not None:
             kwargs["decoder_input_ids"] = decoder_input_ids
-        if prefix_allowed_tokens_fn is not None:
-            kwargs["prefix_allowed_tokens_fn"] = prefix_allowed_tokens_fn
         if self._is_supported_causal_model():
             generation_config = copy.deepcopy(getattr(self.llm, "generation_config", None))
             if generation_config is not None:

@@ -22,13 +22,6 @@ random.seed(929)
 MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({"qwen3", "qwen3_moe", "qwen3_5"})
 
 
-class _TokenTrieNode:
-    __slots__ = ("children",)
-
-    def __init__(self):
-        self.children: Dict[int, "_TokenTrieNode"] = {}
-
-
 class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
     """
     Bottom-Up Setwise Ranker: selects the LEAST relevant document from each comparison set.
@@ -414,17 +407,6 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _build_dual_prompt_footer(self, n_docs: int) -> str:
-        return '\n\nOutput only in the format: Best: [label], Worst: [label]'
-
-    def _get_dual_prefix_allowed_tokens_fn(
-        self,
-        n_docs: int,
-        prompt: str,
-        prompt_length: int,
-    ):
-        return None
-
     def _compare_both_window(self, query: str, ranking: List[SearchResult], start_ind: int, end_ind: int) -> Tuple[str, str]:
         """Hook for window-aware DualEnd variants."""
         return self.compare_both(query, ranking[start_ind:end_ind])
@@ -444,8 +426,8 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         input_text = (
             f'Given a query "{query}", which of the following passages is the most relevant '
             f'and which is the least relevant to the query?\n\n'
-            + passages
-            + self._build_dual_prompt_footer(len(docs))
+            + passages +
+            '\n\nOutput only in the format: Best: [label], Worst: [label]'
         )
 
         best = None
@@ -478,27 +460,17 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 prompt = self._build_chat_prompt(conversation)
 
                 inputs = self._tokenize_inputs(prompt)
-                prompt_length = inputs.input_ids.shape[1]
-                self.total_prompt_tokens += prompt_length
-                allowed_fn = self._get_dual_prefix_allowed_tokens_fn(
-                    n_docs=len(docs),
-                    prompt=prompt,
-                    prompt_length=prompt_length,
-                )
+                self.total_prompt_tokens += inputs.input_ids.shape[1]
 
                 # Thinking models (Qwen3) need a larger budget: the <think>...</think>
                 # block can easily consume 200+ tokens before the answer appears.
                 # 512 tokens gives ample room for thinking + "Best: A, Worst: C".
                 max_new = 512 if self.config.model_type in QWEN_MODEL_TYPES else 64
-                output_ids = self._generate(
-                    inputs,
-                    max_new_tokens=max_new,
-                    prefix_allowed_tokens_fn=allowed_fn,
-                )[0]
+                output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
-                self.total_completion_tokens += output_ids.shape[0] - prompt_length
+                self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
 
-                output = self.tokenizer.decode(output_ids[prompt_length:],
+                output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
                                                skip_special_tokens=False).strip()
                 output = self._clean_generation_output(output)
                 # Always parse from the single call — never fall back to 2 separate calls
@@ -1135,137 +1107,6 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
                 "MaxContextDualEnd requires method='selection' "
                 "(_double_ended_selection is the only supported algorithm)."
             )
-
-    def _build_dual_prompt_footer(self, n_docs: int) -> str:
-        return (
-            f'\n\nOutput only in the format: `Best: X, Worst: Y` where X and Y '
-            f'are integers between 1 and {n_docs} inclusive, with X != Y.'
-        )
-
-    def _resolve_dual_eos_token_id(self) -> int:
-        eos_token_id = getattr(self.tokenizer, "eos_token_id", None)
-        if eos_token_id is None:
-            generation_config = getattr(self.llm, "generation_config", None)
-            eos_token_id = getattr(generation_config, "eos_token_id", None)
-        if isinstance(eos_token_id, (list, tuple)):
-            eos_token_id = eos_token_id[0] if eos_token_id else None
-        if eos_token_id is None:
-            raise AssertionError("MaxContextDualEnd requires a non-None eos_token_id.")
-        return int(eos_token_id)
-
-    def _build_dual_prefix_trie_artifacts(
-        self,
-        n_docs: int,
-        prompt: str,
-        prompt_length: int,
-    ) -> Tuple[_TokenTrieNode, int, Dict[Tuple[int, int], Tuple[int, ...]]]:
-        if n_docs < 2:
-            raise AssertionError("MaxContextDualEnd requires n_docs >= 2 for compare_both.")
-
-        raw_kwargs = self._raw_tokenizer_kwargs()
-        prompt_ids = self.tokenizer(prompt, **raw_kwargs)["input_ids"]
-        if prompt_length != len(prompt_ids):
-            raise AssertionError(
-                f"Prompt length mismatch: tokenized prompt has {len(prompt_ids)} ids "
-                f"but compare_both recorded prompt_length={prompt_length}."
-            )
-
-        eos_token_id = self._resolve_dual_eos_token_id()
-        sentinel_ids = {eos_token_id}
-        pad_token_id = getattr(self.tokenizer, "pad_token_id", None)
-        if pad_token_id is not None:
-            sentinel_ids.add(int(pad_token_id))
-
-        ordered_pairs: List[Tuple[int, int]] = []
-        continuations: List[str] = []
-        for best_label in range(1, n_docs + 1):
-            for worst_label in range(1, n_docs + 1):
-                if best_label == worst_label:
-                    continue
-                ordered_pairs.append((best_label, worst_label))
-                continuations.append(f" Best: {best_label}, Worst: {worst_label}")
-
-        full_texts = [prompt + continuation for continuation in continuations]
-        full_ids_batch = self.tokenizer(full_texts, **raw_kwargs)["input_ids"]
-
-        trie_root = _TokenTrieNode()
-        normalized_paths: Dict[Tuple[int, int], Tuple[int, ...]] = {}
-        for (best_label, worst_label), full_ids in zip(ordered_pairs, full_ids_batch):
-            prefix_len = self._longest_common_prefix_length(prompt_ids, full_ids)
-            continuation_ids = list(full_ids[prefix_len:])
-            while continuation_ids and continuation_ids[-1] in sentinel_ids:
-                continuation_ids.pop()
-            if not continuation_ids:
-                raise AssertionError(
-                    f"Empty continuation tokenization for pair ({best_label}, {worst_label})."
-                )
-
-            node = trie_root
-            for token_id in continuation_ids:
-                token_id = int(token_id)
-                child = node.children.get(token_id)
-                if child is None:
-                    child = _TokenTrieNode()
-                    node.children[token_id] = child
-                node = child
-
-            if node.children and set(node.children.keys()) != {eos_token_id}:
-                raise AssertionError("Terminal trie node exposes non-EOS children.")
-            node.children.setdefault(eos_token_id, _TokenTrieNode())
-            normalized_paths[(best_label, worst_label)] = tuple(int(token_id) for token_id in continuation_ids)
-
-        if not trie_root.children:
-            raise AssertionError("Dual-output trie root has no children.")
-
-        leaf_count = 0
-        stack = [trie_root]
-        while stack:
-            node = stack.pop()
-            if not node.children:
-                continue
-            child_keys = set(node.children.keys())
-            if child_keys == {eos_token_id}:
-                leaf_count += 1
-                continue
-            if eos_token_id in child_keys:
-                raise AssertionError("Non-terminal trie node mixes EOS with other children.")
-            stack.extend(node.children.values())
-
-        expected_leaf_count = n_docs * (n_docs - 1)
-        if leaf_count != expected_leaf_count:
-            raise AssertionError(
-                f"Dual-output trie leaf count {leaf_count} != expected {expected_leaf_count}."
-            )
-
-        return trie_root, eos_token_id, normalized_paths
-
-    def _get_dual_prefix_allowed_tokens_fn(
-        self,
-        n_docs: int,
-        prompt: str,
-        prompt_length: int,
-    ):
-        trie_root, eos_token_id, _ = self._build_dual_prefix_trie_artifacts(
-            n_docs=n_docs,
-            prompt=prompt,
-            prompt_length=prompt_length,
-        )
-
-        def prefix_allowed_tokens_fn(_batch_id: int, input_ids) -> List[int]:
-            generated_ids = input_ids[prompt_length:]
-            generated = generated_ids.tolist() if hasattr(generated_ids, "tolist") else list(generated_ids)
-            if generated and generated[-1] == eos_token_id:
-                return []
-
-            node = trie_root
-            for token_id in generated:
-                child = node.children.get(int(token_id))
-                if child is None:
-                    return []
-                node = child
-            return list(node.children.keys())
-
-        return prefix_allowed_tokens_fn
 
     def rerank(self, query: str, docs: List[SearchResult]) -> List[SearchResult]:
         if len(docs) != self._maxcontext_pool_size:
