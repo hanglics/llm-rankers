@@ -64,12 +64,11 @@ def main():
         lines.append(s)
         print(s)
 
-    def render_label(index: int) -> str:
-        if scheme == "letters_a_w":
-            return chr(ord('A') + index)
-        if scheme == "numeric_1_based":
-            return str(index + 1)
-        raise ValueError(f"Unsupported label_scheme: {scheme}")
+    def render_label(entries, index: int) -> str:
+        for entry in entries:
+            if index < len(entry["positions"]):
+                return entry["positions"][index]
+        return ""
 
     out("=" * 70)
     out("Position Bias Analysis")
@@ -105,7 +104,7 @@ def main():
             count = position_counts.get(i, 0)
             freq = count / total
             expected = 1.0 / n_positions
-            label = render_label(i)
+            label = render_label(entries, i)
             bias = "▲" if freq > expected * 1.3 else ("▼" if freq < expected * 0.7 else " ")
             out(f"  {i:<12} {label:<8} {count:>8} {freq:>8.3f} {expected:>10.3f} {bias}")
 
@@ -159,7 +158,7 @@ def main():
                                 if rels[idx] == min(rels):
                                     pos_correct += 1
                         out(
-                            f"    Position {i} ({render_label(i)}): "
+                            f"    Position {i} ({render_label(entries, i)}): "
                             f"{pos_correct}/{len(pos_entries)} = {pos_correct/len(pos_entries):.3f}"
                         )
 

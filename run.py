@@ -90,6 +90,7 @@ def main(args):
                                       cache_dir=args.run.cache_dir,
                                       num_child=args.setwise.num_child,
                                       scoring=args.run.scoring,
+                                      character_scheme=args.setwise.character_scheme,
                                       method=args.setwise.method,
                                       num_permutation=args.setwise.num_permutation,
                                       k=args.setwise.k)
@@ -393,6 +394,8 @@ if __name__ == '__main__':
                                      '(order-robust joint prompting), samecall_regularized '
                                      '(TopDown with worst-signal regularization), bidirectional (ensemble), '
                                      'maxcontext_dualend (full-pool numeric DualEnd selection)')
+    setwise_parser.add_argument('--character_scheme', type=str, default='letters_a_w',
+                                choices=['letters_a_w', 'bigrams_aa_zz'])
     setwise_parser.add_argument('--fusion', type=str, default='rrf',
                                 choices=['rrf', 'combsum', 'weighted'],
                                 help='Fusion method for bidirectional ensemble')
@@ -427,4 +430,14 @@ if __name__ == '__main__':
     arg_dict = vars(args)
     if arg_dict['run'] is None or sum(arg_dict[arg] is not None for arg in arg_dict) != 2:
         raise ValueError('Need to set --run and can only set one of --pointwise, --pairwise, --setwise, --listwise')
+    if args.setwise and args.setwise.character_scheme != 'letters_a_w':
+        if args.setwise.direction != 'topdown':
+            raise ValueError(
+                f"--character_scheme {args.setwise.character_scheme} requires --direction topdown; "
+                f"got --direction {args.setwise.direction}."
+            )
+        if args.run.openai_key is not None:
+            raise ValueError(
+                f"--character_scheme {args.setwise.character_scheme} is not supported with --openai_key."
+            )
     main(args)

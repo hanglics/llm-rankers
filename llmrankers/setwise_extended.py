@@ -149,7 +149,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
             )
             output = ranked[0][0]
 
-        if len(output) == 1 and output in self.CHARACTERS:
+        if output in self.CHARACTERS[:len(docs)]:
             self._log_comparison("worst", self.CHARACTERS[:len(docs)], output, docs)
         else:
             print(f"Unexpected output: {output}")

@@ -72,6 +72,7 @@ class SetwiseLlmRanker(LlmRanker):
                  num_child=3,
                  k=10,
                  scoring='generation',
+                 character_scheme: str = "letters_a_w",
                  method="heapsort",
                  num_permutation=1,
                  cache_dir=None):
@@ -82,6 +83,8 @@ class SetwiseLlmRanker(LlmRanker):
         self.k = k
         self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir,
                                                    trust_remote_code=True)
+        self.scoring = scoring
+        self._apply_character_scheme(character_scheme)
         self._warned_input_truncation = False
         if self.config.model_type == 't5':
             self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
@@ -130,12 +133,36 @@ class SetwiseLlmRanker(LlmRanker):
         else:
             raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for setwise:(")
 
-        self.scoring = scoring
         self.method = method
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.max_input_tokens = self._resolve_max_input_tokens()
+
+    def _apply_character_scheme(self, scheme: str) -> None:
+        if scheme == "letters_a_w":
+            return
+        if scheme == "bigrams_aa_zz":
+            if self.config.model_type == 't5':
+                raise ValueError("bigrams_aa_zz not supported on T5 (target_token_ids path).")
+            if self.scoring == "likelihood":
+                raise ValueError(
+                    "bigrams_aa_zz not supported with --scoring likelihood "
+                    "(bigram tokenization is not guaranteed to be single-token)."
+                )
+            if type(self) is not SetwiseLlmRanker:
+                raise ValueError(
+                    f"bigrams_aa_zz is only supported on SetwiseLlmRanker (TopDown); "
+                    f"got subclass {type(self).__name__}."
+                )
+            self.CHARACTERS = [
+                chr(ord("A") + left) + chr(ord("A") + right)
+                for left in range(26)
+                for right in range(26)
+            ]
+            self.label_scheme = "bigrams_aa_zz"
+            return
+        raise ValueError(f"Unknown character_scheme={scheme!r}")
 
     def _is_supported_causal_model(self):
         return self.config.model_type in CAUSAL_MODEL_TYPES
@@ -407,24 +434,42 @@ class SetwiseLlmRanker(LlmRanker):
         cleaned = self._clean_generation_output(output)
         output_upper = cleaned.upper()
         valid = set(valid_chars)
+        is_bigram_scheme = getattr(self, "label_scheme", None) == "bigrams_aa_zz"
 
-        for pattern in (
-            r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?\[?([A-W])\]?",
-            r"PASSAGE\s*\[?([A-W])\]?",
-        ):
+        if is_bigram_scheme:
+            patterns = (
+                r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?\[?([A-Z]{2})\]?",
+                r"PASSAGE\s*\[?([A-Z]{2})\]?",
+            )
+        else:
+            patterns = (
+                r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?\[?([A-W])\]?",
+                r"PASSAGE\s*\[?([A-W])\]?",
+            )
+
+        for pattern in patterns:
             for match in re.findall(pattern, output_upper):
                 if match in valid:
                     return match
 
         # Match standalone letter or bracketed letter like [A]
-        for match in re.findall(r"(?:\[([A-W])\]|\b([A-W])\b)", output_upper):
-            char = match[0] or match[1]
-            if char in valid:
-                return char
+        if is_bigram_scheme:
+            standalone_pattern = r"(?:\[([A-Z]{2})\]|\b([A-Z]{2})\b)"
+            standalone_match = re.fullmatch(standalone_pattern, output_upper)
+            if standalone_match:
+                char = standalone_match.group(1) or standalone_match.group(2)
+                if char in valid:
+                    return char
+        else:
+            for match in re.findall(r"(?:\[([A-W])\]|\b([A-W])\b)", output_upper):
+                char = match[0] or match[1]
+                if char in valid:
+                    return char
 
-        all_found = [char for char in output_upper if char in valid]
-        if all_found and len(set(all_found)) == 1:
-            return all_found[0]
+        if not is_bigram_scheme:
+            all_found = [char for char in output_upper if char in valid]
+            if all_found and len(set(all_found)) == 1:
+                return all_found[0]
 
         # Handle numeric outputs: map 1-based index to the corresponding label
         num_match = re.search(r"\b(\d+)\b", cleaned)
@@ -570,7 +615,7 @@ class SetwiseLlmRanker(LlmRanker):
             )
             output = ranked[0][0]
 
-        if len(output) == 1 and output in self.CHARACTERS:
+        if output in self.CHARACTERS[:len(docs)]:
             self._log_comparison("best", self.CHARACTERS[:len(docs)], output, docs)
         else:
             print(f"Unexpected output: {output}")

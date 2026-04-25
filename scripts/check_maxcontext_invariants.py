@@ -7,7 +7,7 @@ import sys
 import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest import mock
 
 import torch
@@ -15,6 +15,47 @@ import torch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+
+def _missing_dependency(*_args, **_kwargs):
+    raise RuntimeError("Optional runtime dependency is not available in this test environment.")
+
+
+try:
+    import ir_datasets  # noqa: F401
+except ModuleNotFoundError:
+    ir_datasets_stub = ModuleType("ir_datasets")
+    ir_datasets_stub.load = _missing_dependency
+    sys.modules["ir_datasets"] = ir_datasets_stub
+
+try:
+    from pyserini.search.lucene import LuceneSearcher as _LuceneSearcher  # noqa: F401
+    from pyserini.search._base import get_topics as _get_topics  # noqa: F401
+except ModuleNotFoundError:
+    pyserini_stub = ModuleType("pyserini")
+    pyserini_search_stub = ModuleType("pyserini.search")
+    pyserini_lucene_stub = ModuleType("pyserini.search.lucene")
+    pyserini_base_stub = ModuleType("pyserini.search._base")
+
+    class _LuceneSearcherStub:
+        from_prebuilt_index = staticmethod(_missing_dependency)
+
+    pyserini_lucene_stub.LuceneSearcher = _LuceneSearcherStub
+    pyserini_base_stub.get_topics = _missing_dependency
+    sys.modules["pyserini"] = pyserini_stub
+    sys.modules["pyserini.search"] = pyserini_search_stub
+    sys.modules["pyserini.search.lucene"] = pyserini_lucene_stub
+    sys.modules["pyserini.search._base"] = pyserini_base_stub
+
+try:
+    import tiktoken  # noqa: F401
+except ModuleNotFoundError:
+    sys.modules["tiktoken"] = ModuleType("tiktoken")
+
+try:
+    import openai  # noqa: F401
+except ModuleNotFoundError:
+    sys.modules["openai"] = ModuleType("openai")
 
 import run as run_module
 from llmrankers.setwise import SetwiseLlmRanker, compute_max_fit_window
@@ -87,6 +128,11 @@ class DummyTokenizer:
         return base + (1 if add_special_tokens else 0)
 
 
+class DummyCausalModel:
+    def eval(self):
+        return self
+
+
 def expect_raises(fn, exc_type, contains: str):
     try:
         fn()
@@ -124,6 +170,7 @@ def make_run_args(*, hits=10, scoring="generation", num_permutation=1, method="s
             method=method,
             k=k,
             num_permutation=num_permutation,
+            character_scheme="letters_a_w",
             fusion="rrf",
             alpha=0.5,
             gate_strategy="hybrid",
@@ -324,6 +371,35 @@ def build_setwise_tokenizer_stub(*, strict=False):
     return ranker
 
 
+def make_stub_causal_tokenizer():
+    return SimpleNamespace(pad_token=None, eos_token="</s>", model_max_length=4096)
+
+
+def instantiate_setwise_ranker(
+    ranker_cls=SetwiseLlmRanker,
+    *,
+    model_type="qwen3",
+    scoring="generation",
+    character_scheme="letters_a_w",
+):
+    config = SimpleNamespace(model_type=model_type, n_positions=4096, max_position_embeddings=4096)
+    with mock.patch("llmrankers.setwise.AutoConfig.from_pretrained", return_value=config), \
+         mock.patch("llmrankers.setwise.AutoTokenizer.from_pretrained", return_value=make_stub_causal_tokenizer()), \
+         mock.patch("llmrankers.setwise.AutoModelForCausalLM.from_pretrained", return_value=DummyCausalModel()):
+        return ranker_cls(
+            model_name_or_path="Qwen/Qwen3-4B",
+            tokenizer_name_or_path=None,
+            device="cpu",
+            num_child=3,
+            k=10,
+            scoring=scoring,
+            character_scheme=character_scheme,
+            method="heapsort",
+            num_permutation=1,
+            cache_dir=None,
+        )
+
+
 def test_tokenize_invariants():
     long_prompt = "one two three four five six seven"
 
@@ -379,6 +455,93 @@ def test_likelihood_substitute_and_fit_helper():
     assert budget == 16
 
 
+def test_topdown_bigram_scheme_invariants():
+    default_ranker = instantiate_setwise_ranker()
+    assert not hasattr(default_ranker, "label_scheme")
+    assert default_ranker.CHARACTERS == [chr(ord("A") + i) for i in range(23)]
+
+    bigram_ranker = instantiate_setwise_ranker(character_scheme="bigrams_aa_zz")
+    assert len(bigram_ranker.CHARACTERS) == 676
+    assert bigram_ranker.CHARACTERS[0] == "AA"
+    assert bigram_ranker.CHARACTERS[-1] == "ZZ"
+    assert bigram_ranker.label_scheme == "bigrams_aa_zz"
+
+    with mock.patch(
+        "llmrankers.setwise.AutoConfig.from_pretrained",
+        return_value=SimpleNamespace(model_type="t5"),
+    ):
+        expect_raises(
+            lambda: SetwiseLlmRanker(
+                model_name_or_path="google/flan-t5-xl",
+                tokenizer_name_or_path=None,
+                device="cpu",
+                num_child=3,
+                k=10,
+                scoring="generation",
+                character_scheme="bigrams_aa_zz",
+                method="heapsort",
+                num_permutation=1,
+                cache_dir=None,
+            ),
+            ValueError,
+            "T5",
+        )
+
+    with mock.patch(
+        "llmrankers.setwise.AutoConfig.from_pretrained",
+        return_value=SimpleNamespace(model_type="qwen3"),
+    ):
+        expect_raises(
+            lambda: SetwiseLlmRanker(
+                model_name_or_path="Qwen/Qwen3-4B",
+                tokenizer_name_or_path=None,
+                device="cpu",
+                num_child=3,
+                k=10,
+                scoring="likelihood",
+                character_scheme="bigrams_aa_zz",
+                method="heapsort",
+                num_permutation=1,
+                cache_dir=None,
+            ),
+            ValueError,
+            "--scoring likelihood",
+        )
+
+    with mock.patch(
+        "llmrankers.setwise.AutoConfig.from_pretrained",
+        return_value=SimpleNamespace(model_type="qwen3"),
+    ):
+        expect_raises(
+            lambda: DualEndSetwiseLlmRanker(
+                model_name_or_path="Qwen/Qwen3-4B",
+                tokenizer_name_or_path=None,
+                device="cpu",
+                num_child=3,
+                k=10,
+                scoring="generation",
+                character_scheme="bigrams_aa_zz",
+                method="heapsort",
+                num_permutation=1,
+                cache_dir=None,
+            ),
+            ValueError,
+            "only supported on SetwiseLlmRanker",
+        )
+
+    legacy_parser_ranker = object.__new__(SetwiseLlmRanker)
+    assert not hasattr(legacy_parser_ranker, "label_scheme")
+    assert legacy_parser_ranker._parse_single_label("Best: [B]", ["A", "B", "C"]) == "B"
+
+    parser_ranker = object.__new__(SetwiseLlmRanker)
+    parser_ranker.label_scheme = "bigrams_aa_zz"
+    valid = ["AA", "AB", "AC"]
+    assert parser_ranker._parse_single_label("Best: AB", valid) == "AB"
+    assert parser_ranker._parse_single_label("[AB]", valid) == "AB"
+    assert parser_ranker._parse_single_label("AB", valid) == "AB"
+    assert parser_ranker._parse_single_label("I recommend AB testing", valid) is None
+
+
 def main():
     test_dispatch_invariants()
     test_maxcontext_init_invariants()
@@ -387,6 +550,7 @@ def main():
     test_tokenize_invariants()
     test_default_false_flags_and_logging()
     test_likelihood_substitute_and_fit_helper()
+    test_topdown_bigram_scheme_invariants()
     print("check_maxcontext_invariants.py: all checks passed")
 
 
