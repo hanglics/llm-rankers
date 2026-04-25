@@ -7,7 +7,7 @@
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
-#SBATCH --time=7-00:00:00
+#SBATCH --time=03:00:00
 #SBATCH --account=a_ai_collab
 #SBATCH --exclude=bun116,bun073
 
