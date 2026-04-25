@@ -58,13 +58,19 @@ except ModuleNotFoundError:
     sys.modules["openai"] = ModuleType("openai")
 
 import run as run_module
+from llmrankers.rankers import SearchResult
 from llmrankers.setwise import SetwiseLlmRanker, compute_max_fit_window
 from llmrankers.setwise_extended import (
     BiasAwareDualEndSetwiseLlmRanker,
+    BottomUpSetwiseLlmRanker,
     DualEndSetwiseLlmRanker,
+    MaxContextBottomUpSetwiseLlmRanker,
     MaxContextDualEndSetwiseLlmRanker,
+    MaxContextTopDownSetwiseLlmRanker,
     SameCallRegularizedSetwiseLlmRanker,
     SelectiveDualEndSetwiseLlmRanker,
+    _assert_maxcontext_bottomup_fits,
+    _assert_maxcontext_topdown_fits,
 )
 
 
@@ -145,14 +151,23 @@ def expect_raises(fn, exc_type, contains: str):
     raise AssertionError(f"Expected {exc_type.__name__} to be raised.")
 
 
-def make_run_args(*, hits=10, scoring="generation", num_permutation=1, method="selection", k=10):
+def make_run_args(
+    *,
+    hits=10,
+    scoring="generation",
+    num_permutation=1,
+    method="selection",
+    k=10,
+    direction="maxcontext_dualend",
+    openai_key=None,
+):
     return SimpleNamespace(
         run=SimpleNamespace(
             model_name_or_path="Qwen/Qwen3-4B",
             tokenizer_name_or_path=None,
             device="cpu",
             cache_dir=None,
-            openai_key=None,
+            openai_key=openai_key,
             scoring=scoring,
             hits=hits,
             query_length=128,
@@ -165,7 +180,7 @@ def make_run_args(*, hits=10, scoring="generation", num_permutation=1, method="s
             shuffle_ranking=None,
         ),
         setwise=SimpleNamespace(
-            direction="maxcontext_dualend",
+            direction=direction,
             num_child=3,
             method=method,
             k=k,
@@ -183,6 +198,116 @@ def make_run_args(*, hits=10, scoring="generation", num_permutation=1, method="s
         pairwise=None,
         listwise=None,
     )
+
+
+def fake_super_init_factory(model_type, *, max_input_tokens=32768, tokenizer=None):
+    def fake_super_init(self, *args, **kwargs):
+        self.config = SimpleNamespace(model_type=model_type)
+        self.scoring = kwargs["scoring"]
+        self.k = kwargs["k"]
+        self.num_permutation = kwargs["num_permutation"]
+        self.method = kwargs["method"]
+        self.max_input_tokens = max_input_tokens
+        self.tokenizer = DummyTokenizer() if tokenizer is None else tokenizer
+        self._comparison_log_path = None
+        self._current_qid = None
+
+    return fake_super_init
+
+
+def instantiate_maxcontext_variant(
+    ranker_cls,
+    init_owner,
+    *,
+    model_type="qwen3",
+    scoring="generation",
+    pool_size=10,
+    method="selection",
+    num_permutation=1,
+    k=None,
+):
+    if k is None:
+        k = pool_size
+    with mock.patch.object(init_owner, "__init__", new=fake_super_init_factory(model_type)):
+        return ranker_cls(
+            model_name_or_path="Qwen/Qwen3-4B",
+            tokenizer_name_or_path=None,
+            device="cpu",
+            cache_dir=None,
+            num_child=3,
+            scoring=scoring,
+            method=method,
+            num_permutation=num_permutation,
+            k=k,
+            pool_size=pool_size,
+        )
+
+
+def make_docs(count):
+    return [
+        SearchResult(docid=f"d{i}", score=float(-i), text=f"doc {i}")
+        for i in range(1, count + 1)
+    ]
+
+
+def assert_materialized_rerank(results, docs):
+    assert len(results) == len(docs)
+    assert [doc.score for doc in results] == [-rank for rank in range(1, len(docs) + 1)]
+    assert all(doc.text is None for doc in results)
+    output_docids = [doc.docid for doc in results]
+    input_docids = [doc.docid for doc in docs]
+    assert set(output_docids) == set(input_docids)
+    assert len(output_docids) == len(set(output_docids))
+
+
+def build_strict_topdown_compare_stub():
+    ranker = object.__new__(MaxContextTopDownSetwiseLlmRanker)
+    ranker.total_compare = 0
+    ranker.num_permutation = 1
+    ranker.total_prompt_tokens = 0
+    ranker.total_completion_tokens = 0
+    ranker.scoring = "generation"
+    ranker.config = SimpleNamespace(model_type="qwen3")
+    ranker.tokenizer = SimpleNamespace(decode=lambda *_args, **_kwargs: "garbage")
+    ranker.CHARACTERS = ["1", "2", "3"]
+    ranker.strict_no_parse_fallback = True
+    ranker._build_best_prompt = lambda query, docs: "prompt"
+    ranker._build_chat_prompt = lambda messages: messages[0]["content"]
+    ranker._tokenize_inputs = lambda prompt: DummyBatch(
+        {
+            "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+            "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+        }
+    )
+    ranker._generate = lambda inputs, max_new_tokens: torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    ranker._parse_single_label = lambda raw, characters: None
+    ranker._is_supported_causal_model = lambda: True
+    return ranker
+
+
+def build_strict_bottomup_compare_stub():
+    ranker = object.__new__(MaxContextBottomUpSetwiseLlmRanker)
+    ranker.total_compare = 0
+    ranker.num_permutation = 1
+    ranker.total_prompt_tokens = 0
+    ranker.total_completion_tokens = 0
+    ranker.scoring = "generation"
+    ranker.config = SimpleNamespace(model_type="qwen3")
+    ranker.tokenizer = SimpleNamespace(decode=lambda *_args, **_kwargs: "garbage")
+    ranker.CHARACTERS = ["1", "2", "3"]
+    ranker.strict_no_parse_fallback = True
+    ranker._build_worst_prompt = lambda query, docs: "prompt"
+    ranker._build_chat_prompt = lambda messages: messages[0]["content"]
+    ranker._tokenize_inputs = lambda prompt: DummyBatch(
+        {
+            "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+            "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+        }
+    )
+    ranker._generate = lambda inputs, max_new_tokens: torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    ranker._parse_single_label = lambda raw, characters: None
+    ranker._is_supported_causal_model = lambda: True
+    return ranker
 
 
 def test_dispatch_invariants():
@@ -204,19 +329,6 @@ def test_dispatch_invariants():
 
 
 def test_maxcontext_init_invariants():
-    def fake_super_init_factory(model_type):
-        def fake_super_init(self, *args, **kwargs):
-            self.config = SimpleNamespace(model_type=model_type)
-            self.scoring = kwargs["scoring"]
-            self.k = kwargs["k"]
-            self.num_permutation = kwargs["num_permutation"]
-            self.method = kwargs["method"]
-            self.max_input_tokens = 32768
-            self.tokenizer = DummyTokenizer()
-            self._comparison_log_path = None
-
-        return fake_super_init
-
     common_kwargs = dict(
         model_name_or_path="Qwen/Qwen3-4B",
         tokenizer_name_or_path=None,
@@ -274,6 +386,320 @@ def test_maxcontext_init_invariants():
             ValueError,
             "pool_size=10 but ranker.k=9",
         )
+
+
+def test_maxcontext_dualend_byte_identity_snapshot():
+    tokenizer_sentinel = "tokenizer-sentinel"
+    with mock.patch.object(
+        DualEndSetwiseLlmRanker,
+        "__init__",
+        new=fake_super_init_factory("qwen3", tokenizer=tokenizer_sentinel),
+    ):
+        ranker = MaxContextDualEndSetwiseLlmRanker(
+            model_name_or_path="Qwen/Qwen3-4B",
+            tokenizer_name_or_path=None,
+            device="cpu",
+            cache_dir=None,
+            num_child=3,
+            scoring="generation",
+            method="selection",
+            num_permutation=1,
+            k=10,
+            pool_size=10,
+        )
+
+    expected_snapshot = {
+        "config": SimpleNamespace(model_type="qwen3"),
+        "scoring": "generation",
+        "k": 10,
+        "num_permutation": 1,
+        "method": "selection",
+        "max_input_tokens": 32768,
+        "tokenizer": tokenizer_sentinel,
+        "_comparison_log_path": None,
+        "_current_qid": None,
+        "CHARACTERS": [str(i + 1) for i in range(10)],
+        "num_child": 9,
+        "strict_no_truncation": True,
+        "strict_no_parse_fallback": True,
+        "label_scheme": "numeric_1_based",
+        "_maxcontext_pool_size": 10,
+    }
+    assert vars(ranker) == expected_snapshot
+
+
+def test_maxcontext_topdown_invariants():
+    ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=10,
+    )
+    assert ranker.CHARACTERS == [str(i + 1) for i in range(10)]
+    assert ranker.num_child == 9
+    assert ranker.method == "selection"
+    assert ranker.strict_no_truncation is True
+    assert ranker.strict_no_parse_fallback is True
+    assert ranker.label_scheme == "numeric_1_based"
+
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextTopDownSetwiseLlmRanker,
+            SetwiseLlmRanker,
+            model_type="t5",
+        ),
+        ValueError,
+        "Qwen3 / Qwen3.5 model_type",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextTopDownSetwiseLlmRanker,
+            SetwiseLlmRanker,
+            scoring="likelihood",
+        ),
+        ValueError,
+        "--scoring generation",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextTopDownSetwiseLlmRanker,
+            SetwiseLlmRanker,
+            method="heapsort",
+        ),
+        ValueError,
+        "method='selection'",
+    )
+    expect_raises(
+        lambda: run_module.main(
+            make_run_args(direction="maxcontext_topdown", openai_key="sk-test")
+        ),
+        ValueError,
+        "--direction maxcontext_topdown is not supported with --openai_key",
+    )
+
+    docs = make_docs(10)
+    ranker._assert_maxcontext_fits = lambda query, ranking: None
+    call_counter = {"count": 0}
+
+    def choose_first(query, window):
+        call_counter["count"] += 1
+        return "1"
+
+    ranker.compare = choose_first
+    results = ranker.rerank("query", docs)
+    assert call_counter["count"] == 9
+    assert_materialized_rerank(results, docs)
+
+    one_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=1,
+    )
+    one_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    one_doc_calls = {"count": 0}
+    one_doc_ranker.compare = lambda query, window: one_doc_calls.__setitem__("count", one_doc_calls["count"] + 1) or "1"
+    one_doc_results = one_doc_ranker.rerank("query", make_docs(1))
+    assert one_doc_calls["count"] == 0
+    assert_materialized_rerank(one_doc_results, make_docs(1))
+
+    two_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=2,
+    )
+    two_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    two_doc_calls = {"count": 0}
+
+    def choose_first_two(query, window):
+        two_doc_calls["count"] += 1
+        return "1"
+
+    two_doc_ranker.compare = choose_first_two
+    two_doc_ranker.rerank("query", make_docs(2))
+    assert two_doc_calls["count"] == 1
+
+    three_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=3,
+    )
+    three_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    three_doc_calls = {"count": 0}
+
+    def choose_first_three(query, window):
+        three_doc_calls["count"] += 1
+        return "1"
+
+    three_doc_ranker.compare = choose_first_three
+    three_doc_results = three_doc_ranker.rerank("query", make_docs(3))
+    assert three_doc_calls["count"] == 2
+    assert_materialized_rerank(three_doc_results, make_docs(3))
+
+    strict_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=3,
+    )
+    strict_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    labels = iter(["1", "3"])
+    strict_ranker.compare = lambda query, window: next(labels)
+    expect_raises(
+        lambda: strict_ranker.rerank("query", make_docs(3)),
+        ValueError,
+        "outside the active window",
+    )
+
+    compare_ranker = build_strict_topdown_compare_stub()
+    expect_raises(
+        lambda: compare_ranker.compare("query", make_docs(2)),
+        ValueError,
+        "Raw text: 'garbage'",
+    )
+
+    prompt_ranker = SimpleNamespace(
+        max_input_tokens=1000,
+        tokenizer=SimpleNamespace(encode=lambda text, add_special_tokens=True: list(range(10))),
+        _build_best_prompt=mock.Mock(return_value="best prompt"),
+        _build_chat_prompt=mock.Mock(side_effect=lambda messages: messages[0]["content"] + " chat"),
+    )
+    _assert_maxcontext_topdown_fits(prompt_ranker, "query", make_docs(2))
+    prompt_ranker._build_best_prompt.assert_called_once_with("query", make_docs(2))
+
+
+def test_maxcontext_bottomup_invariants():
+    ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=10,
+    )
+    assert ranker.CHARACTERS == [str(i + 1) for i in range(10)]
+    assert ranker.num_child == 9
+    assert ranker.method == "selection"
+    assert ranker.strict_no_truncation is True
+    assert ranker.strict_no_parse_fallback is True
+    assert ranker.label_scheme == "numeric_1_based"
+
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextBottomUpSetwiseLlmRanker,
+            BottomUpSetwiseLlmRanker,
+            model_type="t5",
+        ),
+        ValueError,
+        "Qwen3 / Qwen3.5 model_type",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextBottomUpSetwiseLlmRanker,
+            BottomUpSetwiseLlmRanker,
+            scoring="likelihood",
+        ),
+        ValueError,
+        "--scoring generation",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextBottomUpSetwiseLlmRanker,
+            BottomUpSetwiseLlmRanker,
+            method="heapsort",
+        ),
+        ValueError,
+        "method='selection'",
+    )
+    expect_raises(
+        lambda: run_module.main(
+            make_run_args(direction="maxcontext_bottomup", openai_key="sk-test")
+        ),
+        ValueError,
+        "--direction maxcontext_bottomup is not supported with --openai_key",
+    )
+
+    docs = make_docs(10)
+    ranker._assert_maxcontext_fits = lambda query, ranking: None
+    call_counter = {"count": 0}
+
+    def choose_first(query, window):
+        call_counter["count"] += 1
+        return "1"
+
+    ranker.compare_worst = choose_first
+    results = ranker.rerank("query", docs)
+    assert call_counter["count"] == 9
+    assert_materialized_rerank(results, docs)
+
+    one_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=1,
+    )
+    one_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    one_doc_calls = {"count": 0}
+    one_doc_ranker.compare_worst = lambda query, window: one_doc_calls.__setitem__("count", one_doc_calls["count"] + 1) or "1"
+    one_doc_results = one_doc_ranker.rerank("query", make_docs(1))
+    assert one_doc_calls["count"] == 0
+    assert_materialized_rerank(one_doc_results, make_docs(1))
+
+    two_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=2,
+    )
+    two_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    two_doc_calls = {"count": 0}
+
+    def choose_first_two(query, window):
+        two_doc_calls["count"] += 1
+        return "1"
+
+    two_doc_ranker.compare_worst = choose_first_two
+    two_doc_ranker.rerank("query", make_docs(2))
+    assert two_doc_calls["count"] == 1
+
+    three_doc_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=3,
+    )
+    three_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    three_doc_calls = {"count": 0}
+
+    def choose_first_three(query, window):
+        three_doc_calls["count"] += 1
+        return "1"
+
+    three_doc_ranker.compare_worst = choose_first_three
+    three_doc_results = three_doc_ranker.rerank("query", make_docs(3))
+    assert three_doc_calls["count"] == 2
+    assert_materialized_rerank(three_doc_results, make_docs(3))
+
+    strict_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=3,
+    )
+    strict_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    labels = iter(["1", "3"])
+    strict_ranker.compare_worst = lambda query, window: next(labels)
+    expect_raises(
+        lambda: strict_ranker.rerank("query", make_docs(3)),
+        ValueError,
+        "outside the active window",
+    )
+
+    compare_ranker = build_strict_bottomup_compare_stub()
+    expect_raises(
+        lambda: compare_ranker.compare_worst("query", make_docs(2)),
+        ValueError,
+        "Raw text: 'garbage'",
+    )
+
+    prompt_ranker = SimpleNamespace(
+        max_input_tokens=1000,
+        tokenizer=SimpleNamespace(encode=lambda text, add_special_tokens=True: list(range(10))),
+        _build_worst_prompt=mock.Mock(return_value="worst prompt"),
+        _build_chat_prompt=mock.Mock(side_effect=lambda messages: messages[0]["content"] + " chat"),
+    )
+    _assert_maxcontext_bottomup_fits(prompt_ranker, "query", make_docs(2))
+    prompt_ranker._build_worst_prompt.assert_called_once_with("query", make_docs(2))
 
 
 def build_dualend_stub(*, strict=False):
@@ -545,6 +971,9 @@ def test_topdown_bigram_scheme_invariants():
 def main():
     test_dispatch_invariants()
     test_maxcontext_init_invariants()
+    test_maxcontext_dualend_byte_identity_snapshot()
+    test_maxcontext_topdown_invariants()
+    test_maxcontext_bottomup_invariants()
     test_parse_invariants()
     test_compare_both_duplicate_rewrite_guard()
     test_tokenize_invariants()

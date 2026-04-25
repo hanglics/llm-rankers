@@ -157,3 +157,7 @@
 {"from": "claim:C7", "to": "exp:maxcontext_dualend_pl_sweep", "type": "tested_by", "note": "pl-sweep probes window-size \u00d7 model-family interaction at w=pool_size", "created_at": "2026-04-20T10:55:00+10:00"}
 {"from": "claim:C9", "to": "exp:maxcontext_dualend_pool_sweep", "type": "tested_by", "note": "Whether MaxContext lands in the empty TD-Bubble \u2192 DE-Cocktail frontier region", "created_at": "2026-04-20T10:55:00+10:00"}
 {"from": "claim:C9", "to": "exp:maxcontext_dualend_baselines", "type": "tested_by", "note": "Matched-hits baselines anchor frontier comparison", "created_at": "2026-04-20T10:55:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_topdown_pool_sweep", "type": "tested_by", "note": "Whole-pool best-only MaxContext sweep", "created_at": "2026-04-25T00:00:00+10:00"}
+{"from": "idea:007", "to": "exp:maxcontext_bottomup_pool_sweep", "type": "tested_by", "note": "Whole-pool worst-only MaxContext sweep", "created_at": "2026-04-25T00:00:00+10:00"}
+{"from": "claim:C9", "to": "exp:maxcontext_topdown_pool_sweep", "type": "tested_by", "note": "Checks whether best-only whole-pool selection lands in the frontier gap", "created_at": "2026-04-25T00:00:00+10:00"}
+{"from": "claim:C9", "to": "exp:maxcontext_bottomup_pool_sweep", "type": "tested_by", "note": "Checks whether worst-only whole-pool selection lands in the frontier gap", "created_at": "2026-04-25T00:00:00+10:00"}

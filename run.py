@@ -10,7 +10,9 @@ from llmrankers.setwise_extended import (
     BidirectionalEnsembleRanker,
     BottomUpSetwiseLlmRanker,
     DualEndSetwiseLlmRanker,
+    MaxContextBottomUpSetwiseLlmRanker,
     MaxContextDualEndSetwiseLlmRanker,
+    MaxContextTopDownSetwiseLlmRanker,
     SameCallRegularizedSetwiseLlmRanker,
     SelectiveDualEndSetwiseLlmRanker,
 )
@@ -24,6 +26,9 @@ import time
 import random
 random.seed(929)
 logger = logging.getLogger(__name__)
+
+
+MAXCONTEXT_DIRECTIONS = {"maxcontext_dualend", "maxcontext_topdown", "maxcontext_bottomup"}
 
 
 def parse_args(parser, commands):
@@ -59,6 +64,12 @@ def write_run_file(path, results, tag):
 
 
 def main(args):
+    if args.setwise is not None and args.setwise.direction in MAXCONTEXT_DIRECTIONS:
+        if args.run.openai_key is not None:
+            raise ValueError(
+                f"--direction {args.setwise.direction} is not supported with --openai_key. "
+                f"MaxContext requires a local Qwen3 / Qwen3.5 model."
+            )
 
     if args.pointwise:
         if 'monot5' in args.run.model_name_or_path:
@@ -188,6 +199,64 @@ def main(args):
                     "maxcontext_dualend requires --method selection."
                 )
             ranker = MaxContextDualEndSetwiseLlmRanker(
+                model_name_or_path=args.run.model_name_or_path,
+                tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                device=args.run.device,
+                cache_dir=args.run.cache_dir,
+                num_child=args.setwise.num_child,
+                scoring=args.run.scoring,
+                method=args.setwise.method,
+                num_permutation=args.setwise.num_permutation,
+                k=args.setwise.k,
+                pool_size=args.setwise.k,
+            )
+        elif args.setwise.direction == 'maxcontext_topdown':
+            if args.run.hits != args.setwise.k:
+                raise ValueError(
+                    "maxcontext_topdown requires --hits == --k (pool_size)."
+                )
+            if args.run.scoring != "generation":
+                raise ValueError(
+                    "maxcontext_topdown requires --scoring generation."
+                )
+            if args.setwise.num_permutation != 1:
+                raise ValueError(
+                    "maxcontext_topdown requires --num_permutation 1."
+                )
+            if args.setwise.method != "selection":
+                raise ValueError(
+                    "maxcontext_topdown requires --method selection."
+                )
+            ranker = MaxContextTopDownSetwiseLlmRanker(
+                model_name_or_path=args.run.model_name_or_path,
+                tokenizer_name_or_path=args.run.tokenizer_name_or_path,
+                device=args.run.device,
+                cache_dir=args.run.cache_dir,
+                num_child=args.setwise.num_child,
+                scoring=args.run.scoring,
+                method=args.setwise.method,
+                num_permutation=args.setwise.num_permutation,
+                k=args.setwise.k,
+                pool_size=args.setwise.k,
+            )
+        elif args.setwise.direction == 'maxcontext_bottomup':
+            if args.run.hits != args.setwise.k:
+                raise ValueError(
+                    "maxcontext_bottomup requires --hits == --k (pool_size)."
+                )
+            if args.run.scoring != "generation":
+                raise ValueError(
+                    "maxcontext_bottomup requires --scoring generation."
+                )
+            if args.setwise.num_permutation != 1:
+                raise ValueError(
+                    "maxcontext_bottomup requires --num_permutation 1."
+                )
+            if args.setwise.method != "selection":
+                raise ValueError(
+                    "maxcontext_bottomup requires --method selection."
+                )
+            ranker = MaxContextBottomUpSetwiseLlmRanker(
                 model_name_or_path=args.run.model_name_or_path,
                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                 device=args.run.device,
@@ -387,13 +456,16 @@ if __name__ == '__main__':
     setwise_parser.add_argument('--direction', type=str, default='topdown',
                                 choices=['topdown', 'bottomup', 'dualend', 'selective_dualend',
                                          'bias_aware_dualend', 'samecall_regularized', 'bidirectional',
-                                         'maxcontext_dualend'],
+                                         'maxcontext_dualend', 'maxcontext_topdown',
+                                         'maxcontext_bottomup'],
                                 help='Ranking direction: topdown (standard), bottomup (reverse), '
                                      'dualend (simultaneous best-worst), selective_dualend '
                                      '(TopDown with selective joint prompting), bias_aware_dualend '
                                      '(order-robust joint prompting), samecall_regularized '
                                      '(TopDown with worst-signal regularization), bidirectional (ensemble), '
-                                     'maxcontext_dualend (full-pool numeric DualEnd selection)')
+                                     'maxcontext_dualend (full-pool numeric DualEnd selection), '
+                                     'maxcontext_topdown (full-pool numeric best-only selection), '
+                                     'maxcontext_bottomup (full-pool numeric worst-only selection)')
     setwise_parser.add_argument('--character_scheme', type=str, default='letters_a_w',
                                 choices=['letters_a_w', 'bigrams_aa_zz'])
     setwise_parser.add_argument('--fusion', type=str, default='rrf',

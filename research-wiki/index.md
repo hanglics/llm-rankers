@@ -42,9 +42,9 @@
 - [idea:004 Selective DualEnd](ideas/idea_004_selective_dualend.md) — active (flan-t5-xl partial)
 - [idea:005 Bias-Aware DualEnd](ideas/idea_005_bias_aware_dualend.md) — proposed (all pending)
 - [idea:006 Same-Call Regularized](ideas/idea_006_samecall_regularized.md) — proposed (all pending)
-- [idea:007 MaxContext DualEnd](ideas/idea_007_maxcontext_dualend.md) — active plan (Codex-audited 3 rounds, ready to execute; see `IDEA_007.md`)
+- [idea:007 MaxContext family](ideas/idea_007_maxcontext_dualend.md) — active plan (Codex-audited 3 rounds, ready to execute; see `IDEA_007.md`)
 
-## Experiments (31)
+## Experiments (33)
 
 ### Main sweeps (9 models × 2 datasets = 18 runs each)
 
@@ -85,12 +85,14 @@
 - [exp:same_method_tables_pending](experiments/same_method_tables_pending.md) — **completed 2026-04-21**; 12 pairwise tables + SIGNIFICANCE_TESTS_PAIRWISE.{md,json}
 - [exp:maxdoc_dualend_pending](experiments/maxdoc_dualend_pending.md) — superseded by idea:007
 
-### idea:007 MaxContext DualEnd matrix (plan at `IDEA_007.md`)
+### idea:007 MaxContext family matrix (plan at `IDEA_007.md`)
 
 - [exp:maxcontext_dualend_pool_sweep](experiments/maxcontext_dualend_pool_sweep.md) — Study A: pool-size sweep, 60 runs
 - [exp:maxcontext_dualend_pl_sweep](experiments/maxcontext_dualend_pl_sweep.md) — Study B: pl sweep + dualend-nc3 control arm, 96 runs
 - [exp:maxcontext_dualend_order_pilot](experiments/maxcontext_dualend_order_pilot.md) — Study C: order-robustness launch gate, 12 runs
 - [exp:maxcontext_dualend_baselines](experiments/maxcontext_dualend_baselines.md) — matched-`hits` predeclared baselines at {10, 30, 50}, 144 runs
+- [exp:maxcontext_topdown_pool_sweep](experiments/maxcontext_topdown_pool_sweep.md) — whole-pool best-only sweep
+- [exp:maxcontext_bottomup_pool_sweep](experiments/maxcontext_bottomup_pool_sweep.md) — whole-pool worst-only sweep
 
 ## Claims (10)
 
@@ -119,5 +121,5 @@
 
 ## Graph
 
-- [graph/edges.jsonl](graph/edges.jsonl) — 159 edges across `extends`, `inspired_by`, `addresses_gap`, `tested_by`, `supports`, `invalidates`, `refines`
+- [graph/edges.jsonl](graph/edges.jsonl) — 163 edges across `extends`, `inspired_by`, `addresses_gap`, `tested_by`, `supports`, `invalidates`, `refines`
 - [IDEA_007.md](/Users/hangli/projects/llm-rankers/IDEA_007.md) — full idea:007 plan (Codex-audited, ready to execute)

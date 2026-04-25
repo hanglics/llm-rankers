@@ -1,4 +1,4 @@
-# MaxContext DualEnd Experiment Command Sheet
+# MaxContext Family Experiment Command Sheet
 
 Source documents:
 - `IDEA_007_IMPLEMENTATION_PLAN.md` (authoritative implementation plan)
@@ -7,10 +7,10 @@ Source documents:
 This sheet is for the human operator after the implementation gate is green.
 
 Phase gates:
-1. Phase 1 must pass before any wider submission.
+1. Phase 1A/1B/1C must pass before any wider submission.
 2. Phase 2 must pass before Study A / baselines.
 3. Phase 3 is the matched-hits regression pair.
-4. Phase 4 runs Study A plus the predeclared matched-hits baselines.
+4. Phase 4 runs Study A plus the predeclared matched-hits baselines, then the single-extreme pool sweeps.
 5. Phase 5 runs Study B after Study A fixes the predeclared pool size.
 
 All commands below run from the cluster login node. If your cluster root differs, replace `/scratch/project/neural_ir/hang/llm-rankers` consistently in this sheet and the four `experiments/run_maxcontext_dualend*.sh` launchers.
@@ -101,6 +101,14 @@ python -m pyserini.eval.trec_eval -c -l 2 \
   "${QRELS_DL19}" \
   results/maxcontext_dualend/phase1/qwen3-4b-dl19/top10/maxcontext_dualend.txt
 ```
+
+### Phase 1B — MaxContext TopDown sanity
+
+Run the same DL19 sanity sweep through `experiments/run_maxcontext_topdown.sh` (or `run_maxcontext_topdown_pool_sweep.sh` if you want the full {10,20,30,40,50} sanity grid).
+
+### Phase 1C — MaxContext BottomUp sanity
+
+Run the same DL19 sanity sweep through `experiments/run_maxcontext_bottomup.sh` (or `run_maxcontext_bottomup_pool_sweep.sh` if you want the full {10,20,30,40,50} sanity grid).
 
 ## Phase 2 — Order-robustness pilot (12 runs)
 
@@ -209,6 +217,50 @@ for MODEL in "${MODELS[@]}"; do
     "${DL20_DATASET}" \
     "${DL20_RUN}" \
     "results/maxcontext_dualend/phase4/study_a/${MODEL_TAG}-dl20" \
+    cuda generation 512
+done
+```
+
+### Phase 4D — MaxContext TopDown pool sweep
+
+```bash
+for MODEL in "${MODELS[@]}"; do
+  MODEL_TAG=$(model_tag "${MODEL}")
+
+  bash experiments/run_maxcontext_topdown_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL19_DATASET}" \
+    "${DL19_RUN}" \
+    "results/maxcontext_topdown/phase4/study_a/${MODEL_TAG}-dl19" \
+    cuda generation 512
+
+  bash experiments/run_maxcontext_topdown_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL20_DATASET}" \
+    "${DL20_RUN}" \
+    "results/maxcontext_topdown/phase4/study_a/${MODEL_TAG}-dl20" \
+    cuda generation 512
+done
+```
+
+### Phase 4E — MaxContext BottomUp pool sweep
+
+```bash
+for MODEL in "${MODELS[@]}"; do
+  MODEL_TAG=$(model_tag "${MODEL}")
+
+  bash experiments/run_maxcontext_bottomup_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL19_DATASET}" \
+    "${DL19_RUN}" \
+    "results/maxcontext_bottomup/phase4/study_a/${MODEL_TAG}-dl19" \
+    cuda generation 512
+
+  bash experiments/run_maxcontext_bottomup_pool_sweep.sh \
+    "${MODEL}" \
+    "${DL20_DATASET}" \
+    "${DL20_RUN}" \
+    "results/maxcontext_bottomup/phase4/study_a/${MODEL_TAG}-dl20" \
     cuda generation 512
 done
 ```

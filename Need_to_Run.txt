@@ -1,8 +1,8 @@
 Pause the following experiments for now, then do:
 
 1. Build results tables that have same method with same sorting algorithm on same dataset with same model, rather than just the overall best. (Done)
-2. Run Dualend with maximum amount of documents in set to fit the context window.
-(If Qwen can fit 10 doc at a time for its context window, then we fit 10, build top and bottom at the same time, so we cut cost in half.)
+2. Run the MaxContext family with the maximum number of documents that fits the context window.
+(If Qwen can fit 10 docs at a time, run the three idea:007 variants: TopDown best-only, BottomUp worst-only, and DualEnd best+worst. DualEnd cuts the call count roughly in half relative to the single-extreme siblings at the same pool size.)
 
 # BEIR
 ## flan-t5-xl

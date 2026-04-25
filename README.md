@@ -311,7 +311,12 @@ We also provide extended setwise strategies in [llmrankers/setwise_extended.py](
 - `--direction topdown`: standard setwise baseline
 - `--direction bottomup`: reverse selection, choose the least relevant passage
 - `--direction dualend`: choose both the best and worst passage in one call
+- `--direction maxcontext_topdown`: whole-pool best-only selection with numeric labels `1..N`
+- `--direction maxcontext_bottomup`: whole-pool worst-only selection with numeric labels `1..N`
+- `--direction maxcontext_dualend`: whole-pool best+worst selection with numeric labels `1..N`
 - `--direction bidirectional`: run top-down and bottom-up independently, then fuse them
+
+The MaxContext family is Qwen3 / Qwen3.5 generation-only and uses one prompt over the full live pool each round. `maxcontext_topdown` and `maxcontext_bottomup` make `N-1` LLM calls for a pool of size `N`; `maxcontext_dualend` makes `floor(N/2)` calls, so the single-extreme variants are roughly 2x the call count of DualEnd at the same pool size.
 
 Additional CLI options for the extended runs:
 

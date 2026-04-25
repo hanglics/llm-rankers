@@ -273,6 +273,27 @@ The spec described a global `CHARACTERS → self._labels` refactor across 15+ ca
       )
   ```
 
+### 3.3A `llmrankers/setwise_extended.py` / `run.py` — 2026-04-25 MaxContext single-extreme extension
+
+Add two new siblings without touching `MaxContextDualEndSetwiseLlmRanker`:
+
+- `MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker)` — best-only whole-pool selection, strict parse, numeric labels `1..N`, variant-specific preflight via `_assert_maxcontext_topdown_fits`.
+- `MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker)` — worst-only whole-pool selection, strict parse, numeric labels `1..N`, variant-specific preflight via `_assert_maxcontext_bottomup_fits`.
+
+Both new classes share module-level helpers:
+
+- `_setup_maxcontext_numeric_attrs(ranker, pool_size)`
+- `_resolve_maxcontext_label_index(ranker, label, window_len, default)`
+- `_assert_maxcontext_topdown_fits(ranker, query, docs)`
+- `_assert_maxcontext_bottomup_fits(ranker, query, docs)`
+
+`run.py` also adds:
+
+- `MAXCONTEXT_DIRECTIONS = {"maxcontext_dualend", "maxcontext_topdown", "maxcontext_bottomup"}`
+- early `--openai_key` rejection before the OpenAI dispatch
+- two additive CLI directions: `maxcontext_topdown`, `maxcontext_bottomup`
+- two new dispatch branches mirroring the existing `maxcontext_dualend` path with cheap invariants hoisted before model load
+
   No other elif branch is modified.
 
   The error messages (Codex round 1 high on CLI legibility) explicitly name the offending flag so an operator can fix their launcher in one line.
@@ -484,6 +505,8 @@ Codex round 1 low: the script is promoted from optional to mandatory, since ther
 - `_parse_dual_output` same inputs, strict mode False → returns silent-default (exactly the existing path).
 - `_tokenize_inputs` with a synthetic oversize prompt + `strict_no_truncation=True` → raises.
 - `_tokenize_inputs` same input, strict mode False → warn-and-clip (existing).
+- `test_maxcontext_topdown_invariants()` covers the new best-only whole-pool variant.
+- `test_maxcontext_bottomup_invariants()` covers the new worst-only whole-pool variant.
 - **Codex round 2 substitutes for uncommitted `.eval` coverage:**
   - Instantiate a plain `DualEndSetwiseLlmRanker(scoring='likelihood', ...)` with a fixed mock config. Call `_parse_dual_output` on a canned input that currently triggers the silent-default at `setwise_extended.py:672-673`. Assert the return is **identical** to the pre-change silent-default (exact tuple).
   - Instantiate `SelectiveDualEndSetwiseLlmRanker`, `BiasAwareDualEndSetwiseLlmRanker`, `SameCallRegularizedSetwiseLlmRanker` with mock configs. Assert that each has `strict_no_truncation=False` and `strict_no_parse_fallback=False` as runtime attributes (no accidental opt-in via inheritance).

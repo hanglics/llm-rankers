@@ -6,7 +6,7 @@
 
 ## Project direction
 
-Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call. Strategies tested: reverse-elicit worst (idea:001), co-elicit best+worst (idea:002), independent fusion of TD+BU (idea:003). Active refinements: selective DualEnd (idea:004), bias-aware DualEnd (idea:005), same-call regularized (idea:006), and MaxContext DualEnd (idea:007 — whole-pool joint elicitation on Qwen, plan in IDEA_007.md). Target venue: ICTIR (claim:C10). Conservative framing.
+Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call. Strategies tested: reverse-elicit worst (idea:001), co-elicit best+worst (idea:002), independent fusion of TD+BU (idea:003). Active refinements: selective DualEnd (idea:004), bias-aware DualEnd (idea:005), same-call regularized (idea:006), and the MaxContext family (idea:007 — whole-pool TopDown / BottomUp / DualEnd variants on Qwen, plan in IDEA_007.md). Target venue: ICTIR (claim:C10). Conservative framing.
 
 ## Top gaps
 
@@ -51,7 +51,7 @@ Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call.
 - BiDir fails because BU is biased → same-call regularization uses worst only locally, not as a second ranking (idea:006) → pending.
 - dual_worst primacy reversal is observed (claim:C5) → exploit via controlled orderings + majority vote (idea:005) → pending.
 - TD-Bubble → DE-Cocktail frontier gap is 82% cost for +0.0065 NDCG (claim:C9) → selective / bias-aware variants must land in this region → pending.
-- Frontier target on wall-clock + comparisons axes (NOT token axis) → MaxContext DualEnd (idea:007): one-prompt double-ended selection on Qwen at pool_size ≤ 50 → Codex-audited plan in IDEA_007.md, 312-run matrix staged across 5 gated phases → not yet executed.
+- Frontier target on wall-clock + comparisons axes (NOT token axis) → MaxContext family (idea:007): one-prompt whole-pool selection on Qwen at pool_size ≤ 50, with DualEnd / TopDown / BottomUp variants → Codex-audited plan in IDEA_007.md, staged matrix plus two single-extreme pool sweeps → not yet executed.
 
 ## Open unknowns
 

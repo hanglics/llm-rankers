@@ -1,7 +1,7 @@
 ---
 type: idea
 node_id: idea:007
-title: "MaxContext DualEnd — one-prompt double-ended selection over ≤50-doc pools"
+title: "MaxContext family — one-prompt whole-pool selection over ≤50-doc pools"
 stage: active
 outcome: pending
 based_on: ["paper:zhuang2024_setwise", "paper:sato2026_sorting_survey", "paper:zhuang2025_rank_r1"]
@@ -14,7 +14,7 @@ updated_at: 2026-04-20T10:55:00+10:00
 
 # Idea
 
-Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. Ask for best+worst in one call. Pin best at rank `top_idx`, pin worst at rank `bottom_idx`. Shrink the live pool by 2. Repeat. Full ordering after `ceil(pool_size / 2)` LLM calls (25 calls at pool=50, vs 546 for `DE-Cocktail` at hits=100).
+Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. The family now has three variants: ask for best+worst in one call (DualEnd), ask only for the best (TopDown), or ask only for the worst (BottomUp). DualEnd shrinks the live pool by 2 each round; TopDown and BottomUp shrink it by 1.
 
 ## Motivation
 
@@ -23,11 +23,20 @@ Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. Ask f
 ## Mechanism (Qwen-generation only)
 
 - `--direction maxcontext_dualend`.
+- `--direction maxcontext_topdown`.
+- `--direction maxcontext_bottomup`.
 - New ranker class `MaxContextDualEndSetwiseLlmRanker` in `llmrankers/setwise_extended.py`.
+- New ranker classes `MaxContextTopDownSetwiseLlmRanker` and `MaxContextBottomUpSetwiseLlmRanker` in `llmrankers/setwise_extended.py`.
 - Reuses `_double_ended_selection` (`setwise_extended.py:840-942`) with `num_child = pool_size - 1` so the single-group fast-path fires for the whole pool.
 - **Numeric labels 1..N** (not letters). Existing `CHARACTERS = ['A'..'W']` capped windows at 23; numeric-label refactor touches prompt construction, parser validation, fallback clamping, JSONL schema, and `analysis/position_bias.py`.
 - **Hard invariants** (aborts on violation): Qwen3 / Qwen3.5 generation only (no T5, no likelihood); `pool_size == hits == ranker.k`; `num_permutation == 1`; context-fit preflight passes; zero truncation; every call yields a full-parse (no silent fallback).
 - **Preflight** computes max-fit with actual tokenization of the fully rendered prompt (not arithmetic — `setwise.py:662`'s `truncate()` does a tokenize→decode→re-tokenize roundtrip that invalidates closed-form bounds).
+
+## Variants
+
+- **DualEnd** — `type=dual_best` + `type=dual_worst`, call count `floor(N / 2)`.
+- **TopDown** — `type=best`, call count `N - 1`.
+- **BottomUp** — `type=worst`, call count `N - 1`.
 
 ## Predicted outcome
 
@@ -45,6 +54,8 @@ Active, tests not yet run. Detailed plan in `/Users/hangli/projects/llm-rankers/
 - exp:maxcontext_dualend_pl_sweep (Study B)
 - exp:maxcontext_dualend_order_pilot (Study C)
 - exp:maxcontext_dualend_baselines (matched-hits baselines)
+- exp:maxcontext_topdown_pool_sweep
+- exp:maxcontext_bottomup_pool_sweep
 - exp:maxdoc_dualend_pending (superseded by the above; kept for traceability)
 
 ## Related

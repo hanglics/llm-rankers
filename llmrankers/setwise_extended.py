@@ -22,6 +22,78 @@ random.seed(929)
 MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({"qwen3", "qwen3_moe", "qwen3_5"})
 
 
+def _setup_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
+    ranker.CHARACTERS = [str(i + 1) for i in range(pool_size)]
+    ranker.num_child = pool_size - 1
+    ranker.method = "selection"
+    ranker.strict_no_truncation = True
+    ranker.strict_no_parse_fallback = True
+    ranker.label_scheme = "numeric_1_based"
+    ranker._maxcontext_pool_size = pool_size
+
+
+def _resolve_maxcontext_label_index(
+    ranker, label: str, window_len: int, default: int
+) -> int:
+    strict = getattr(ranker, "strict_no_parse_fallback", False)
+    try:
+        idx = ranker.CHARACTERS.index(label)
+    except ValueError:
+        if strict:
+            raise ValueError(
+                f"MaxContext single-label parse failed: label {label!r} not in CHARACTERS."
+            )
+        return default
+    if idx >= window_len:
+        if strict:
+            raise ValueError(
+                f"MaxContext single-label parse failed: label {label!r} resolves to "
+                f"index {idx} which is outside the active window of size {window_len}."
+            )
+        return min(idx, window_len - 1)
+    return idx
+
+
+def _assert_maxcontext_topdown_fits(ranker, query, docs) -> None:
+    if ranker.max_input_tokens is None:
+        raise ValueError("MaxContext requires max_input_tokens to be resolvable.")
+
+    input_text = ranker._build_best_prompt(query, docs)
+    rendered = ranker._build_chat_prompt([{"role": "user", "content": input_text}])
+    rendered += " Passage:"
+
+    rendered_ids = ranker.tokenizer.encode(rendered, add_special_tokens=True)
+    rendered_length = len(rendered_ids)
+    budget = ranker.max_input_tokens - 256
+
+    if rendered_length > budget:
+        raise ValueError(
+            f"MaxContext TopDown preflight failed: rendered prompt is "
+            f"{rendered_length} tokens but the budget is {budget} "
+            f"(max_input_tokens - 256). Reduce --passage_length or --k."
+        )
+
+
+def _assert_maxcontext_bottomup_fits(ranker, query, docs) -> None:
+    if ranker.max_input_tokens is None:
+        raise ValueError("MaxContext requires max_input_tokens to be resolvable.")
+
+    input_text = ranker._build_worst_prompt(query, docs)
+    rendered = ranker._build_chat_prompt([{"role": "user", "content": input_text}])
+    rendered += " Passage:"
+
+    rendered_ids = ranker.tokenizer.encode(rendered, add_special_tokens=True)
+    rendered_length = len(rendered_ids)
+    budget = ranker.max_input_tokens - 256
+
+    if rendered_length > budget:
+        raise ValueError(
+            f"MaxContext BottomUp preflight failed: rendered prompt is "
+            f"{rendered_length} tokens but the budget is {budget} "
+            f"(max_input_tokens - 256). Reduce --passage_length or --k."
+        )
+
+
 class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
     """
     Bottom-Up Setwise Ranker: selects the LEAST relevant document from each comparison set.
@@ -136,6 +208,10 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                                                    skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
+                    if getattr(self, "strict_no_parse_fallback", False):
+                        raise ValueError(
+                            f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
+                        )
                     output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
@@ -1660,3 +1736,148 @@ class BidirectionalEnsembleRanker(LlmRanker):
 
     def truncate(self, text, length):
         return self.topdown_ranker.truncate(text, length)
+
+
+class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
+    """MaxContext-style best-only selection over the full pool."""
+
+    def __init__(self, *args, pool_size: int, **kwargs):
+        MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
+            kwargs.get("model_name_or_path") or (args[0] if args else None)
+        )
+        super().__init__(*args, **kwargs)
+        self._assert_maxcontext_invariants(pool_size)
+        _setup_maxcontext_numeric_attrs(self, pool_size)
+
+    def _assert_maxcontext_invariants(self, pool_size: int) -> None:
+        if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
+            raise ValueError(
+                f"MaxContextTopDown requires a Qwen3 / Qwen3.5 model_type; "
+                f"got {self.config.model_type!r}."
+            )
+        if self.scoring != "generation":
+            raise ValueError("MaxContextTopDown requires --scoring generation.")
+        if self.k != pool_size:
+            raise ValueError(f"pool_size={pool_size} but ranker.k={self.k}.")
+        if self.num_permutation != 1:
+            raise ValueError(
+                "MaxContextTopDown requires --num_permutation 1 "
+                "(compare does not permute)."
+            )
+        if self.method != "selection":
+            raise ValueError(
+                "MaxContextTopDown requires method='selection' "
+                "(full-pool best-only selection is the only supported algorithm)."
+            )
+
+    def _assert_maxcontext_fits(self, query: str, docs: List[SearchResult]) -> None:
+        _assert_maxcontext_topdown_fits(self, query, docs)
+
+    def _maxcontext_topdown_select(
+        self, query: str, docs: List[SearchResult]
+    ) -> List[SearchResult]:
+        ranking = list(docs)
+        self.total_compare = 0
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
+
+        n = len(ranking)
+        top_idx = 0
+        while n - top_idx > 1:
+            window = ranking[top_idx:]
+            best_label = self.compare(query, window)
+            best_window_pos = _resolve_maxcontext_label_index(
+                self, best_label, len(window), default=0
+            )
+            if best_window_pos != 0:
+                ranking[top_idx], ranking[top_idx + best_window_pos] = (
+                    ranking[top_idx + best_window_pos],
+                    ranking[top_idx],
+                )
+            top_idx += 1
+        return ranking
+
+    def rerank(self, query: str, docs: List[SearchResult]) -> List[SearchResult]:
+        if len(docs) != self._maxcontext_pool_size:
+            raise ValueError(
+                f"MaxContextTopDown expects exactly pool_size="
+                f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
+            )
+        self._assert_maxcontext_fits(query, docs)
+        ordered = self._maxcontext_topdown_select(query, docs)
+        return [
+            SearchResult(docid=d.docid, score=-rank, text=None)
+            for rank, d in enumerate(ordered, start=1)
+        ]
+
+
+class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
+    """MaxContext-style worst-only selection over the full pool."""
+
+    def __init__(self, *args, pool_size: int, **kwargs):
+        MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
+            kwargs.get("model_name_or_path") or (args[0] if args else None)
+        )
+        super().__init__(*args, **kwargs)
+        self._assert_maxcontext_invariants(pool_size)
+        _setup_maxcontext_numeric_attrs(self, pool_size)
+
+    def _assert_maxcontext_invariants(self, pool_size: int) -> None:
+        if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
+            raise ValueError(
+                f"MaxContextBottomUp requires a Qwen3 / Qwen3.5 model_type; "
+                f"got {self.config.model_type!r}."
+            )
+        if self.scoring != "generation":
+            raise ValueError("MaxContextBottomUp requires --scoring generation.")
+        if self.k != pool_size:
+            raise ValueError(f"pool_size={pool_size} but ranker.k={self.k}.")
+        if self.num_permutation != 1:
+            raise ValueError(
+                "MaxContextBottomUp requires --num_permutation 1 "
+                "(compare_worst does not permute)."
+            )
+        if self.method != "selection":
+            raise ValueError(
+                "MaxContextBottomUp requires method='selection' "
+                "(full-pool worst-only selection is the only supported algorithm)."
+            )
+
+    def _assert_maxcontext_fits(self, query: str, docs: List[SearchResult]) -> None:
+        _assert_maxcontext_bottomup_fits(self, query, docs)
+
+    def _maxcontext_bottomup_select(
+        self, query: str, docs: List[SearchResult]
+    ) -> List[SearchResult]:
+        ranking = list(docs)
+        self.total_compare = 0
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
+
+        bottom_idx = len(ranking) - 1
+        while bottom_idx > 0:
+            window = ranking[: bottom_idx + 1]
+            worst_label = self.compare_worst(query, window)
+            worst_window_pos = _resolve_maxcontext_label_index(
+                self, worst_label, len(window), default=len(window) - 1
+            )
+            if worst_window_pos != bottom_idx:
+                ranking[bottom_idx], ranking[worst_window_pos] = (
+                    ranking[worst_window_pos],
+                    ranking[bottom_idx],
+                )
+            bottom_idx -= 1
+        return ranking
+
+    def rerank(self, query: str, docs: List[SearchResult]) -> List[SearchResult]:
+        if len(docs) != self._maxcontext_pool_size:
+            raise ValueError(
+                f"MaxContextBottomUp expects exactly pool_size="
+                f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
+            )
+        self._assert_maxcontext_fits(query, docs)
+        ordered = self._maxcontext_bottomup_select(query, docs)
+        return [
+            SearchResult(docid=d.docid, score=-rank, text=None)
+            for rank, d in enumerate(ordered, start=1)
+        ]

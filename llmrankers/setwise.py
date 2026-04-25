@@ -602,6 +602,10 @@ class SetwiseLlmRanker(LlmRanker):
                     print(f"[DEBUG] raw={repr(raw_output[:200])}  cleaned={repr(cleaned_dbg[:200])}")
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
+                    if getattr(self, "strict_no_parse_fallback", False):
+                        raise ValueError(
+                            f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
+                        )
                     output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':

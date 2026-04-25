@@ -43,3 +43,4 @@ Append-only mutation timeline.
   - CSS touched: added `.results-table td .muted` style for the `(baseline)` annotation in baseline rows.
   - Updated `exp:same_method_tables_pending` status `not_submitted` → `completed`, added artifact paths and headline findings.
   - Headline: cleanest positive finding is DualEnd (DE-Cocktail + DE-Selection) vs TD-Bubble on DL19 — 2 Bonferroni-sig wins on Qwen3-8B. All BU and BiDir groupings confirm the existing directional-asymmetry pattern with multiple Bonferroni-sig losses.
+- 2026-04-25 — Added MaxContext TopDown and BottomUp variants to idea:007. Documentation refreshed.

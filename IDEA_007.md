@@ -1,4 +1,4 @@
-# IDEA_007 — MaxContext DualEnd: one-prompt double-ended selection over ≤50-doc pools
+# IDEA_007 — MaxContext family: one-prompt whole-pool selection over ≤50-doc pools
 
 > **Status:** Approved plan, Codex-audited (gpt-5.4, xhigh) through 3 rounds to READY_TO_EXECUTE on 2026-04-20.
 > **Refines:** idea:002 (DualEnd).
@@ -9,7 +9,7 @@
 
 The current DualEnd family (`idea:002`, `exp:main_de_cocktail` / `main_de_selection`) uses 4-passage windows and costs 5.6–8.9× TD-Heap wall-clock for a +0.0058 mean NDCG@10 gain over best TopDown. `claim:C9` identifies an empty region on the Pareto frontier between TD-Bubble and DE-Cocktail. `Need_to_Run.txt` priority #2 asks for max-context DualEnd on Qwen.
 
-**Proposal (idea:007):** fit the entire rerank pool into a single Qwen prompt, ask for best+worst, pin best at rank `top_idx` / worst at rank `bottom_idx`, shrink the pool by 2, repeat. Two orthogonal studies: pool-size sweep (does deeper rerank help?) and passage-length sweep (does richer per-passage signal help?).
+**Proposal (idea:007):** fit the entire rerank pool into a single Qwen prompt and run one of three MaxContext variants per round: best+worst (DualEnd), best-only (TopDown), or worst-only (BottomUp). DualEnd shrinks the live pool by 2 each round; TopDown and BottomUp shrink by 1. Two orthogonal studies remain: pool-size sweep (does deeper rerank help?) and passage-length sweep (does richer per-passage signal help?).
 
 **Scope gate:** only the Qwen-generation code path exercises true joint elicitation (`setwise_extended.py:455-474`). T5 generation and all `--scoring likelihood` paths collapse to a best-only proxy (documented on `idea:002` and `claim:C10`). This experiment is strictly Qwen + generation.
 
@@ -36,6 +36,12 @@ if top_idx == bottom_idx:                     # one remaining doc
 - **No early termination.** Every doc gets a rank (needed for both top-k NDCG and per-position bias analysis).
 - **No auto-batching, no auto-truncation.** If any prompt would exceed `max_input_tokens - reserved_output_tokens`, the ranker raises.
 - Reuses `_double_ended_selection` (`llmrankers/setwise_extended.py:840-942`) with `num_child` overridden internally so the "single-group" fast-path (`setwise_extended.py:860-889`) fires for the whole window. `num_child` is not a user-facing parameter for this direction.
+
+### 2.1 Variants
+
+- **MaxContext DualEnd** — choose best and worst from the whole live pool in one call, place both, shrink by 2. Call count: `floor(N / 2)`.
+- **MaxContext TopDown** — choose only the best from the whole live pool, place it at the next top rank, shrink by 1. Call count: `N - 1`.
+- **MaxContext BottomUp** — choose only the worst from the whole live pool, place it at the next bottom rank, shrink by 1. Call count: `N - 1`.
 
 ## 3. Code changes (this is a refactor, not a prompt tweak)
 
@@ -179,7 +185,7 @@ Matrix: 6 × 3 × 2 × 4 = **144 baseline runs**.
 - NDCG@10 (primary).
 - Total comparisons, total prompt tokens, total completion tokens, wall-clock.
 - Per-call parse status (`full_parse`, `abort`).
-- Per-position label frequency on `best` and `worst` with `label_scheme: numeric_1_based` — feeds a **separate new analysis page**, not an extension of `exp:analysis_position_bias` (which is w=4-specific). `claim:C5` does not trivially extend to w=50.
+- Per-position label frequency with `label_scheme: numeric_1_based`. MaxContext TopDown logs `type=best`, MaxContext BottomUp logs `type=worst`, and MaxContext DualEnd logs `type=dual_best` + `type=dual_worst`. This feeds a **separate new analysis page**, not an extension of `exp:analysis_position_bias` (which is w=4-specific). `claim:C5` does not trivially extend to w=50.
 - Truncation flag per prompt (must be zero across the run).
 
 ## 7. Risks
@@ -212,8 +218,8 @@ Total: 60 (Study A) + 96 (Study B) + 12 (Study C) + 144 (baselines) = **312 runs
 
 ## 10. Out of scope (for this first pass)
 
-- Flan-T5 (context too small; best-only proxy confound on T5 DualEnd).
-- `--scoring likelihood` on any model for this direction (silently degrades to best-only proxy).
+- Flan-T5 (context too small; best-only proxy confound across the MaxContext family).
+- `--scoring likelihood` on any model for any MaxContext direction (silently degrades to a best-only proxy).
 - `pool_size > 50` — requires further context-fit verification and likely different architecture.
 - Batched / multi-pass fitting when `pool_size > max_fit`.
 - Letter alphabets beyond A-W (numeric is the chosen scheme).

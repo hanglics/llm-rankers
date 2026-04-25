@@ -14,10 +14,15 @@ The codebase now supports the full directional-asymmetry study plus the follow-u
 - `SelectiveDualEndSetwiseLlmRanker`
 - `BiasAwareDualEndSetwiseLlmRanker`
 - `SameCallRegularizedSetwiseLlmRanker`
+- `MaxContextDualEndSetwiseLlmRanker`
+- `MaxContextTopDownSetwiseLlmRanker`
+- `MaxContextBottomUpSetwiseLlmRanker`
 
-### Planned (idea:007 — see `/Users/hangli/projects/llm-rankers/IDEA_007.md`)
+### Implemented (idea:007 — see `/Users/hangli/projects/llm-rankers/IDEA_007.md`)
 
-- `MaxContextDualEndSetwiseLlmRanker` — one-prompt double-ended selection over the whole rerank pool. Qwen-generation only (hard gate); `pool_size == hits == ranker.k` invariant; numeric labels 1..N via a `CHARACTERS → self._labels` refactor (behaviour-preserving for existing letter-direction code); context-fit preflight uses actual tokenization; abort-on-bad-parse; `--scoring likelihood` disallowed (would silently collapse to best-only proxy). Codex-audited (gpt-5.4 xhigh, 3 rounds) to READY_TO_EXECUTE on 2026-04-20.
+- `MaxContextDualEndSetwiseLlmRanker` — one-prompt double-ended selection over the whole rerank pool. Qwen-generation only (hard gate); `pool_size == hits == ranker.k` invariant; numeric labels 1..N; context-fit preflight uses actual tokenization; strict parse aborts on bad outputs.
+- `MaxContextTopDownSetwiseLlmRanker` — one-prompt best-only selection over the whole live pool. Same Qwen-generation-only contract, numeric labels 1..N, strict parse, and preflight.
+- `MaxContextBottomUpSetwiseLlmRanker` — one-prompt worst-only selection over the whole live pool. Same Qwen-generation-only contract, numeric labels 1..N, strict parse, and preflight.
 
 ## Core Implementations
 
@@ -62,7 +67,9 @@ The codebase now supports the full directional-asymmetry study plus the follow-u
   - `selective_dualend`
   - `bias_aware_dualend`
   - `samecall_regularized`
-  - `maxcontext_dualend` **(planned, idea:007; see `IDEA_007.md`)**
+  - `maxcontext_dualend`
+  - `maxcontext_topdown`
+  - `maxcontext_bottomup`
 - Bias-aware DualEnd now rejects unsupported `heapsort`
 - Comparison logging hook remains available through `--log_comparisons`
 
@@ -109,3 +116,7 @@ For implementation details and recent fixes, use these files first:
 - `run.py`
 - `research_pipeline_setwise/FINDINGS.md`
 - `research_pipeline_setwise/SIGNIFICANCE_TESTS.md`
+
+## Implementation Note
+
+2026-04-25 — Added MaxContext TopDown and BottomUp to the idea:007 family. `MaxContextDualEndSetwiseLlmRanker` was left byte-identical; the only behavior-neutral shared changes are two guarded strict-parse hooks that activate only when `strict_no_parse_fallback=True`, which the new MaxContext single-extreme variants set.
