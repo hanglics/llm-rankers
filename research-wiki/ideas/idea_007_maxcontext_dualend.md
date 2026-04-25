@@ -9,7 +9,7 @@ target_gaps: ["gap:G1", "gap:G4"]
 refines: ["idea:002"]
 origin_skill: manual-backfill
 created_at: 2026-04-20T10:55:00+10:00
-updated_at: 2026-04-20T10:55:00+10:00
+updated_at: 2026-04-25T00:00:00+10:00
 ---
 
 # Idea
@@ -35,8 +35,8 @@ Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. The f
 ## Variants
 
 - **DualEnd** — `type=dual_best` + `type=dual_worst`, call count `floor(N / 2)`.
-- **TopDown** — `type=best`, call count `N - 1`.
-- **BottomUp** — `type=worst`, call count `N - 1`.
+- **TopDown** — `type=best`, uses an `n_docs=2 deterministic BM25 endgame`, call count `N - 2` LLM calls + 1 BM25 bypass.
+- **BottomUp** — `type=worst`, uses the same `n_docs=2 deterministic BM25 endgame`, call count `N - 2` LLM calls + 1 BM25 bypass.
 
 ## Predicted outcome
 
@@ -70,7 +70,7 @@ Active, tests not yet run. Detailed plan in `/Users/hangli/projects/llm-rankers/
 1. **Long-context attention degradation** at w=50 (paper:liu2024_lost_in_middle). Study B's control arm is the designed test.
 2. **Numeric-label parse fragility at N=50.** Existing parser's silent-default behaviour is a landmine. Abort-on-bad-parse is mandatory.
 3. **Order sensitivity.** Study C gates the full matrix (max pairwise NDCG@10 Δ across orderings ≤ 0.01).
-4. **Token-frontier framing.** MaxContext uses more prompt tokens than DE-Cocktail; claim:C9's token axis cannot improve. Paper framing must be precise.
+4. **Token-frontier framing.** MaxContext uses more prompt tokens than DE-Cocktail; claim:C9's token axis cannot improve. Paper framing must be precise. The TopDown/BottomUp endgame is asymmetric: TopDown resolves the tail, BottomUp resolves ranks 1-2.
 
 ## Connections
 

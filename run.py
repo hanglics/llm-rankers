@@ -373,6 +373,7 @@ def main(args):
     total_comparisons = 0
     total_prompt_tokens = 0
     total_completion_tokens = 0
+    total_bm25_bypasses = 0
     optional_stat_labels = {
         "total_dual_invocations": "dual invocations",
         "total_single_invocations": "single invocations",
@@ -398,6 +399,7 @@ def main(args):
         total_comparisons += ranker.total_compare
         total_prompt_tokens += ranker.total_prompt_tokens
         total_completion_tokens += ranker.total_completion_tokens
+        total_bm25_bypasses += getattr(ranker, "total_bm25_bypass", 0)
         for attr in optional_stat_totals:
             optional_stat_totals[attr] += getattr(ranker, attr, 0.0)
     toc = time.time()
@@ -405,6 +407,8 @@ def main(args):
     print(f'Avg comparisons: {total_comparisons/len(reranked_results)}')
     print(f'Avg prompt tokens: {total_prompt_tokens/len(reranked_results)}')
     print(f'Avg completion tokens: {total_completion_tokens/len(reranked_results)}')
+    if total_bm25_bypasses > 0:
+        print(f'Avg BM25 bypass: {total_bm25_bypasses / len(reranked_results)}')
     print(f'Avg time per query: {(toc-tic)/len(reranked_results)}')
     for attr, total in optional_stat_totals.items():
         print(f'Avg {optional_stat_labels[attr]}: {total/len(reranked_results)}')

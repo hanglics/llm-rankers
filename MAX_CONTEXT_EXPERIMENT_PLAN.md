@@ -13,6 +13,8 @@ Phase gates:
 4. Phase 4 runs Study A plus the predeclared matched-hits baselines, then the single-extreme pool sweeps.
 5. Phase 5 runs Study B after Study A fixes the predeclared pool size.
 
+Operational note: `maxcontext_topdown` and `maxcontext_bottomup` now use an `n_docs=2 deterministic BM25 endgame`. On successful runs, expect `Avg comparisons: pool_size - 2` and `Avg BM25 bypass: 1.0`; `maxcontext_dualend` is unchanged.
+
 All commands below run from the cluster login node. If your cluster root differs, replace `/scratch/project/neural_ir/hang/llm-rankers` consistently in this sheet and the four `experiments/run_maxcontext_dualend*.sh` launchers.
 
 The setup block below defines unexported shell variables and functions on your login-node shell. They exist only to build `sbatch` command lines, and their values are string-interpolated into positional arguments before `sbatch` is invoked. `sbatch` forwards the login-node environment to the compute node by default (`--export=ALL`), but this sheet does not rely on that. Every compute-node launcher re-establishes its own environment from scratch with `module load`, `conda activate`, `export HF_*`, and an explicit `cd /scratch/project/neural_ir/hang/llm-rankers` inside the script itself.

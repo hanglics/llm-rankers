@@ -435,6 +435,13 @@ class SetwiseLlmRanker(LlmRanker):
         output_upper = cleaned.upper()
         valid = set(valid_chars)
         is_bigram_scheme = getattr(self, "label_scheme", None) == "bigrams_aa_zz"
+        is_numeric_scheme = getattr(self, "label_scheme", None) == "numeric_1_based"
+        refusal_regex = (
+            r"(?i)\b(none of the|no passage|not relevant|none are|cannot determine|neither|"
+            r"none|i cannot|no least relevant|no most relevant|both are equally relevant|"
+            r"all are equally relevant|cannot pick|cannot decide|not provided|not shown|"
+            r"if there was a passage|assuming passage)\b"
+        )
 
         if is_bigram_scheme:
             patterns = (
@@ -466,10 +473,34 @@ class SetwiseLlmRanker(LlmRanker):
                 if char in valid:
                     return char
 
-        if not is_bigram_scheme:
+        if not is_bigram_scheme and not is_numeric_scheme:
             all_found = [char for char in output_upper if char in valid]
             if all_found and len(set(all_found)) == 1:
                 return all_found[0]
+
+        if is_numeric_scheme:
+            numeric_patterns = (
+                r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?(\d+)",
+            )
+            for pattern in numeric_patterns:
+                for match in re.findall(pattern, output_upper):
+                    idx = int(match) - 1
+                    if 0 <= idx < len(valid_chars):
+                        return valid_chars[idx]
+
+        if is_numeric_scheme:
+            strict = getattr(self, "strict_no_parse_fallback", False)
+            if re.search(refusal_regex, cleaned):
+                if strict:
+                    return None
+                return valid_chars[0]
+
+            num_match = re.search(r"\b(\d+)\b", cleaned)
+            if num_match:
+                idx = int(num_match.group(1)) - 1  # convert 1-based to 0-based
+                if 0 <= idx < len(valid_chars):
+                    return valid_chars[idx]
+            return None
 
         # Handle numeric outputs: map 1-based index to the corresponding label
         num_match = re.search(r"\b(\d+)\b", cleaned)
@@ -480,10 +511,7 @@ class SetwiseLlmRanker(LlmRanker):
 
         # Handle refusal outputs: model says none are relevant — default to first
         # passage (maintains current order, equivalent to no swap)
-        if re.search(
-            r"(?i)\b(none of the|no passage|not relevant|none are|cannot determine|neither|none|i cannot)\b",
-            cleaned,
-        ):
+        if re.search(refusal_regex, cleaned):
             return valid_chars[0]
 
         return None

@@ -280,6 +280,8 @@ Add two new siblings without touching `MaxContextDualEndSetwiseLlmRanker`:
 - `MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker)` — best-only whole-pool selection, strict parse, numeric labels `1..N`, variant-specific preflight via `_assert_maxcontext_topdown_fits`.
 - `MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker)` — worst-only whole-pool selection, strict parse, numeric labels `1..N`, variant-specific preflight via `_assert_maxcontext_bottomup_fits`.
 
+Both single-extreme variants now use an `n_docs=2 deterministic BM25 endgame`: they expose `total_bm25_bypass`, make `N-2` LLM calls plus 1 BM25 bypass, and leave `MaxContextDualEndSetwiseLlmRanker` byte-identical.
+
 Both new classes share module-level helpers:
 
 - `_setup_maxcontext_numeric_attrs(ranker, pool_size)`

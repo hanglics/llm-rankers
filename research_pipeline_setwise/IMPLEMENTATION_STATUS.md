@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Date:** April 10, 2026
-**Pipeline Stage:** Stage 2 — Implementation (maintained; paper-facing cleanup in progress)
+**Date:** April 25, 2026
+**Pipeline Stage:** Stage 2 — Implementation (maintained; idea:007 MaxContext family landed; paper-facing cleanup in progress)
 
 ## Current Scope
 
@@ -117,6 +117,63 @@ For implementation details and recent fixes, use these files first:
 - `research_pipeline_setwise/FINDINGS.md`
 - `research_pipeline_setwise/SIGNIFICANCE_TESTS.md`
 
-## Implementation Note
+## Implementation Notes
 
-2026-04-25 — Added MaxContext TopDown and BottomUp to the idea:007 family. `MaxContextDualEndSetwiseLlmRanker` was left byte-identical; the only behavior-neutral shared changes are two guarded strict-parse hooks that activate only when `strict_no_parse_fallback=True`, which the new MaxContext single-extreme variants set.
+### 2026-04-21 — `exp:same_method_tables_pending` closed (Need_to_Run priority #1)
+
+- Added `analysis/significance_tests_pairwise.py` (reuses helpers from `analysis/significance_tests.py`).
+- Produced 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired approximate-randomization + Bonferroni correction per (grouping, dataset).
+- Authoritative artifacts: `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.{md,json}`. Inlined into `results-display/index.html` under `section id="pairwise-tables"`.
+- Headline: cleanest positive finding is DualEnd (`DE-Cocktail` + `DE-Selection`) vs `TD-Bubble` on DL19 — 2 Bonferroni-significant wins on Qwen3-8B. All BU and BiDir groupings confirm directional asymmetry with multiple Bonferroni-significant losses.
+
+### 2026-04-25 — MaxContext family (idea:007) parser hardening + n_docs=2 BM25 endgame
+
+Added MaxContext TopDown and BottomUp to the idea:007 family alongside the existing MaxContext DualEnd. Cluster runs of the shipped TopDown / BottomUp variants on Qwen3-4B / DL19 surfaced three distinct failure modes resolved in two coordinated interventions:
+
+**Failure modes (Codex two-round investigation)**
+
+| Mode | Symptom | Root cause |
+|---|---|---|
+| (i) Bare out-of-window hallucination | `ValueError: ... Raw text: '3<\|im_end\|>'` at small windows | Model emits a label visible in earlier rounds but not in the current shrinking window. At `n_docs=2`, parser correctly returns None and strict-mode raises. |
+| (ii) Silent multi-digit collapse | No abort. `"10"` silently parsed as `"1"`, `"30"` as `"3"`. | `_parse_single_label`'s all-found-char loop iterated single characters against multi-character valid set. Numeric scheme labels had to be handled before this loop fires. |
+| (iii) Long-form refusal/hedging | Multi-paragraph reasoning + invented passage labels (e.g. `"Passage 3 is most relevant, the others are equally relevant"`) | Model can't commit at small windows when both surviving docs seem relevant. Existing refusal whitelist missed `"no least relevant"`/`"both are equally relevant"`/`"if there was a Passage"`; numeric fallback greedily grabbed the FIRST integer. |
+
+**Interventions**
+
+1. **Parser hardening** (`llmrankers/setwise.py`, `_parse_single_label`):
+   - Multi-digit collapse fix: skip the all-found-char loop for numeric scheme.
+   - New numeric-structured-parse stage **before refusal detection** with decisive anchors only (`BEST|WORST|MOST RELEVANT|LEAST RELEVANT|ANSWER|OUTPUT`) — bare `PASSAGE N` deliberately excluded so hypotheticals like `"If there was a Passage 3..."` fall through to refusal handling.
+   - Expanded refusal whitelist with anchored phrases (`no least relevant`, `both are equally relevant`, `if there was a passage`, etc.).
+   - Refusal-before-numeric-fallback reorder gated to numeric scheme only; letter and bigram schemes keep byte-identical legacy ordering.
+   - Strict-mode hook (`strict_no_parse_fallback=True`) now returns None on refusal.
+
+2. **n_docs=2 deterministic BM25 endgame** (`llmrankers/setwise_extended.py`):
+   - At the last round when the live window contains exactly 2 docs, MaxContext TopDown and BottomUp skip the LLM and use BM25 score as a deterministic tiebreaker.
+   - TopDown: higher score wins; on tie, smaller original BM25 index wins.
+   - BottomUp: lower score loses (placed at bottom); on tie, larger original BM25 index becomes worst.
+   - Snapshot `orig_pos = {doc.docid: i for i, doc in enumerate(docs)}` taken at selection-method entry so tie-breaking uses input order even after per-round swaps mutate the live ranking.
+   - Score-presence guard raises ValueError if any `doc.score` is None or non-finite.
+   - New counter `total_bm25_bypass` exposed on each ranker; `run.py` accumulates it across queries and prints `Avg BM25 bypass` only when non-zero.
+
+**Impact asymmetry between TopDown and BottomUp**
+
+This is a research-grade clarification, not a code change:
+
+- **TopDown's last round** picks between the two LEAST relevant remaining docs (TopDown removes best per round; survivors are the worst). The bypass decides ranks N-1 vs N — tail of ranking, low NDCG@10 impact.
+- **BottomUp's last round** picks between the two MOST relevant remaining docs (BottomUp removes worst per round; survivors are the best). The bypass decides ranks 1 vs 2 — head of ranking, materially impactful for NDCG@10.
+
+The bypass is therefore not a uniform "tail-only" perturbation; the paper must report TopDown and BottomUp separately and disclose this honestly.
+
+**Backward compatibility**
+
+- `MaxContextDualEndSetwiseLlmRanker` byte-identical (verified by `git show HEAD diff` against the new commit). DualEnd's algorithm shrinks by 2 per round, so n_docs=2 means a single LLM call placing both best and worst — already bypassed by the loop guard.
+- All non-MaxContext rankers behavior-identical: the multi-digit-collapse fix is gated on numeric scheme (set only by the new MaxContext classes); refusal-whitelist additions are pure additions; refusal-before-numeric reorder is gated to numeric scheme.
+
+**Expected counters per run**
+
+- TopDown / BottomUp: `Avg comparisons: pool_size - 2`, `Avg BM25 bypass: 1.0`.
+- DualEnd: `Avg comparisons: floor(pool_size / 2)` (unchanged), no bypass line printed.
+
+### 2026-04-25 — Earlier on the same day
+
+Added MaxContext TopDown and BottomUp to the idea:007 family. `MaxContextDualEndSetwiseLlmRanker` was left byte-identical; the only behavior-neutral shared changes are two guarded strict-parse hooks that activate only when `strict_no_parse_fallback=True`, which the new MaxContext single-extreme variants set.

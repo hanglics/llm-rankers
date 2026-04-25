@@ -40,8 +40,8 @@ if top_idx == bottom_idx:                     # one remaining doc
 ### 2.1 Variants
 
 - **MaxContext DualEnd** — choose best and worst from the whole live pool in one call, place both, shrink by 2. Call count: `floor(N / 2)`.
-- **MaxContext TopDown** — choose only the best from the whole live pool, place it at the next top rank, shrink by 1. Call count: `N - 1`.
-- **MaxContext BottomUp** — choose only the worst from the whole live pool, place it at the next bottom rank, shrink by 1. Call count: `N - 1`.
+- **MaxContext TopDown** — choose only the best from the whole live pool, place it at the next top rank, shrink by 1. Uses an `n_docs=2 deterministic BM25 endgame`; call count: `N - 2` LLM calls + 1 BM25 bypass.
+- **MaxContext BottomUp** — choose only the worst from the whole live pool, place it at the next bottom rank, shrink by 1. Uses the same `n_docs=2 deterministic BM25 endgame`; call count: `N - 2` LLM calls + 1 BM25 bypass.
 
 ## 3. Code changes (this is a refactor, not a prompt tweak)
 
@@ -192,7 +192,7 @@ Matrix: 6 × 3 × 2 × 4 = **144 baseline runs**.
 
 1. **Long-context attention degradation** (`paper:liu2024_lost_in_middle`). Primary risk. Study B's control arm is the designed test.
 2. **Numeric-label parse fragility at N=50.** Existing parser's silent-default behaviour is a landmine. Abort-on-bad-parse is mandatory.
-3. **Order sensitivity.** Study C gates the full matrix.
+3. **Order sensitivity.** Study C gates the full matrix. The `n_docs=2 deterministic BM25 endgame` is asymmetric: TopDown resolves the tail of the ranking, while BottomUp resolves ranks 1-2.
 4. **Scope confound vs `DE-Cocktail hits=100`.** Addressed by matched-`hits` baselines; must never compare MaxContext hits=50 against DE-Cocktail hits=100 directly.
 5. **Token-frontier framing.** MaxContext uses *more* prompt tokens than DE-Cocktail. `claim:C9`'s token axis will not improve; only comparisons and wall-clock may. Paper framing must be precise.
 6. **`claim:C10` impact.** This is **not** an automatic ICTIR story upgrade. Even a successful MaxContext only contributes to the efficiency axis; the core setwise-asymmetry narrative (`claim:C1`, `claim:C8`) is unchanged.

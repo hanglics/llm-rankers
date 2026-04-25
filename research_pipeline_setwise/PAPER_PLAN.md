@@ -11,14 +11,15 @@
 | # | Claim | Evidence | Section |
 |---|-------|----------|---------|
 | C1 | Setwise LLM ranking is directionally asymmetric: worst-selection alone is not a mirror of best-selection | Table 1 + position bias + agreement analysis | §1 / §6 |
-| C2 | The DualEnd family achieves the strongest quality overall, especially on Qwen, but should be framed as quality-first rather than efficiency-first | Table 1 + efficiency table + `SIGNIFICANCE_TESTS.md` | §5 RQ2 |
+| C2 | The DualEnd family achieves the strongest quality overall on TREC DL19/20, especially on Qwen; out-of-domain claim is provisional pending BEIR generalization | Table 1 + efficiency table + `SIGNIFICANCE_TESTS.md` + `SIGNIFICANCE_TESTS_PAIRWISE.md` | §5 RQ2 |
 | C3 | BottomUp is consistently weaker than TopDown | Table 1 + analysis | §5 RQ1 |
 | C4 | Bidirectional ensemble does not outperform TopDown because BottomUp is too noisy | Table 1 + agreement + per-query wins | §5 RQ3 |
 | C5 | Joint elicitation changes positional bias, including a reversed `dual_worst` pattern | Position bias figure | §6 |
-| C6 | DualEnd gains are directionally consistent but statistically fragile on TREC DL, whereas BottomUp/BiDir losses are more robust | `SIGNIFICANCE_TESTS.md` | §5 / §6 |
+| C6 | DualEnd gains are directionally consistent but statistically fragile on TREC DL, whereas BottomUp/BiDir losses are more robust | `SIGNIFICANCE_TESTS.md` + `SIGNIFICANCE_TESTS_PAIRWISE.md` | §5 / §6 |
 | C7 | Window size (num_child) interacts differently with model families | Table 4 (ablation) | §5 |
 | C8 | The paper's strongest narrative is a mechanism-and-analysis story about joint elicitation, not three equally successful bidirectional methods | Paper synthesis across results | §1 / §7 |
-| C9 | The current quality-cost frontier is anchored by `TD-Heap`, `TD-Bubble`, and `DE-Cocktail`, which makes selective / bias-aware DualEnd the correct refinement target | `results/analysis/pareto/QUALITY_COST_PARETO.md` | §6 / §7 |
+| C9 | The current quality-cost frontier is anchored by `TD-Heap`, `TD-Bubble`, and `DE-Cocktail`, which makes selective / bias-aware DualEnd and the MaxContext family the correct refinement target | `results/analysis/pareto/QUALITY_COST_PARETO.md` | §6 / §7 |
+| C10 | The paper takes an ICTIR-first conservative framing — one modestly effective method (DualEnd) plus two coherent negative results (BottomUp, BiDir); ARR submission is gated on stronger refinement / generalization evidence | `research-wiki/claims/C10_framing_ictir_conservative.md` | §1 / §7 |
 
 ## Section Plan
 
@@ -39,7 +40,8 @@
 - **BottomUp**: reverse prompt asking for "least relevant" document; included as a diagnostic test of directional symmetry
 - **DualEnd**: single prompt asking for both "most relevant" AND "least relevant"; the central method of interest
 - **Bidirectional ensemble**: run TopDown + BottomUp independently, fuse rankings via RRF, CombSUM, or weighted combination; included to test whether the signals are complementary
-- **Prompt templates**: concrete prompt examples for each direction (TopDown, BottomUp, DualEnd)
+- **MaxContext family** (idea:007): fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. Three variants — DualEnd (best+worst per call, pool shrinks by 2), TopDown (best only, pool shrinks by 1), BottomUp (worst only, pool shrinks by 1). Trades many small joint-elicitation calls for very few large-window calls, designed to land in the empty region between `TD-Bubble` and `DE-Cocktail` on the comparisons-axis and wall-clock-axis frontiers (claim:C9). Qwen-generation only; numeric labels 1..N (not letters); hard invariants on `pool_size == hits == ranker.k`, `num_permutation == 1`, strict no-truncation, abort-on-bad-parse.
+- **Prompt templates**: concrete prompt examples for each direction (TopDown, BottomUp, DualEnd, MaxContext-DualEnd)
 
 ### 4. Algorithms (~1.5 pages)
 - **Cocktail shaker sort**: alternating forward (best) and backward (worst) passes for DualEnd bubblesort
@@ -47,8 +49,10 @@
 - **Selective DualEnd**: keep the TopDown sort structure, but invoke joint best-worst prompting only on shortlist or query-locally uncertain windows; for heapsort, uncertainty routing is cleaner than shortlist routing because heap nodes are not stable rank positions
 - **Order-robust / bias-aware DualEnd**: run a tiny set of controlled orderings only on gated windows, then vote back into the original order; keep the supported sorts to bubblesort / selection so the order-robust path is actually exercised
 - **Same-call worst-signal regularization**: keep a head-focused TopDown pass and use the same-call worst output only as a local negative constraint once that candidate is already outside the protected ranking head frontier (top-`k` plus one active window)
-- **Complexity analysis**: comparison counts for each sorting method across directions
-- **Information-theoretic analysis**: bits of information extracted per LLM call; keep as supporting intuition, not the main empirical claim
+- **MaxContext-DualEnd** (idea:007): one prompt over the full live pool asks for both best and worst; reuses `_double_ended_selection` with `num_child = pool_size - 1` so the single-group fast-path fires for the whole pool. Pool shrinks by 2 per round; total `floor(N/2)` LLM calls.
+- **MaxContext-TopDown / MaxContext-BottomUp**: one prompt asks for one extreme over the live pool. Pool shrinks by 1 per round. At `n_docs=2` the LLM is bypassed in favor of a deterministic BM25 score tiebreaker — higher-score-wins for TopDown (tail of ranking), lower-score-loses for BottomUp (head of ranking, ranks 1-2). Total `N-2` LLM calls + 1 BM25 bypass per query. The bypass is necessary because at `n_docs=2` the model is semantically unstable for the two-strong-survivors case and tends to refuse or hedge.
+- **Complexity analysis**: comparison counts for each sorting method across directions, including MaxContext family at matched `hits ∈ {10, 30, 50}`.
+- **Information-theoretic analysis**: bits of information extracted per LLM call; keep as supporting intuition, not the main empirical claim. MaxContext extracts `log2(N · (N-1))` bits per joint call at the first round (e.g., `log2(50·49) ≈ 11.3` for `N=50`).
 
 ### 5. Experiments (~3 pages)
 - **Setup**: 9 models (Flan-T5 large/xl/xxl, Qwen3 4B/8B/14B, Qwen3.5 4B/9B/27B), 2 datasets (TREC DL19, DL20), 8 methods (TopDown/BottomUp x heapsort/bubblesort + DualEnd cocktail/selection + Bidirectional RRF/CombSUM)
@@ -56,7 +60,8 @@
 - **RQ1 (BottomUp vs TopDown)**: BottomUp consistently underperforms TopDown across all models and datasets; use this to establish directional asymmetry
 - **RQ2 (DualEnd effectiveness + efficiency)**: DualEnd is the strongest family overall, but at substantial extra inference cost; include significance table and scaling analysis across model sizes (C2, C6)
 - **RQ3 (Bidirectional ensemble)**: RRF/CombSUM fusion does not outperform standalone TopDown; the signals are not complementary enough to justify fusion (C4)
-- **Ablation**: num_child window size interaction with model families (Table 4); alpha weighting + passage length (Table 5)
+- **RQ4 (MaxContext family)** [conditional on idea:007 launch]: at matched `hits ∈ {10, 30, 50}`, does whole-pool one-prompt selection match `DE-Cocktail` quality at lower comparisons / wall-clock cost? Per claim:C9, the empty region between `TD-Bubble` and `DE-Cocktail` is the natural target. Token axis is expected to be worse than `DE-Cocktail` and is not claimed as a win.
+- **Ablation**: num_child window size interaction with model families (Table 4); alpha weighting + passage length (Table 5); MaxContext pool-size sweep at fixed `pl=512` (Study A); MaxContext pl-sweep at the chosen pool size (Study B); MaxContext order-robustness pilot (Study C launch gate, Bonferroni Δ ≤ 0.01).
 
 ### 6. Analysis (~1 page)
 - **Position bias**: heatmap/bar chart showing bias patterns differ across best/worst/dual prompts (4 types x 4 positions); emphasize the reversed `dual_worst` pattern
@@ -70,9 +75,10 @@
   - **How**: gate by shortlist / query-local BM25-spread percentiles, disable shortlist routing in Selective heapsort, add controlled orderings only on hard windows, and reuse worst only inside the same call after the candidate leaves the protected ranking head frontier (top-`k` plus one active window)
 
 ### 7. Conclusion (~0.5 pages)
-- **Summary**: The strongest conclusion is about directional asymmetry in setwise LLM ranking; DualEnd is the best quality-first variant, `TD-Heap` remains the efficiency baseline, and BottomUp/BiDir are useful negative results
-- **Limitations**: evaluated on English TREC datasets only; limited to 9 models; DualEnd T5 uses likelihood internally rather than generation; most positive deltas are not Bonferroni-significant on 43/54-query test sets
-- **Future work**: finish the BEIR summary package, benchmark the new Qwen/Qwen3.5 likelihood follow-up, run the already-implemented Selective / bias-aware / same-call variants, and identify the exact regimes where joint elicitation helps enough to justify its cost
+- **Summary**: The strongest conclusion is about directional asymmetry in setwise LLM ranking; DualEnd is the best quality-first variant, `TD-Heap` remains the efficiency baseline, and BottomUp/BiDir are useful negative results. The contribution is **joint elicitation** (claim:C8), not algorithmic novelty in the sort.
+- **Framing** (claim:C10): ICTIR-first conservative — one modestly effective method plus two coherent negative results. ARR submission gated on stronger refinement / generalization evidence.
+- **Limitations**: evaluated on English TREC datasets only; limited to 9 models; DualEnd T5 and `--scoring likelihood` paths use a best-only proxy rather than true joint elicitation; most positive deltas are not Bonferroni-significant on 43/54-query test sets
+- **Future work**: finish the BEIR summary package; run the already-implemented Selective DualEnd / bias-aware DualEnd / same-call regularized variants (idea:004/005/006); launch the staged 312-run MaxContext family matrix (idea:007) including the MaxContext-TopDown / -BottomUp single-extreme pool sweeps; identify the exact regimes where joint elicitation helps enough to justify its cost.
 
 ## Figure Plan
 | # | Type | Description | Auto? |

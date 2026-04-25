@@ -250,6 +250,13 @@ def make_docs(count):
     ]
 
 
+def make_docs_with_scores(scores):
+    return [
+        SearchResult(docid=f"d{i}", score=score, text=f"doc {i}")
+        for i, score in enumerate(scores, start=1)
+    ]
+
+
 def assert_materialized_rerank(results, docs):
     assert len(results) == len(docs)
     assert [doc.score for doc in results] == [-rank for rank in range(1, len(docs) + 1)]
@@ -440,6 +447,7 @@ def test_maxcontext_topdown_invariants():
     assert ranker.strict_no_truncation is True
     assert ranker.strict_no_parse_fallback is True
     assert ranker.label_scheme == "numeric_1_based"
+    assert ranker.total_bm25_bypass == 0
 
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -481,12 +489,15 @@ def test_maxcontext_topdown_invariants():
     call_counter = {"count": 0}
 
     def choose_first(query, window):
+        ranker.total_compare += 1
         call_counter["count"] += 1
         return "1"
 
     ranker.compare = choose_first
     results = ranker.rerank("query", docs)
-    assert call_counter["count"] == 9
+    assert call_counter["count"] == 8
+    assert ranker.total_compare == 8
+    assert ranker.total_bm25_bypass == 1
     assert_materialized_rerank(results, docs)
 
     one_doc_ranker = instantiate_maxcontext_variant(
@@ -499,6 +510,8 @@ def test_maxcontext_topdown_invariants():
     one_doc_ranker.compare = lambda query, window: one_doc_calls.__setitem__("count", one_doc_calls["count"] + 1) or "1"
     one_doc_results = one_doc_ranker.rerank("query", make_docs(1))
     assert one_doc_calls["count"] == 0
+    assert one_doc_ranker.total_compare == 0
+    assert one_doc_ranker.total_bm25_bypass == 0
     assert_materialized_rerank(one_doc_results, make_docs(1))
 
     two_doc_ranker = instantiate_maxcontext_variant(
@@ -507,15 +520,33 @@ def test_maxcontext_topdown_invariants():
         pool_size=2,
     )
     two_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
-    two_doc_calls = {"count": 0}
+    two_doc_ranker.compare = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("LLM should not be called at n_docs=2")
+    )
+    two_doc_results = two_doc_ranker.rerank("query", make_docs_with_scores([0.0, 1.0]))
+    assert two_doc_ranker.total_compare == 0
+    assert two_doc_ranker.total_bm25_bypass == 1
+    assert [doc.docid for doc in two_doc_results] == ["d2", "d1"]
 
-    def choose_first_two(query, window):
-        two_doc_calls["count"] += 1
-        return "1"
-
-    two_doc_ranker.compare = choose_first_two
-    two_doc_ranker.rerank("query", make_docs(2))
-    assert two_doc_calls["count"] == 1
+    two_doc_tie_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=2,
+    )
+    two_doc_tie_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    two_doc_tie_ranker.compare = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("LLM should not be called at n_docs=2")
+    )
+    two_doc_tie_results = two_doc_tie_ranker.rerank(
+        "query",
+        [
+            SearchResult(docid="d2", score=1.0, text="doc 2"),
+            SearchResult(docid="d1", score=1.0, text="doc 1"),
+        ],
+    )
+    assert two_doc_tie_ranker.total_compare == 0
+    assert two_doc_tie_ranker.total_bm25_bypass == 1
+    assert [doc.docid for doc in two_doc_tie_results] == ["d2", "d1"]
 
     three_doc_ranker = instantiate_maxcontext_variant(
         MaxContextTopDownSetwiseLlmRanker,
@@ -526,24 +557,45 @@ def test_maxcontext_topdown_invariants():
     three_doc_calls = {"count": 0}
 
     def choose_first_three(query, window):
+        three_doc_ranker.total_compare += 1
         three_doc_calls["count"] += 1
         return "1"
 
     three_doc_ranker.compare = choose_first_three
     three_doc_results = three_doc_ranker.rerank("query", make_docs(3))
-    assert three_doc_calls["count"] == 2
+    assert three_doc_calls["count"] == 1
+    assert three_doc_ranker.total_compare == 1
+    assert three_doc_ranker.total_bm25_bypass == 1
     assert_materialized_rerank(three_doc_results, make_docs(3))
+
+    bad_score_ranker = instantiate_maxcontext_variant(
+        MaxContextTopDownSetwiseLlmRanker,
+        SetwiseLlmRanker,
+        pool_size=2,
+    )
+    bad_score_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    expect_raises(
+        lambda: bad_score_ranker.rerank(
+            "query",
+            [
+                SearchResult(docid="d1", score=None, text="doc 1"),
+                SearchResult(docid="d2", score=1.0, text="doc 2"),
+            ],
+        ),
+        ValueError,
+        "requires finite BM25 scores",
+    )
 
     strict_ranker = instantiate_maxcontext_variant(
         MaxContextTopDownSetwiseLlmRanker,
         SetwiseLlmRanker,
-        pool_size=3,
+        pool_size=4,
     )
     strict_ranker._assert_maxcontext_fits = lambda query, ranking: None
-    labels = iter(["1", "3"])
+    labels = iter(["1", "4"])
     strict_ranker.compare = lambda query, window: next(labels)
     expect_raises(
-        lambda: strict_ranker.rerank("query", make_docs(3)),
+        lambda: strict_ranker.rerank("query", make_docs(4)),
         ValueError,
         "outside the active window",
     )
@@ -577,6 +629,7 @@ def test_maxcontext_bottomup_invariants():
     assert ranker.strict_no_truncation is True
     assert ranker.strict_no_parse_fallback is True
     assert ranker.label_scheme == "numeric_1_based"
+    assert ranker.total_bm25_bypass == 0
 
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -618,12 +671,15 @@ def test_maxcontext_bottomup_invariants():
     call_counter = {"count": 0}
 
     def choose_first(query, window):
+        ranker.total_compare += 1
         call_counter["count"] += 1
         return "1"
 
     ranker.compare_worst = choose_first
     results = ranker.rerank("query", docs)
-    assert call_counter["count"] == 9
+    assert call_counter["count"] == 8
+    assert ranker.total_compare == 8
+    assert ranker.total_bm25_bypass == 1
     assert_materialized_rerank(results, docs)
 
     one_doc_ranker = instantiate_maxcontext_variant(
@@ -636,6 +692,8 @@ def test_maxcontext_bottomup_invariants():
     one_doc_ranker.compare_worst = lambda query, window: one_doc_calls.__setitem__("count", one_doc_calls["count"] + 1) or "1"
     one_doc_results = one_doc_ranker.rerank("query", make_docs(1))
     assert one_doc_calls["count"] == 0
+    assert one_doc_ranker.total_compare == 0
+    assert one_doc_ranker.total_bm25_bypass == 0
     assert_materialized_rerank(one_doc_results, make_docs(1))
 
     two_doc_ranker = instantiate_maxcontext_variant(
@@ -644,15 +702,33 @@ def test_maxcontext_bottomup_invariants():
         pool_size=2,
     )
     two_doc_ranker._assert_maxcontext_fits = lambda query, ranking: None
-    two_doc_calls = {"count": 0}
+    two_doc_ranker.compare_worst = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("LLM should not be called at n_docs=2")
+    )
+    two_doc_results = two_doc_ranker.rerank("query", make_docs_with_scores([0.0, 1.0]))
+    assert two_doc_ranker.total_compare == 0
+    assert two_doc_ranker.total_bm25_bypass == 1
+    assert [doc.docid for doc in two_doc_results] == ["d2", "d1"]
 
-    def choose_first_two(query, window):
-        two_doc_calls["count"] += 1
-        return "1"
-
-    two_doc_ranker.compare_worst = choose_first_two
-    two_doc_ranker.rerank("query", make_docs(2))
-    assert two_doc_calls["count"] == 1
+    two_doc_tie_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=2,
+    )
+    two_doc_tie_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    two_doc_tie_ranker.compare_worst = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("LLM should not be called at n_docs=2")
+    )
+    two_doc_tie_results = two_doc_tie_ranker.rerank(
+        "query",
+        [
+            SearchResult(docid="d2", score=1.0, text="doc 2"),
+            SearchResult(docid="d1", score=1.0, text="doc 1"),
+        ],
+    )
+    assert two_doc_tie_ranker.total_compare == 0
+    assert two_doc_tie_ranker.total_bm25_bypass == 1
+    assert [doc.docid for doc in two_doc_tie_results] == ["d2", "d1"]
 
     three_doc_ranker = instantiate_maxcontext_variant(
         MaxContextBottomUpSetwiseLlmRanker,
@@ -663,26 +739,47 @@ def test_maxcontext_bottomup_invariants():
     three_doc_calls = {"count": 0}
 
     def choose_first_three(query, window):
+        three_doc_ranker.total_compare += 1
         three_doc_calls["count"] += 1
         return "1"
 
     three_doc_ranker.compare_worst = choose_first_three
     three_doc_results = three_doc_ranker.rerank("query", make_docs(3))
-    assert three_doc_calls["count"] == 2
+    assert three_doc_calls["count"] == 1
+    assert three_doc_ranker.total_compare == 1
+    assert three_doc_ranker.total_bm25_bypass == 1
     assert_materialized_rerank(three_doc_results, make_docs(3))
 
     strict_ranker = instantiate_maxcontext_variant(
         MaxContextBottomUpSetwiseLlmRanker,
         BottomUpSetwiseLlmRanker,
-        pool_size=3,
+        pool_size=4,
     )
     strict_ranker._assert_maxcontext_fits = lambda query, ranking: None
-    labels = iter(["1", "3"])
+    labels = iter(["1", "4"])
     strict_ranker.compare_worst = lambda query, window: next(labels)
     expect_raises(
-        lambda: strict_ranker.rerank("query", make_docs(3)),
+        lambda: strict_ranker.rerank("query", make_docs(4)),
         ValueError,
         "outside the active window",
+    )
+
+    bad_score_ranker = instantiate_maxcontext_variant(
+        MaxContextBottomUpSetwiseLlmRanker,
+        BottomUpSetwiseLlmRanker,
+        pool_size=2,
+    )
+    bad_score_ranker._assert_maxcontext_fits = lambda query, ranking: None
+    expect_raises(
+        lambda: bad_score_ranker.rerank(
+            "query",
+            [
+                SearchResult(docid="d1", score=None, text="doc 1"),
+                SearchResult(docid="d2", score=1.0, text="doc 2"),
+            ],
+        ),
+        ValueError,
+        "requires finite BM25 scores",
     )
 
     compare_ranker = build_strict_bottomup_compare_stub()
@@ -759,6 +856,38 @@ def test_parse_invariants():
     assert relaxed_ranker._parse_dual_output("###", 3) == ("A", "C")
 
 
+def test_single_label_parser_hardening():
+    numeric_valid = [str(i) for i in range(1, 31)]
+    numeric_ranker = build_single_label_parser_stub(
+        strict=True,
+        label_scheme="numeric_1_based",
+        characters=numeric_valid,
+    )
+    assert numeric_ranker._parse_single_label("10", numeric_valid) == "10"
+    assert numeric_ranker._parse_single_label("22", numeric_valid) == "22"
+    assert numeric_ranker._parse_single_label("30", numeric_valid) == "30"
+    assert (
+        numeric_ranker._parse_single_label(
+            "Passage 3 is most relevant, the others are equally relevant",
+            numeric_valid[:10],
+        )
+        == "3"
+    )
+    assert numeric_ranker._parse_single_label(
+        "there is no least relevant",
+        numeric_valid[:10],
+    ) is None
+    assert numeric_ranker._parse_single_label(
+        "If there was a Passage 3, it might be relevant",
+        numeric_valid[:10],
+    ) is None
+
+    letter_valid = [chr(ord("A") + i) for i in range(23)]
+    legacy_letter_ranker = build_single_label_parser_stub(characters=letter_valid)
+    assert legacy_letter_ranker._parse_single_label("10", letter_valid) == "J"
+    assert legacy_letter_ranker._parse_single_label("A", ["A", "B", "C"]) == "A"
+
+
 def test_compare_both_duplicate_rewrite_guard():
     ranker = build_dualend_stub(strict=True)
     ranker.total_compare = 0
@@ -794,6 +923,15 @@ def build_setwise_tokenizer_stub(*, strict=False):
     ranker._warned_input_truncation = False
     ranker.strict_no_truncation = strict
     ranker.device = "cpu"
+    return ranker
+
+
+def build_single_label_parser_stub(*, strict=False, label_scheme=None, characters=None):
+    ranker = object.__new__(SetwiseLlmRanker)
+    ranker.CHARACTERS = characters or [chr(ord("A") + i) for i in range(23)]
+    ranker.strict_no_parse_fallback = strict
+    if label_scheme is not None:
+        ranker.label_scheme = label_scheme
     return ranker
 
 
@@ -975,6 +1113,7 @@ def main():
     test_maxcontext_topdown_invariants()
     test_maxcontext_bottomup_invariants()
     test_parse_invariants()
+    test_single_label_parser_hardening()
     test_compare_both_duplicate_rewrite_guard()
     test_tokenize_invariants()
     test_default_false_flags_and_logging()

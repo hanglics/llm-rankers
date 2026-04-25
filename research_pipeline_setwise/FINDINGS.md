@@ -10,6 +10,50 @@
 
 > Method-level insights: what works, what doesn't, and why. These directly inform your claims, experiment design, and paper narrative.
 
+## [2026-04-25] idea:007 MaxContext family expanded to three variants with deterministic n_docs=2 endgame
+
+- The MaxContext family now has three variants (idea:007, plan in `IDEA_007.md`):
+  - **MaxContext-DualEnd** — one prompt asks for both best and worst over the full live pool; pool shrinks by 2 each round; ~`floor(N/2)` LLM calls.
+  - **MaxContext-TopDown** — one prompt asks for the best only; pool shrinks by 1 each round; `N-2` LLM calls + 1 BM25 bypass at `n_docs=2`.
+  - **MaxContext-BottomUp** — one prompt asks for the worst only; pool shrinks by 1 each round; `N-2` LLM calls + 1 BM25 bypass at `n_docs=2`.
+- All three variants are Qwen-generation only with hard invariants (`pool_size == hits == ranker.k`, `num_permutation == 1`, strict no-truncation, abort-on-bad-parse).
+- TopDown / BottomUp impact asymmetry — research-grade caveat:
+  - TopDown's bypass decides ranks N-1 vs N (tail of ranking, low NDCG@10 impact).
+  - BottomUp's bypass decides ranks 1 vs 2 (head of ranking, materially impactful for NDCG@10). The paper must report the two variants separately.
+- Predicted Pareto positioning: the family targets the empty region between `TD-Bubble` and `DE-Cocktail` on the comparisons-axis and wall-clock-axis frontiers (claim:C9). Token axis is expected to be worse than `DE-Cocktail` and is not claimed as a win.
+
+## [2026-04-25] Multi-digit numeric label parsing was silently corrupting MaxContext rankings
+
+- `_parse_single_label`'s all-found-char loop iterated single characters against the multi-character valid set. For numeric labels, `[c for c in "10" if c in valid] == ['1', '0']`, `'0' not in valid`, `len(set) == 1`, the parser returned `'1'`. `"30"` collapsed to `'3'`, `"22"` to `'2'`. No error raised — just silent ranking corruption.
+- The fix gates the all-found loop on `not is_numeric_scheme` (matching the existing `not is_bigram_scheme` gate) and adds a numeric-structured-parse stage with decisive anchors (`BEST|WORST|MOST RELEVANT|LEAST RELEVANT|ANSWER|OUTPUT`) **before** refusal detection. Bare `PASSAGE N` is deliberately excluded so hypotheticals like `"If there was a Passage 3..."` fall through to refusal handling rather than being silently parsed as `"3"`.
+- The refusal whitelist was expanded with anchored phrases (`no least relevant`, `both are equally relevant`, `if there was a passage`, etc.) and refusal-before-numeric ordering was gated to numeric scheme only. Letter and bigram callers see byte-identical legacy ordering.
+- Lesson for future numeric-label work: any time the valid set contains multi-character tokens, single-character iteration is unsafe. Either short-circuit the loop, or operate on tokenized matches.
+
+## [2026-04-25] LLM bypass at n_docs=2 is the right architectural move for MaxContext single-extreme variants
+
+- At the last round, MaxContext TopDown / BottomUp face two surviving docs that look equally relevant. Codex's diagnosis: the prompt is semantically unstable for the model at this window — refusal/hedging is more likely than a clean commit.
+- Pure parser fixes can recover from refusal as a hard abort, but cannot fabricate a useful answer. Bypassing the LLM at `n_docs=2` and using deterministic BM25 score as the tiebreaker eliminates the most fragile point.
+- TopDown: higher score wins; on tie, smaller original BM25 index wins. BottomUp: lower score loses; on tie, larger original BM25 index becomes worst. Snapshot `orig_pos` at selection-method entry so tie-breaks survive per-round swaps that mutate the live `ranking` list.
+- New counter `total_bm25_bypass` exposed on each ranker; `run.py` prints `Avg BM25 bypass` only when non-zero (so non-MaxContext runs are unaffected).
+
+## [2026-04-21] exp:same_method_tables_pending closed — DualEnd vs TD-Bubble on DL19 yields the cleanest positive finding
+
+- `analysis/significance_tests_pairwise.py` now produces 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired approximate-randomization + Bonferroni correction per (grouping, dataset).
+- Authoritative artifacts: [SIGNIFICANCE_TESTS_PAIRWISE.md](SIGNIFICANCE_TESTS_PAIRWISE.md) and `.json`. Inlined into `results-display/index.html` under `section id="pairwise-tables"`.
+- **Headline:** `DE-Cocktail` and `DE-Selection` vs `TD-Bubble` on DL19 — 2 Bonferroni-significant DualEnd wins on Qwen3-8B. All BU and BiDir groupings confirm the existing directional-asymmetry pattern with multiple Bonferroni-significant losses.
+- Implication: paper §5 RQ2 should lead with the DualEnd-vs-TD-Bubble pairwise comparison rather than the best-of-family aggregation, because that's where the strongest statistical evidence lives.
+
+## [2026-04-20] Locked in claim:C10 — ICTIR-first conservative framing is now an explicit policy
+
+- The paper targets **ICTIR 2026** with an analysis-driven framing: one modestly effective method (idea:002 DualEnd) plus two coherent negative results (idea:001 BottomUp, idea:003 BiDir). ARR submission is gated on a stronger refinement / generalization package landing.
+- Hard framing constraints from claim:C10 (in `research-wiki/claims/C10_framing_ictir_conservative.md`):
+  - **Do not** claim DualEnd is universally better — directional pattern (14/18) with one Bonferroni-significant win.
+  - **Do not** claim DualEnd is more efficient — 5–9× slower than `TD-Heap`.
+  - **Do not** claim DualEnd's worst-selection is independent of best-selection on T5 / `--scoring likelihood` paths — those code paths fall back to a best-only proxy. Only the Qwen-generation path performs true joint elicitation.
+  - **Do** lead with directional asymmetry (claim:C1), joint elicitation as the contribution (claim:C8), and the novel `dual_worst` primacy reversal (claim:C5).
+  - **Do** present BU and BiDir as evidence isolating the mechanism, not as "methods that didn't work".
+- Captured as a `claim:` rather than a sticky note so any round-2 auditor or downstream pipeline (`/paper-plan`, `/idea-creator`) sees the constraints explicitly and does not silently re-introduce overclaims.
+
 ## [2026-04-09] The Pareto frontier sharpens the paper's refinement target
 
 - Added [analysis/quality_cost_pareto.py](/Users/hangli/projects/llm-rankers/analysis/quality_cost_pareto.py) and generated [results/analysis/pareto/QUALITY_COST_PARETO.md](/Users/hangli/projects/llm-rankers/results/analysis/pareto/QUALITY_COST_PARETO.md)
@@ -184,6 +228,23 @@ Full position bias analysis completed for all 9 models × 2 datasets (18 result 
 # Engineering Findings
 
 > Infrastructure, environment, and debugging lessons. Prevents re-debugging the same issues in future sessions.
+
+## [2026-04-25] MaxContext n_docs=2 BM25 bypass needs original-position snapshot for ties
+
+- Initial design tried to use the live `window[0]` position to break exact-tie BM25 scores. Codex caught the bug: by the last round, `window[0]` is from the *live* `ranking` list which has been mutated by per-round swaps. The doc at `window[0]` may originally have ranked lower than `window[1]`, so the tie semantics get inverted.
+- Fix: snapshot `orig_pos = {doc.docid: i for i, doc in enumerate(docs)}` at selection-method entry, before any mutation. Tie-breaks read from `orig_pos` rather than the live position.
+- Score-presence guard added at selection-method entry: raises `ValueError` if any `doc.score is None or not math.isfinite(doc.score)`. The standard `run.py` path fills `doc.score` from BM25 (`run.py:369`), but the README's example uses `score=None`; failing loud beats letting Python's None-comparison error surface deep inside the loop.
+
+## [2026-04-25] MaxContext numeric-label parser: bare `PASSAGE\s*(\d+)` is a footgun
+
+- Codex round-2 critical finding: an early draft of the numeric-structured-parse stage included a bare `r"PASSAGE\s*(\d+)"` pattern alongside decisive anchors. That pattern would match `"If there was a Passage 3..."` and silently return `"3"` BEFORE refusal detection ran — recreating mode (iii) as silent corruption rather than fixing it.
+- Fix: keep ONLY decisive-anchor patterns (`BEST|WORST|MOST RELEVANT|LEAST RELEVANT|ANSWER|OUTPUT`) in the pre-refusal stage. Bare `PASSAGE N` is reachable only via the last-resort numeric fallback (after refusal detection), so hypothetical refusals fall through to refusal handling and strict mode raises as intended.
+- Lesson: when adding parse stages BEFORE refusal detection, every pattern there must encode commitment, not just label proximity. Hypothetical / conditional language must remain a refusal signal.
+
+## [2026-04-25] DualEnd byte-identity guarantee for parser changes
+
+- The parser changes for MaxContext numeric scheme (multi-digit gate, numeric-structured stage, refusal-before-numeric reorder) are all gated on `getattr(self, "label_scheme", None) == "numeric_1_based"`. `MaxContextDualEndSetwiseLlmRanker` and all non-MaxContext rankers (which use letter scheme or bigram scheme) see byte-identical parse behavior.
+- Verified by `git show HEAD diff` against the new commit: zero changes to `MaxContextDualEndSetwiseLlmRanker._parse_dual_output()` and zero behavioral change to letter / bigram parser paths. The shared `_parse_single_label` only diverges when the new gate fires.
 
 ## [2026-04-09] New DualEnd refinement variants expose their own cost counters for paper-facing audits
 

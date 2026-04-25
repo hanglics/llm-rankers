@@ -8,7 +8,14 @@ LLM-based setwise ranking (Zhuang et al., SIGIR 2024) presents a small set of ca
 
 The inefficiency compounds at the sorting algorithm level. Heapsort requires O(n log n) comparisons, each extracting one bit of ordering information. Bubblesort performs O(n^2) pairwise-adjacent swaps, again extracting one decision per call. If we could extract two decisions per LLM call (e.g., both best and worst), we could power richer sorting algorithms (cocktail shaker sort, double-ended selection sort) that place two documents per comparison. More ambitiously, if "worst" selection provides a complementary ranking signal, fusing top-down and bottom-up rankings could improve robustness.
 
-The core research question is: **Can we improve setwise LLM ranking by extracting more information from each comparison?** We explore three strategies beyond the standard top-down approach: bottom-up (select worst), dual-end (select both best and worst simultaneously), and bidirectional ensemble (fuse independent top-down and bottom-up rankings). Our findings now show that the **DualEnd family** is strongest overall, but bottom-up selection alone is unreliable, bidirectional fusion degrades performance, and most DualEnd gains are modest on TREC DL's small query sets.
+The core research question is: **Can we improve setwise LLM ranking by extracting more information from each comparison?** We explore four strategy families beyond the standard top-down approach:
+
+1. **BottomUp** (select worst, idea:001).
+2. **DualEnd** (select best and worst jointly in the same call, idea:002).
+3. **Bidirectional ensemble** (fuse independent top-down and bottom-up rankings, idea:003).
+4. **MaxContext family** (idea:007 — fit the entire rerank pool, up to 50 docs, into a single Qwen prompt, with DualEnd / TopDown / BottomUp variants). Active and Codex-audited; tests not yet launched.
+
+Our findings show that the **DualEnd family** is strongest overall, but bottom-up selection alone is unreliable, bidirectional fusion degrades performance, and most DualEnd gains are modest on TREC DL's small query sets. Three further refinements are implemented and pending evaluation: **Selective DualEnd** (idea:004), **Bias-aware DualEnd** (idea:005), and **Same-call regularized** (idea:006). The MaxContext family is the freshest direction: it trades many small joint-elicitation calls for very few large-window calls and is designed to land in the empty region between `TD-Bubble` and `DE-Cocktail` on the comparisons-axis and wall-clock-axis frontiers.
 
 ## Background
 
@@ -19,10 +26,14 @@ The core research question is: **Can we improve setwise LLM ranking by extractin
   - Sun et al. (2023) — RankGPT. Listwise ranking with sliding window, demonstrating LLMs can perform zero-shot passage ranking.
   - Qin et al. (2024) — PRP (Pairwise Ranking Prompting). Systematic study of pairwise LLM ranking with analysis of positional bias.
   - Tang et al. (2024) — Found in the Middle. Documents position bias in LLM-based ranking: models over-attend to first and last positions.
-- **What I already tried**: Three novel strategies extending setwise ranking:
-  - **BottomUp**: Reverse the prompt to ask "which is LEAST relevant?" and build rankings from the bottom up. Implemented with heapsort and bubblesort.
-  - **DualEnd**: Ask "which is MOST relevant AND which is LEAST relevant?" in a single prompt. Implemented with cocktail shaker sort (bubblesort variant) and double-ended selection sort.
-  - **Bidirectional Ensemble**: Run TopDown and BottomUp independently, then fuse rankings via Reciprocal Rank Fusion (RRF), CombSUM, or weighted combination.
+- **What I already tried**: Strategies extending setwise ranking:
+  - **BottomUp** (idea:001): Reverse the prompt to ask "which is LEAST relevant?" and build rankings from the bottom up. Implemented with heapsort and bubblesort.
+  - **DualEnd** (idea:002): Ask "which is MOST relevant AND which is LEAST relevant?" in a single prompt. Implemented with cocktail shaker sort (bubblesort variant) and double-ended selection sort.
+  - **Bidirectional Ensemble** (idea:003): Run TopDown and BottomUp independently, then fuse rankings via Reciprocal Rank Fusion (RRF), CombSUM, or weighted combination.
+  - **Selective DualEnd** (idea:004): TopDown sort that upgrades only routed windows to same-call best-worst prompting. Routes by shortlist overlap, query-local BM25 spread percentile, or hybrid union. Implemented; partial results on flan-t5-xl, Qwen runs pending.
+  - **Bias-aware DualEnd** (idea:005): Run a tiny set of controlled orderings only on hard windows, then majority-vote labels back into the original order. Designed to exploit the dual_worst primacy reversal documented in claim:C5. Implemented; all 12 runs pending.
+  - **Same-call regularized** (idea:006): Use the joint-prompt's worst output only as a local demotion signal once a candidate is already outside the protected ranking head. Implemented; all 12 runs pending.
+  - **MaxContext family** (idea:007): Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. Three variants — DualEnd shrinks the pool by 2 each round; TopDown / BottomUp shrink by 1 plus a deterministic BM25 endgame at `n_docs=2`. Codex-audited 3 rounds, ready to execute, 312-run staged matrix not yet launched.
 - **What didn't work**:
   - BottomUp is consistently weaker than TopDown. On small models (flan-t5-large), it is catastrophic (NDCG@10 drops from .654 to .289). Even on the largest models, it trails TopDown by 3-5 points. "Worst" selection appears to be a fundamentally harder cognitive task for LLMs.
   - Bidirectional ensemble never beats TopDown. Because BottomUp rankings are too noisy, fusing them with TopDown degrades rather than improves quality. Even with alpha=0.9 (90% TopDown weight), the ensemble underperforms pure TopDown.
@@ -30,8 +41,9 @@ The core research question is: **Can we improve setwise LLM ranking by extractin
 ## Constraints
 
 - **Compute**: Single NVIDIA H100 80GB GPU (rented via Vast.ai)
-- **Timeline**: All experiments complete (144 main runs + ablations + analysis). Paper revision in progress.
+- **Timeline**: Phase 1–4 experiments complete (144 main runs + ablations + analysis). Pairwise same-sort tables completed 2026-04-21. MaxContext family (idea:007) staged 312-run matrix not yet launched. Refinement variants (idea:004/005/006) partially or fully pending. Paper revision in progress.
 - **Target venue**: ICTIR (primary); later ARR only after a stronger refinement/generalization package
+- **Framing constraint** (claim:C10, locked 2026-04-20): the paper is an analysis-driven IR contribution, not a new-state-of-the-art claim. Lead with directional asymmetry and joint elicitation as the contribution. Do not claim universal DualEnd improvement; do not claim DualEnd is more efficient than `TD-Heap`; disclose that T5 / `--scoring likelihood` DualEnd paths are a best-only proxy.
 
 ## What I'm Looking For
 
@@ -50,6 +62,9 @@ The core research question is: **Can we improve setwise LLM ranking by extractin
 - **Optimal window size (num_child) is model-family-dependent**. T5 models with 512-token context limits perform best with smaller windows (nc=2-3). Qwen models with 32k+ context benefit from larger windows (nc=5-7) where more candidates can be compared simultaneously.
 - **Efficiency trade-off is real**: DualEnd-Cocktail uses 4-7x more comparisons and tokens than TopDown-Heapsort, and the DualEnd family is 5.6x-8.9x slower than `TD-Heap` on average. The quality gains must be framed as a quality-efficiency trade-off, not a free improvement.
 - **Significance is asymmetric**: DualEnd is positive in 14/18 model-dataset configs, but only `qwen3-4b` DL19 survives Bonferroni-corrected significance. By contrast, BottomUp shows 6 corrected losses and BiDir 3 corrected losses. This supports a conservative paper framing.
+- **Joint elicitation is the load-bearing contribution** (claim:C8). Three facts jointly identify it: BottomUp alone fails (claim:C1, C3); BiDir fails because BU is biased (claim:C4); DualEnd partially succeeds because worst is co-elicited with best (claim:C2, C5). The cocktail-shaker and double-ended selection sorts are *consumers* of the dual output — necessary plumbing but not the scientific contribution.
+- **The Pareto frontier is narrow** (claim:C9). Global mean frontier members are `TD-Heap`, `TD-Bubble`, and `DE-Cocktail`. The empty region between `TD-Bubble` and `DE-Cocktail` (+82% comparisons / +92% wall-clock for +0.0065 NDCG) is the natural target for selective / bias-aware refinements (idea:004/005/006) and for the MaxContext family (idea:007).
+- **Pairwise same-sort tables (closed 2026-04-21)** show the cleanest positive finding is DualEnd vs `TD-Bubble` on DL19: 2 Bonferroni-significant DualEnd wins on Qwen3-8B (`DE-Cocktail` and `DE-Selection`). Authoritative numbers in `SIGNIFICANCE_TESTS_PAIRWISE.md`.
 
 ## Non-Goals
 

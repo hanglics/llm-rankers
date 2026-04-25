@@ -1741,6 +1741,8 @@ class BidirectionalEnsembleRanker(LlmRanker):
 class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
     """MaxContext-style best-only selection over the full pool."""
 
+    total_bm25_bypass: int = 0
+
     def __init__(self, *args, pool_size: int, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
@@ -1780,15 +1782,38 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
+        self.total_bm25_bypass = 0
+        orig_pos = {doc.docid: i for i, doc in enumerate(docs)}
+        for doc in docs:
+            if doc.score is None or not math.isfinite(doc.score):
+                raise ValueError(
+                    "MaxContext n_docs=2 bypass requires finite BM25 scores; "
+                    f"got {doc.score!r} for docid {doc.docid!r}."
+                )
 
         n = len(ranking)
         top_idx = 0
         while n - top_idx > 1:
             window = ranking[top_idx:]
-            best_label = self.compare(query, window)
-            best_window_pos = _resolve_maxcontext_label_index(
-                self, best_label, len(window), default=0
-            )
+            window_len = len(window)
+            if window_len == 2:
+                s0, s1 = window[0].score, window[1].score
+                if s0 > s1:
+                    best_window_pos = 0
+                elif s1 > s0:
+                    best_window_pos = 1
+                else:
+                    best_window_pos = (
+                        0
+                        if orig_pos[window[0].docid] < orig_pos[window[1].docid]
+                        else 1
+                    )
+                self.total_bm25_bypass += 1
+            else:
+                best_label = self.compare(query, window)
+                best_window_pos = _resolve_maxcontext_label_index(
+                    self, best_label, window_len, default=0
+                )
             if best_window_pos != 0:
                 ranking[top_idx], ranking[top_idx + best_window_pos] = (
                     ranking[top_idx + best_window_pos],
@@ -1813,6 +1838,8 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
 
 class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
     """MaxContext-style worst-only selection over the full pool."""
+
+    total_bm25_bypass: int = 0
 
     def __init__(self, *args, pool_size: int, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
@@ -1853,14 +1880,37 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
+        self.total_bm25_bypass = 0
+        orig_pos = {doc.docid: i for i, doc in enumerate(docs)}
+        for doc in docs:
+            if doc.score is None or not math.isfinite(doc.score):
+                raise ValueError(
+                    "MaxContext n_docs=2 bypass requires finite BM25 scores; "
+                    f"got {doc.score!r} for docid {doc.docid!r}."
+                )
 
         bottom_idx = len(ranking) - 1
         while bottom_idx > 0:
             window = ranking[: bottom_idx + 1]
-            worst_label = self.compare_worst(query, window)
-            worst_window_pos = _resolve_maxcontext_label_index(
-                self, worst_label, len(window), default=len(window) - 1
-            )
+            window_len = len(window)
+            if window_len == 2:
+                s0, s1 = window[0].score, window[1].score
+                if s0 < s1:
+                    worst_window_pos = 0
+                elif s1 < s0:
+                    worst_window_pos = 1
+                else:
+                    worst_window_pos = (
+                        0
+                        if orig_pos[window[0].docid] > orig_pos[window[1].docid]
+                        else 1
+                    )
+                self.total_bm25_bypass += 1
+            else:
+                worst_label = self.compare_worst(query, window)
+                worst_window_pos = _resolve_maxcontext_label_index(
+                    self, worst_label, window_len, default=window_len - 1
+                )
             if worst_window_pos != bottom_idx:
                 ranking[bottom_idx], ranking[worst_window_pos] = (
                     ranking[worst_window_pos],

@@ -44,3 +44,4 @@ Append-only mutation timeline.
   - Updated `exp:same_method_tables_pending` status `not_submitted` → `completed`, added artifact paths and headline findings.
   - Headline: cleanest positive finding is DualEnd (DE-Cocktail + DE-Selection) vs TD-Bubble on DL19 — 2 Bonferroni-sig wins on Qwen3-8B. All BU and BiDir groupings confirm the existing directional-asymmetry pattern with multiple Bonferroni-sig losses.
 - 2026-04-25 — Added MaxContext TopDown and BottomUp variants to idea:007. Documentation refreshed.
+- 2026-04-25 — MaxContext TopDown / BottomUp parser hardening landed with an `n_docs=2 deterministic BM25 endgame`. Updated docs and experiment notes to reflect `N-2` LLM calls + 1 BM25 bypass for the single-extreme variants; DualEnd unchanged.

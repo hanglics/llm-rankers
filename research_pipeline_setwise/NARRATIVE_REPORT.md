@@ -6,7 +6,7 @@
 
 LLM-based setwise ranking (Zhuang et al., SIGIR 2024) presents documents in sets and asks the LLM to select the "most relevant" one, then applies sorting algorithms (heapsort, bubblesort) to produce a top-k ranking. A fundamental limitation of this approach is that each LLM comparison extracts only one ranking decision --- the identity of the best document --- while discarding all other information the model implicitly evaluates. This is wasteful: the LLM reads and reasons about every document in the set, yet only one bit of ordinal information is retained per call.
 
-We study three strategies that extract more ranking information per comparison. (1) **BottomUp** reverses the prompt to select the "least relevant" document, building the ranking from the bottom up. This tests whether LLMs are better at identifying irrelevant documents, a hypothesis motivated by the asymmetry between relevance and irrelevance judgments. (2) **DualEnd** asks the LLM to identify both the best and worst documents in a single call, extracting approximately 79% more ranking information per comparison (information-theoretic analysis: log2(w*(w-1)) vs. log2(w) bits for window size w). We pair DualEnd with cocktail shaker sort and double-ended selection sort, both of which naturally exploit simultaneous best-and-worst identification. (3) **Bidirectional ensemble** runs TopDown and BottomUp independently, then fuses rankings via RRF or weighted CombSUM.
+We study four strategy families that extract more ranking information per comparison. (1) **BottomUp** reverses the prompt to select the "least relevant" document, building the ranking from the bottom up. This tests whether LLMs are better at identifying irrelevant documents, a hypothesis motivated by the asymmetry between relevance and irrelevance judgments. (2) **DualEnd** asks the LLM to identify both the best and worst documents in a single call, extracting approximately 79% more ranking information per comparison (information-theoretic analysis: log2(w*(w-1)) vs. log2(w) bits for window size w). We pair DualEnd with cocktail shaker sort and double-ended selection sort, both of which naturally exploit simultaneous best-and-worst identification. (3) **Bidirectional ensemble** runs TopDown and BottomUp independently, then fuses rankings via RRF or weighted CombSUM. (4) **MaxContext family** fits the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt and runs joint best+worst (DualEnd), best-only (TopDown), or worst-only (BottomUp) selection over the whole live pool. This trades many small joint-elicitation calls for very few large-window calls — a design that targets the empty region between `TD-Bubble` and `DE-Cocktail` on the comparisons-axis and wall-clock-axis frontiers (claim:C9).
 
 Experiments across 9 LLMs spanning three model families (Flan-T5 780M--11B, Qwen3 4B--14B, Qwen3.5 4B--27B) on TREC DL 2019 and 2020 yield a clearer story than the original draft: **the DualEnd family is strongest overall, but its gains are modest on these small test sets**. DualEnd wins 14/18 model-dataset configurations overall and all 12 Qwen configurations; `dualend_bubblesort` is the strongest single variant with 11 wins, while `dualend_selection` is best on the smallest Qwen settings. TopDown-Bubblesort remains strongest on 4/6 T5 configurations. BottomUp is consistently weaker than TopDown, and Bidirectional fusion usually hurts because it imports BottomUp noise. Paired approximate-randomization tests over per-query NDCG@10, with Bonferroni correction across the 18 configs per family, find only one corrected significant DualEnd win (`qwen3-4b` DL19), 6 corrected BottomUp losses, and 3 corrected BiDir losses. The paper should therefore frame DualEnd as a robust empirical pattern and quality-first option, not as a universally significant or compute-free improvement.
 
@@ -14,12 +14,13 @@ The strongest paper framing is now **directional asymmetry in setwise LLM rankin
 
 ## Paper Positioning
 
-- **Primary venue**: ICTIR
-- **Stretch venue after refinement/generalization**: later ARR
-- **Core novelty**: worst-selection behaves differently when asked alone versus when asked jointly with best-selection
-- **Central positive result**: DualEnd is the strongest family overall, especially on Qwen
+- **Primary venue**: ICTIR (claim:C10 — conservative analysis-driven framing)
+- **Stretch venue after refinement/generalization**: later ARR, gated on BEIR generalization (exp:beir_generalization) and refinement methods (idea:004/005/006/007) landing positively
+- **Core novelty**: worst-selection behaves differently when asked alone versus when asked jointly with best-selection. Joint elicitation is the load-bearing contribution (claim:C8); cocktail-shaker and double-ended selection are *consumers* of the dual output, not the scientific contribution.
+- **Central positive result**: DualEnd is the strongest family overall on TREC DL19/20, especially on Qwen
 - **Central negative results**: BottomUp is unreliable; BiDir fails because it imports BottomUp noise
 - **Central caution**: DualEnd is expensive and statistically fragile on TREC DL's small query sets
+- **Forward-looking method family**: MaxContext (idea:007) targets the empty region between `TD-Bubble` and `DE-Cocktail` on the Pareto frontier (claim:C9). Three Codex-audited variants, 312-run staged matrix, not yet launched.
 
 ## Claims
 
@@ -37,7 +38,11 @@ The strongest paper framing is now **directional asymmetry in setwise LLM rankin
 
 7. **Statistical evidence is asymmetric**: DualEnd is directionally positive in 14/18 configs but only one gain survives Bonferroni correction, whereas BottomUp produces 6 corrected losses and BiDir 3. The paper should therefore make conservative significance claims.
 
-8. **The current quality-cost frontier is narrow and interpretable**: at the global mean level, `TD-Heap`, `TD-Bubble`, and `DE-Cocktail` span the main comparison/token frontier, so the correct next method is a selective or bias-aware DualEnd that tries to land between `TD-Bubble` and full `DE-Cocktail`.
+8. **The current quality-cost frontier is narrow and interpretable**: at the global mean level, `TD-Heap`, `TD-Bubble`, and `DE-Cocktail` span the main comparison/token frontier. The empty region between `TD-Bubble` and `DE-Cocktail` (+82% comparisons / +92% wall-clock for +0.0065 NDCG) is the natural target for selective / bias-aware DualEnd refinements (idea:004/005/006) and for the MaxContext family (idea:007) that fits the whole pool into a single prompt.
+
+9. **The contribution is joint elicitation, not algorithmic novelty in the sort** (claim:C8): three facts jointly identify it — BottomUp alone fails, BiDir fails because BU is biased, DualEnd partially succeeds because worst is co-elicited with best. The cocktail-shaker and double-ended selection sorts are necessary plumbing, not the scientific contribution.
+
+10. **The paper takes an ICTIR-first conservative framing** (claim:C10): one modestly effective method (DualEnd) plus two coherent negative results (BottomUp, BiDir). Do not claim universal DualEnd improvement; do not claim DualEnd is more efficient; disclose that T5 and `--scoring likelihood` DualEnd paths are a best-only proxy. ARR submission is gated on a stronger refinement / generalization package landing.
 
 ## Experiments
 
@@ -248,13 +253,19 @@ We added a qualitative analysis script that can read live retrieval artifacts (`
 
 The highest-leverage next package is not more BottomUp or BiDir tuning. It is:
 
-1. **Selective DualEnd**: use TopDown by default and invoke DualEnd only on query-locally uncertain windows or a final shortlist to recover a better quality-cost tradeoff.
-2. **Order-robust / bias-aware DualEnd**: exploit the dual-worst bias reversal by running a small number of controlled orderings only where query-local uncertainty is high.
+1. **Selective DualEnd** (idea:004): use TopDown by default and invoke DualEnd only on query-locally uncertain windows or a final shortlist to recover a better quality-cost tradeoff.
+2. **Order-robust / bias-aware DualEnd** (idea:005): exploit the dual-worst bias reversal by running a small number of controlled orderings only where query-local uncertainty is high.
 3. **Quality-cost Pareto analysis**: show NDCG@10 against calls, tokens, and wall time so the paper can make precise budget-aware claims.
 4. **"When DualEnd helps" analysis**: identify the query or window regimes where the joint signal is most useful.
-5. **Same-call worst-signal regularization**: test whether the useful part of worst-selection is only the negative constraint available inside the same joint prompt.
+5. **Same-call worst-signal regularization** (idea:006): test whether the useful part of worst-selection is only the negative constraint available inside the same joint prompt.
+6. **MaxContext family** (idea:007): fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt with three variants:
+   - **MaxContext-DualEnd** asks for best+worst per call; pool shrinks by 2 each round; ~`floor(N/2)` LLM calls.
+   - **MaxContext-TopDown** asks for the best only; pool shrinks by 1 each round; uses an `n_docs=2` deterministic BM25 endgame; total `N-2` LLM calls + 1 BM25 bypass.
+   - **MaxContext-BottomUp** asks for the worst only; same `n_docs=2` BM25 endgame; same call count.
 
-These are now implemented as runnable code paths, so the next step is empirical validation rather than more design work.
+   Qwen-generation only; numeric labels 1..N (not letters); hard invariants on `pool_size == hits == ranker.k`, `num_permutation == 1`, strict no-truncation, abort-on-bad-parse. The token-axis is expected to be worse than `DE-Cocktail`; only the comparisons-axis and wall-clock-axis are claimed as targets. The TopDown and BottomUp endgames are asymmetric in research impact: TopDown's bypass decides ranks N-1 vs N (tail of ranking, low NDCG@10 impact), BottomUp's bypass decides ranks 1 vs 2 (head of ranking, materially impactful for NDCG@10). The paper must report TopDown and BottomUp variants separately.
+
+These are now implemented as runnable code paths, so the next step is empirical validation rather than more design work. The MaxContext family staged matrix (312 runs across 5 phases with launch gates) is Codex-audited and ready to execute; see `IDEA_007.md`.
 
 ### What / Why / How For The Refinement Package
 
@@ -270,6 +281,11 @@ These are now implemented as runnable code paths, so the next step is empirical 
   - **What**: a head-focused TopDown pass that uses worst only as a local demotion signal
   - **Why**: BottomUp is too noisy alone, but worst may help when conditioned on the same evidence as best
   - **How**: promote best as usual, push worst locally to the back, and avoid full backward passes
+
+- **MaxContext family**
+  - **What**: fit the whole rerank pool (`pool_size ≤ 50`) into a single Qwen prompt with three variants — DualEnd (joint best+worst), TopDown (best-only), BottomUp (worst-only)
+  - **Why**: claim:C9's frontier gap (TD-Bubble → DE-Cocktail = +82% comparisons / +92% wall-clock for +0.0065 NDCG) is large; one large-window joint-elicitation call may dominate many small-window calls on comparisons-axis and wall-clock-axis (token axis is expected to be worse and is not a claim)
+  - **How**: numeric labels 1..N; reuse `_double_ended_selection` with `num_child = pool_size - 1` so the single-group fast-path fires; deterministic BM25 endgame at `n_docs=2` for the single-extreme variants where the model becomes semantically unstable; hard invariants on `pool_size == hits == ranker.k`, `num_permutation == 1`, strict no-truncation, abort-on-bad-parse; staged 5-phase matrix with launch gates per `IDEA_007.md`
 
 If these refinements work, the project becomes easier to position as an ICTIR paper now and potentially an ARR-style submission later.
 

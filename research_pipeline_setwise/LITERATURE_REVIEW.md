@@ -1,6 +1,8 @@
 # Literature Review: LLM-Based Setwise Ranking for Information Retrieval
 
-**Compiled: March 2026**
+**Compiled: March 2026; refreshed April 2026 with project-connection notes (§13).**
+
+> **Companion knowledge base:** the structured wiki at `/Users/hangli/projects/llm-rankers/research-wiki/` indexes 20 papers, 7 ideas, 33 experiments, 10 claims, 5 gaps, and 163 typed edges. Each paper page in this review has a corresponding `papers/<slug>.md` entry; this review is the prose narrative, the wiki is the relational view.
 
 ---
 
@@ -400,6 +402,40 @@ Key strategies for reducing the computational cost of LLM-based ranking:
 9. **Efficiency-effectiveness Pareto frontier**: Attention-based methods (ICR) and embedding-based methods (PE-Rank) offer dramatic efficiency gains. Hybrid pipelines combining cheap pre-filtering, attention-based scoring, and targeted LLM reranking for the most ambiguous cases are a promising direction.
 
 10. **Multi-hop and complex queries**: Setwise and listwise approaches struggle with queries requiring synthesis across multiple documents. Set-wise passage selection for multi-hop QA (SetR) is an emerging approach.
+
+---
+
+## 11.5 Connection to This Project (added April 2026)
+
+This review surveys the field; what follows situates this project's contributions and findings against that landscape. Claims and ideas reference the wiki at `research-wiki/`.
+
+### Where this project sits in the taxonomy
+
+This project is **squarely within the setwise paradigm** introduced by Zhuang et al. (SIGIR 2024) (§3). It does not propose a new paradigm; it argues that setwise prompts can be redesigned to extract more information per LLM call. The contribution is **joint elicitation** (claim:C8 in `research-wiki/claims/C8_joint_elicitation_is_contribution.md`), not algorithmic novelty in the sort.
+
+### How this project relates to specific prior work
+
+- **vs. Zhuang et al. 2024 (setwise):** baseline. We extend the prompt to ask for both extremes simultaneously (DualEnd, idea:002), and we extend the live window to the whole rerank pool (MaxContext family, idea:007).
+- **vs. TourRank (Chen et al., WWW 2025) and BlitzRank (2026):** parallel "more info per comparison" angle via tournament graphs vs. our joint elicitation angle. TourRank ≈127 LLM calls per query is in the same cost neighborhood as our `DE-Cocktail` (~546 comparisons) and our `MaxContext-DualEnd` at `pool_size=50` (~25 calls). Direct head-to-head comparison is left for future work.
+- **vs. Rank-R1 (Zhuang et al. 2025):** Rank-R1 uses `num_child=19` (20-way setwise) as a known-feasible precedent for large-window setwise, validating that current Qwen-class models can compose 20-document prompts coherently. MaxContext idea:007 pushes this to `pool_size=50`.
+- **vs. Setwise Insertion (Podolak et al., SIGIR 2025):** orthogonal — Podolak warm-starts the sort using the BM25 ranking as prior; we change the comparator's output. The two ideas can be combined.
+- **vs. Lost / Found in the Middle (Liu 2024 / Tang 2024):** our position-bias analysis (claim:C5) shows that joint elicitation flips the worst-selection bias from recency-heavy to primacy-heavy — a `dual_worst` primacy reversal not previously documented.
+- **vs. LLM-RankFusion (Zeng et al. 2024):** intrinsic inconsistency results explain why our BiDir ensemble fails (claim:C4): if one of the two rankings has asymmetric bias (BU's recency-heavy `worst→D`), fusion imports that bias rather than averaging it out.
+- **vs. Sato (2026 sorting survey):** Sato's framework predicts that double-ended selection is a natural sort for "comparators that emit both a max and a min." We instantiate the comparator (DualEnd) and confirm the sort matches. Sato does not cover dual-output comparators directly.
+
+### Findings the literature does not yet have
+
+1. **Directional asymmetry** (claim:C1): worst-selection alone is unreliable; worst-selection inside a joint best+worst prompt becomes useful. The literature treats best-selection and worst-selection as symmetric variants; we show they are not.
+2. **Joint-elicitation shifts position bias** (claim:C5): `dual_worst` primacy reversal vs. `worst` recency bias. Tang (2024) and Liu (2024) document position bias under best-only or read-through prompts; the joint-prompt regime has not been characterized before.
+3. **The Pareto frontier between TD-Bubble and DE-Cocktail is empty** (claim:C9). Setwise Insertion claims efficiency gains; TourRank, BlitzRank, Rank-R1 claim quality gains; this is the first explicit characterization of the empty frontier region as a research target.
+4. **Conservative ICTIR-first framing** (claim:C10): we treat directional asymmetry as the contribution, with DualEnd as the modest positive method and BottomUp / BiDir as coherent negative results. This is a deliberate framing choice given the statistical fragility of TREC DL on 43/54-query test sets.
+
+### Open questions this project will return to
+
+- **Does the DualEnd directional pattern hold out-of-domain on BEIR?** flan-t5-xl done, qwen3-8b 5/6 done, qwen3.5-9b pending (exp:beir_generalization).
+- **Can selective DualEnd, bias-aware DualEnd, or same-call regularized variants land in the Pareto frontier gap?** All three are implemented (idea:004/005/006), most runs pending.
+- **Does the MaxContext family beat DE-Cocktail at matched `hits` on the comparisons-axis and wall-clock-axis?** 312-run staged matrix planned (idea:007), not yet launched.
+- **Does the `dual_worst` primacy reversal survive controlled re-ordering** (idea:005)? Open empirical question.
 
 ---
 
