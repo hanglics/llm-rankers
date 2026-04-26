@@ -1,7 +1,7 @@
 # Research Wiki Index
 
 <!-- AUTO-GENERATED. Regenerate after mutations. -->
-<!-- Last regenerated: 2026-04-20T10:55:00+10:00 (post idea:007 addition) -->
+<!-- Last regenerated: 2026-04-26T15:30:00+10:00 (idea:007 round-2 MaxContext TopDown/BottomUp parser hardening: refusal-only no-op + total_parse_fallback telemetry) -->
 
 ## Papers (20)
 

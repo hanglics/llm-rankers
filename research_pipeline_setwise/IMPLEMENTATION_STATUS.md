@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Date:** April 25, 2026
-**Pipeline Stage:** Stage 2 — Implementation (maintained; idea:007 MaxContext family landed; paper-facing cleanup in progress)
+**Date:** April 26, 2026
+**Pipeline Stage:** Stage 2 — Implementation (maintained; idea:007 MaxContext family landed; round-2 TopDown/BottomUp parser hardening 2026-04-26; paper-facing cleanup in progress)
 
 ## Current Scope
 
@@ -125,6 +125,49 @@ For implementation details and recent fixes, use these files first:
 - Produced 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired approximate-randomization + Bonferroni correction per (grouping, dataset).
 - Authoritative artifacts: `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.{md,json}`. Inlined into `results-display/index.html` under `section id="pairwise-tables"`.
 - Headline: cleanest positive finding is DualEnd (`DE-Cocktail` + `DE-Selection`) vs `TD-Bubble` on DL19 — 2 Bonferroni-significant wins on Qwen3-8B. All BU and BiDir groupings confirm directional asymmetry with multiple Bonferroni-significant losses.
+
+### 2026-04-26 — MaxContext TopDown / BottomUp parser hardening, round 2 (refusal-only no-op)
+
+After round-1's strict-raise + `n_docs=2` BM25 endgame landed (2026-04-25), follow-up cluster sweeps at TopDown pool ∈ {20,30,40,50} and BottomUp pool ∈ {30,40,50} surfaced five reproducible Qwen3 output patterns the round-1 parser couldn't tolerate: leading-digit-then-explanation (`"3 Passage 3 is about… not relevant…"`), pure refusal (`"None of the passages are relevant…"` ×3), and soft-refusal-then-decision (`"None of the directly… The most relevant passage is Passage 1…"`). Codex (`gpt-5.5`, xhigh reasoning) two-round investigation + audit-loop produced the locked plan; Codex implemented it; tests pass.
+
+**Changes**
+
+1. **Parser** (`llmrankers/setwise.py:_parse_single_label`):
+   - Added 3 new numeric-scheme extractors:
+     - Leading-digit: `^\s*(\d+)(?:\s|[.,;:!?]|$)` — catches `"3 Passage 3 is about…"`.
+     - Qualifier-then-passage: `(?:MOST\s+RELEVANT|LEAST\s+RELEVANT|BEST|WORST|CLOSEST(?:\s+MATCH)?)[^.\n]{0,40}?PASSAGE\s+(\d+)` — catches `"The most relevant passage is Passage 1"`.
+     - Passage-then-qualifier: `PASSAGE\s+(\d+)\s+(?:IS|WAS)\s+(?:THE\s+)?(?:MOST(?:\s+RELEVANT)?|LEAST(?:\s+RELEVANT)?|BEST|WORST|CLOSEST(?:\s+MATCH)?)` — catches `"Passage 23 is the closest match."`.
+   - Introduced `NUMERIC_REFUSAL_REGEX` constant + `_is_numeric_refusal_output(raw)` helper. The legacy shared refusal regex used by non-numeric callers is **unchanged**; the new regex is gated on `label_scheme == "numeric_1_based"`.
+   - `ANSWER` deliberately excluded from the qualifier-then-passage pattern (avoids `"the answer is not Passage 3"` → `3` false positives).
+
+2. **Call sites — refusal-only deterministic no-op**:
+   - `setwise.py compare()` causal branch: when parse returns `None` AND the raw text is a numeric refusal, return `CHARACTERS[0]` (TopDown picks head → swap is a no-op). Increment `total_parse_fallback`.
+   - `setwise_extended.py BottomUpSetwiseLlmRanker.compare_worst()` causal branch: mirror with `CHARACTERS[len(docs)-1]` (BottomUp picks tail → swap is a no-op).
+   - Strict-raise still fires when parse returns `None` for non-refusal reasons (e.g. an out-of-window parsed label like `"31"` in a 30-doc window). Refusal-no-op is gated on `_is_numeric_refusal_output(raw_output)` returning `True`, not on `output is None` alone.
+
+3. **Prompt** (`_build_best_prompt` / `_build_worst_prompt`):
+   - When `label_scheme == "numeric_1_based"`, append a window-size-aware instruction: `"Reply with exactly one passage number from 1 to {len(docs)}. Do not explain. If none of the passages are clearly relevant, still pick the single closest one."` (worst variant uses "least relevant" semantics.)
+   - All other label schemes unchanged.
+
+4. **Telemetry**:
+   - New counter `total_parse_fallback` on each MaxContext ranker; initialized in `_setup_maxcontext_numeric_attrs` and reset in the TopDown/BottomUp `_maxcontext_*_select` loops next to `total_compare`.
+   - `run.py:optional_stat_labels` adds `"total_parse_fallback": "parse fallbacks"`. Existing aggregator prints `Avg parse fallbacks:` only when the ranker has the attribute.
+   - Per-fallback `print(...)` in the call site for forensic context.
+
+5. **Tests** — 13-fixture parser regression `test_maxcontext_numeric_parse_fallback()` + 4-case call-site regression `test_maxcontext_compare_refusal_noop()` added to `scripts/check_maxcontext_invariants.py`. Adversarial fixtures cover `"None of the 5 passages are relevant"` (must NOT parse `5`), `"The answer is not Passage 3; no passage is relevant."` (must NOT parse `3`), multi-line refusal-then-decision (must parse `1`), and out-of-window `"Passage 31"` in a 30-doc window (must raise). All pass via `ranker_env/bin/python scripts/check_maxcontext_invariants.py`.
+
+**Backward compatibility**
+
+- `MaxContextDualEndSetwiseLlmRanker` byte-identical (uses `compare_both()` / `_parse_dual_output()`, not the modified `compare()` / `compare_worst()` paths). The "exactly one LLM call" invariant is preserved.
+- T5 path (`setwise.py:525-545` and `setwise_extended.py:118-192`) untouched.
+- Letter (A-W) and bigram (AA-ZZ) schemes untouched — new branches in `_parse_single_label` are gated on `is_numeric_scheme`. Legacy shared `refusal_regex` at `setwise.py:439` is unchanged, so the non-numeric tail at `setwise.py:506-517` is bit-for-bit identical.
+
+**Expected counters per run (after round 2)**
+
+- TopDown / BottomUp: `Avg comparisons: pool_size - 2`, `Avg BM25 bypass: 1.0`, `Avg parse fallbacks:` printed only when non-zero. Sanity target: `< 5%` of `Avg comparisons`. Spike `> 20%` suggests the prompt is overcorrecting — revisit.
+- DualEnd: unchanged.
+
+**Status**: 4 files dirty (`setwise.py`, `setwise_extended.py`, `run.py`, `scripts/check_maxcontext_invariants.py`), not committed pending cluster-smoke verification on the previously-crashing pool=30/40/50 jobs.
 
 ### 2026-04-25 — MaxContext family (idea:007) parser hardening + n_docs=2 BM25 endgame
 

@@ -199,19 +199,33 @@ class SetwiseLlmRanker(LlmRanker):
 
     def _build_best_prompt(self, query: str, docs: Sequence[SearchResult]) -> str:
         passages = self._format_passages(docs)
-        return (
+        prompt = (
             f'Given a query "{query}", which of the following passages is the most relevant one to the query?\n\n'
             + passages
             + "\n\nOutput only the passage label of the most relevant passage:"
         )
+        if getattr(self, "label_scheme", None) == "numeric_1_based":
+            prompt += (
+                f"\n\nReply with exactly one passage number from 1 to {len(docs)}. "
+                "Do not explain. If none of the passages are clearly relevant, "
+                "still pick the single closest one."
+            )
+        return prompt
 
     def _build_worst_prompt(self, query: str, docs: Sequence[SearchResult]) -> str:
         passages = self._format_passages(docs)
-        return (
+        prompt = (
             f'Given a query "{query}", which of the following passages is the least relevant one to the query?\n\n'
             + passages
             + "\n\nOutput only the passage label of the least relevant passage:"
         )
+        if getattr(self, "label_scheme", None) == "numeric_1_based":
+            prompt += (
+                f"\n\nReply with exactly one passage number from 1 to {len(docs)}. "
+                "Do not explain. If none of the passages are clearly irrelevant, "
+                "still pick the single least relevant one."
+            )
+        return prompt
 
     def _build_chat_prompt(self, messages):
         return self.tokenizer.apply_chat_template(
@@ -430,6 +444,20 @@ class SetwiseLlmRanker(LlmRanker):
         cleaned = cleaned.strip()
         return cleaned or stripped
 
+    NUMERIC_REFUSAL_REGEX = (
+        r"^\s*(none|no\s+passages?|neither|i\s+cannot|cannot\s+determine|"
+        r"cannot\s+pick|cannot\s+decide)\b|"
+        r"\bnone\s+of\s+the\s+(passages?|above)\b|"
+        r"\bno\s+passages?\s+(is|are)\s+relevant\b|"
+        r"\b(correct\s+answer|the\s+answer)\s+is\s*:?\s*none\b|"
+        r"\bthere\s+is\s+no\s+(least|most)\s+relevant\b|"
+        r"\bif\s+there\s+was\s+a\s+passage\b"
+    )
+
+    def _is_numeric_refusal_output(self, raw: str) -> bool:
+        cleaned = self._clean_generation_output(raw)
+        return re.search(self.NUMERIC_REFUSAL_REGEX, cleaned, flags=re.IGNORECASE) is not None
+
     def _parse_single_label(self, output: str, valid_chars: Sequence[str]) -> Optional[str]:
         cleaned = self._clean_generation_output(output)
         output_upper = cleaned.upper()
@@ -481,16 +509,19 @@ class SetwiseLlmRanker(LlmRanker):
         if is_numeric_scheme:
             numeric_patterns = (
                 r"(?:BEST|WORST|MOST\s+RELEVANT|LEAST\s+RELEVANT|ANSWER|OUTPUT)\s*[:\-\s]*(?:PASSAGE\s*)?(\d+)",
+                r"^\s*(\d+)(?:\s|[.,;:!?]|$)",
+                r"(?:MOST\s+RELEVANT|LEAST\s+RELEVANT|BEST|WORST|CLOSEST(?:\s+MATCH)?)[^.\n]{0,40}?PASSAGE\s+(\d+)",
+                r"PASSAGE\s+(\d+)\s+(?:IS|WAS)\s+(?:THE\s+)?(?:MOST(?:\s+RELEVANT)?|LEAST(?:\s+RELEVANT)?|BEST|WORST|CLOSEST(?:\s+MATCH)?)",
             )
             for pattern in numeric_patterns:
-                for match in re.findall(pattern, output_upper):
+                for match in re.findall(pattern, cleaned, flags=re.IGNORECASE):
                     idx = int(match) - 1
                     if 0 <= idx < len(valid_chars):
                         return valid_chars[idx]
 
         if is_numeric_scheme:
             strict = getattr(self, "strict_no_parse_fallback", False)
-            if re.search(refusal_regex, cleaned):
+            if self._is_numeric_refusal_output(output):
                 if strict:
                     return None
                 return valid_chars[0]
@@ -630,11 +661,19 @@ class SetwiseLlmRanker(LlmRanker):
                     print(f"[DEBUG] raw={repr(raw_output[:200])}  cleaned={repr(cleaned_dbg[:200])}")
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
-                    if getattr(self, "strict_no_parse_fallback", False):
+                    is_numeric = getattr(self, "label_scheme", None) == "numeric_1_based"
+                    if is_numeric and self._is_numeric_refusal_output(raw_output):
+                        # Deterministic no-op: head wins (no swap in TopDown)
+                        self.total_parse_fallback = getattr(self, "total_parse_fallback", 0) + 1
+                        if _DEBUG or getattr(self, "strict_no_parse_fallback", False):
+                            print(f"[MaxContext] refusal no-op (best=1). Raw: {raw_output!r}")
+                        output = self.CHARACTERS[0]
+                    elif getattr(self, "strict_no_parse_fallback", False):
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )
-                    output = self._clean_generation_output(raw_output).upper()
+                    else:
+                        output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
             # Completion tokens = 0: likelihood reads scores from a single forward

@@ -10,6 +10,21 @@
 
 > Method-level insights: what works, what doesn't, and why. These directly inform your claims, experiment design, and paper narrative.
 
+## [2026-04-26] MaxContext TopDown / BottomUp parser hardening, round 2: refusal-only deterministic no-op replaces strict-raise
+
+- Round-1's `strict_no_parse_fallback=True` (added 2026-04-25) was the right safety net but the wrong default for MaxContext single-extreme variants. Cluster sweeps at TopDown pool ∈ {20,30,40,50} and BottomUp pool ∈ {30,40,50} crashed on five reproducible Qwen3 output patterns the round-1 parser couldn't recover from:
+  - **Leading-digit-then-explanation**: `"3 Passage 3 is about… not relevant to the query about the daily life of Thai people."` — the model gave a clean leading `3` but the round-1 parser short-circuited on `"not relevant"` inside the explanation.
+  - **Pure refusal**: `"None of the passages are relevant to the query \"definition of a sigmet\"."` (×3 cases) — the round-1 strict raise had no graceful path.
+  - **Soft-refusal-then-decision**: `"None of the passages directly address … The most relevant passage is Passage 1, as it mentions …"` — the model both refused and identified Passage 1 mid-text; round-1 missed the answer because its qualifier-then-passage pattern required tighter adjacency.
+- Codex (`gpt-5.5`, xhigh) ran a two-round investigation + audit-loop. The final design separates three concerns that round-1 collapsed into one strict raise:
+  1. **Parser** (`llmrankers/setwise.py:_parse_single_label`): added 3 new numeric extractors (leading-digit `^\s*(\d+)(?:\s|[.,;:!?]|$)`; qualifier-then-passage `(?:MOST|LEAST|BEST|WORST|CLOSEST)[^.\n]{0,40}?PASSAGE\s+(\d+)`; passage-then-qualifier). Introduced a SEPARATE `NUMERIC_REFUSAL_REGEX` constant + `_is_numeric_refusal_output(raw)` helper. The legacy shared refusal regex (used by non-numeric callers) is unchanged — verified bit-for-bit. `ANSWER` deliberately excluded from the qualifier-then-passage pattern to avoid `"the answer is not Passage 3"` false positives.
+  2. **Call sites**: refusal-only no-op replaces strict-raise. `compare()` returns `CHARACTERS[0]` (TopDown head wins → no swap); `compare_worst()` returns `CHARACTERS[len(docs)-1]` (BottomUp tail stays worst → no swap). Out-of-window parsed labels (e.g. `"31"` in a 30-doc window) **still** raise via `_resolve_maxcontext_label_index` — this is a real bug, not a refusal.
+  3. **Prompt**: numeric-scheme-only suffix appended to `_build_best_prompt` / `_build_worst_prompt`: `"Reply with exactly one passage number from 1 to {len(docs)}. Do not explain. If none of the passages are clearly relevant, still pick the single closest one."` Window size interpolated live (not pool size — windows shrink each step).
+- New telemetry: `total_parse_fallback` counter on each MaxContext ranker; `run.py:optional_stat_labels` prints `Avg parse fallbacks:` per query when non-zero. Sanity threshold: <5% of `Avg comparisons`. If it spikes >20%, the prompt is overcorrecting and we should revisit.
+- 13-fixture parser regression + 4-case call-site regression added to `scripts/check_maxcontext_invariants.py`. Adversarial fixtures cover `"None of the 5 passages are relevant"` (must NOT parse `5`), `"The answer is not Passage 3; no passage is relevant."` (must NOT parse `3`), multi-line refusal-then-decision, and out-of-window `"Passage 31"` in a 30-doc window (must raise, NOT no-op). All pass.
+- **Lesson**: when adding tolerant fallbacks for LLM-output ambiguity, separate refusal (deterministic position-preserving no-op) from out-of-window parse (real bug, must abort) from genuine extraction (try harder before giving up). Round-1 conflated all three under strict-raise. Round-2 separates them and exposes telemetry so the rate is visible.
+- Round-1's `n_docs=2` BM25 endgame and the `MaxContextDualEndSetwiseLlmRanker` path are unchanged. DualEnd's "exactly one LLM call" invariant is preserved.
+
 ## [2026-04-25] idea:007 MaxContext family expanded to three variants with deterministic n_docs=2 endgame
 
 - The MaxContext family now has three variants (idea:007, plan in `IDEA_007.md`):

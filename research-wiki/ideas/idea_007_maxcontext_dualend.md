@@ -9,7 +9,7 @@ target_gaps: ["gap:G1", "gap:G4"]
 refines: ["idea:002"]
 origin_skill: manual-backfill
 created_at: 2026-04-20T10:55:00+10:00
-updated_at: 2026-04-25T00:00:00+10:00
+updated_at: 2026-04-26T00:00:00+10:00
 ---
 
 # Idea
@@ -29,7 +29,7 @@ Fit the entire rerank pool (`pool_size ≤ 50`) into a single Qwen prompt. The f
 - New ranker classes `MaxContextTopDownSetwiseLlmRanker` and `MaxContextBottomUpSetwiseLlmRanker` in `llmrankers/setwise_extended.py`.
 - Reuses `_double_ended_selection` (`setwise_extended.py:840-942`) with `num_child = pool_size - 1` so the single-group fast-path fires for the whole pool.
 - **Numeric labels 1..N** (not letters). Existing `CHARACTERS = ['A'..'W']` capped windows at 23; numeric-label refactor touches prompt construction, parser validation, fallback clamping, JSONL schema, and `analysis/position_bias.py`.
-- **Hard invariants** (aborts on violation): Qwen3 / Qwen3.5 generation only (no T5, no likelihood); `pool_size == hits == ranker.k`; `num_permutation == 1`; context-fit preflight passes; zero truncation; every call yields a full-parse (no silent fallback).
+- **Hard invariants** (aborts on violation): Qwen3 / Qwen3.5 generation only (no T5, no likelihood); `pool_size == hits == ranker.k`; `num_permutation == 1`; context-fit preflight passes; zero truncation. **Single-extreme parse policy** (TopDown/BottomUp, since 2026-04-26): structured-numeric extraction → numeric-only refusal regex → bare-digit fallback. On refusal, the call site takes a deterministic no-op (TopDown picks head, BottomUp picks tail), counted via `total_parse_fallback`. Out-of-window parsed labels still abort. DualEnd parsing is unchanged.
 - **Preflight** computes max-fit with actual tokenization of the fully rendered prompt (not arithmetic — `setwise.py:662`'s `truncate()` does a tokenize→decode→re-tokenize roundtrip that invalidates closed-form bounds).
 
 ## Variants
@@ -68,7 +68,7 @@ Active, tests not yet run. Detailed plan in `/Users/hangli/projects/llm-rankers/
 ## Risks (top four)
 
 1. **Long-context attention degradation** at w=50 (paper:liu2024_lost_in_middle). Study B's control arm is the designed test.
-2. **Numeric-label parse fragility at N=50.** Existing parser's silent-default behaviour is a landmine. Abort-on-bad-parse is mandatory.
+2. **Numeric-label parse fragility at N=50.** First addressed 2026-04-25 with abort-on-bad-parse + multi-digit-collapse fix + `n_docs=2` BM25 endgame. Hardened again 2026-04-26 after cluster runs surfaced refusal-style outputs the round-1 strict raise couldn't tolerate; now uses structured-numeric extraction → numeric-only refusal detection → refusal-only deterministic no-op fallback (TopDown head / BottomUp tail), with `total_parse_fallback` telemetry. Out-of-window parsed labels still abort.
 3. **Order sensitivity.** Study C gates the full matrix (max pairwise NDCG@10 Δ across orderings ≤ 0.01).
 4. **Token-frontier framing.** MaxContext uses more prompt tokens than DE-Cocktail; claim:C9's token axis cannot improve. Paper framing must be precise. The TopDown/BottomUp endgame is asymmetric: TopDown resolves the tail, BottomUp resolves ranks 1-2.
 

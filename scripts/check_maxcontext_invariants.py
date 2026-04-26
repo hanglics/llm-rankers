@@ -317,6 +317,36 @@ def build_strict_bottomup_compare_stub():
     return ranker
 
 
+def build_maxcontext_numeric_compare_stub(raw_outputs, *, pool_size):
+    ranker = object.__new__(MaxContextBottomUpSetwiseLlmRanker)
+    outputs = iter(raw_outputs)
+    ranker.total_compare = 0
+    ranker.total_parse_fallback = 0
+    ranker.num_permutation = 1
+    ranker.total_prompt_tokens = 0
+    ranker.total_completion_tokens = 0
+    ranker.scoring = "generation"
+    ranker.config = SimpleNamespace(model_type="qwen3")
+    ranker.tokenizer = SimpleNamespace(decode=lambda *_args, **_kwargs: next(outputs))
+    ranker.CHARACTERS = [str(i + 1) for i in range(pool_size)]
+    ranker.strict_no_parse_fallback = True
+    ranker.label_scheme = "numeric_1_based"
+    ranker._comparison_log_path = None
+    ranker._current_qid = None
+    ranker._build_best_prompt = lambda query, docs: "prompt"
+    ranker._build_worst_prompt = lambda query, docs: "prompt"
+    ranker._build_chat_prompt = lambda messages: messages[0]["content"]
+    ranker._tokenize_inputs = lambda prompt: DummyBatch(
+        {
+            "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+            "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+        }
+    )
+    ranker._generate = lambda inputs, max_new_tokens: torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    ranker._is_supported_causal_model = lambda: True
+    return ranker
+
+
 def test_dispatch_invariants():
     expect_raises(
         lambda: run_module.main(make_run_args(hits=20, k=10)),
@@ -888,6 +918,82 @@ def test_single_label_parser_hardening():
     assert legacy_letter_ranker._parse_single_label("A", ["A", "B", "C"]) == "A"
 
 
+def test_maxcontext_numeric_parse_fallback():
+    numeric_ranker = build_single_label_parser_stub(
+        strict=True,
+        label_scheme="numeric_1_based",
+        characters=[str(i) for i in range(1, 51)],
+    )
+    fixtures = [
+        (
+            "3 Passage 3 is about the relationship between Lao and Thai languages and mentions Khmer, which is not relevant to the query about the daily life of Thai people.",
+            [str(i) for i in range(1, 51)],
+            "3",
+        ),
+        (
+            'None of the passages are relevant to the query "what is the most popular food in switzerland".',
+            [str(i) for i in range(1, 11)],
+            None,
+        ),
+        (
+            "None of the passages directly address how to find the midsegment of a trapezoid. However, Passage 1 and Passage 2 discuss the area of a trapezoid, which involves the midsegment (since the midsegment is the average of the two bases). Passage 4 repeats the same information as Passage 2. The most relevant passage is Passage 1, as it mentions the formula for the area of a trapezoid, which is closely related to the midsegment. \n\nHowever, since none of the passages explicitly mention the midsegment, the correct answer is:\n\nNone",
+            [str(i) for i in range(1, 31)],
+            "1",
+        ),
+        (
+            'None of the passages are relevant to the query "definition of a sigmet".',
+            [str(i) for i in range(1, 41)],
+            None,
+        ),
+        (
+            'None of the passages are relevant to the query "definition of a sigmet".',
+            [str(i) for i in range(1, 51)],
+            None,
+        ),
+        ("None of the 5 passages are relevant", [str(i) for i in range(1, 11)], None),
+        ("No passages are relevant", [str(i) for i in range(1, 11)], None),
+        ("The most relevant passage is Passage 23.", [str(i) for i in range(1, 31)], "23"),
+        ("Passage 23 is the closest match.", [str(i) for i in range(1, 31)], "23"),
+        ("The answer is not Passage 3; no passage is relevant.", [str(i) for i in range(1, 11)], None),
+        (
+            "None of the passages are directly relevant.\nHowever, Passage 1 is most relevant.",
+            [str(i) for i in range(1, 11)],
+            "1",
+        ),
+        (
+            'The query says "none of the above"; Passage 2 is most relevant.',
+            [str(i) for i in range(1, 11)],
+            "2",
+        ),
+        ("Best: 3", [str(i) for i in range(1, 11)], "3"),
+    ]
+    for raw, valid_chars, expected in fixtures:
+        assert numeric_ranker._parse_single_label(raw, valid_chars) == expected
+
+
+def test_maxcontext_compare_refusal_noop():
+    case2 = 'None of the passages are relevant to the query "what is the most popular food in switzerland".'
+    case4 = 'None of the passages are relevant to the query "definition of a sigmet".'
+    case5 = 'None of the passages are relevant to the query "definition of a sigmet".'
+
+    ranker = build_maxcontext_numeric_compare_stub([case2, case4, case5], pool_size=50)
+    assert ranker.compare("query", make_docs(10)) == "1"
+    assert ranker.compare("query", make_docs(40)) == "1"
+    assert ranker.compare_worst("query", make_docs(50)) == "50"
+    assert ranker.total_parse_fallback == 3
+
+    out_of_window_ranker = build_maxcontext_numeric_compare_stub(
+        ["Passage 31 is most relevant"],
+        pool_size=30,
+    )
+    expect_raises(
+        lambda: out_of_window_ranker.compare("query", make_docs(30)),
+        ValueError,
+        "Raw text",
+    )
+    assert out_of_window_ranker.total_parse_fallback == 0
+
+
 def test_compare_both_duplicate_rewrite_guard():
     ranker = build_dualend_stub(strict=True)
     ranker.total_compare = 0
@@ -1114,6 +1220,8 @@ def main():
     test_maxcontext_bottomup_invariants()
     test_parse_invariants()
     test_single_label_parser_hardening()
+    test_maxcontext_numeric_parse_fallback()
+    test_maxcontext_compare_refusal_noop()
     test_compare_both_duplicate_rewrite_guard()
     test_tokenize_invariants()
     test_default_false_flags_and_logging()

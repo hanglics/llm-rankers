@@ -28,6 +28,7 @@ def _setup_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
     ranker.method = "selection"
     ranker.strict_no_truncation = True
     ranker.strict_no_parse_fallback = True
+    ranker.total_parse_fallback = 0
     ranker.label_scheme = "numeric_1_based"
     ranker._maxcontext_pool_size = pool_size
 
@@ -208,11 +209,18 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                                                    skip_special_tokens=False).strip()
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
-                    if getattr(self, "strict_no_parse_fallback", False):
+                    is_numeric = getattr(self, "label_scheme", None) == "numeric_1_based"
+                    if is_numeric and self._is_numeric_refusal_output(raw_output):
+                        # Deterministic no-op: tail stays worst (no swap in BottomUp)
+                        self.total_parse_fallback = getattr(self, "total_parse_fallback", 0) + 1
+                        print(f"[MaxContext] refusal no-op (worst={len(docs)}). Raw: {raw_output!r}")
+                        output = self.CHARACTERS[len(docs) - 1]
+                    elif getattr(self, "strict_no_parse_fallback", False):
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )
-                    output = self._clean_generation_output(raw_output).upper()
+                    else:
+                        output = self._clean_generation_output(raw_output).upper()
 
         elif self.scoring == 'likelihood':
             scores = self._score_label_candidates(input_text, len(docs))
@@ -1780,6 +1788,7 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
     ) -> List[SearchResult]:
         ranking = list(docs)
         self.total_compare = 0
+        self.total_parse_fallback = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.total_bm25_bypass = 0
@@ -1878,6 +1887,7 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
     ) -> List[SearchResult]:
         ranking = list(docs)
         self.total_compare = 0
+        self.total_parse_fallback = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.total_bm25_bypass = 0
