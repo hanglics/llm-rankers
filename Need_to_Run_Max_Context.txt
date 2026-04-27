@@ -1,0 +1,258 @@
+# Original TopDown-Heap (WS=4)
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top10 \
+cuda generation 3 10 10 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top20 \
+cuda generation 3 20 20 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top30 \
+cuda generation 3 30 30 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top40 \
+cuda generation 3 40 40 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top50 \
+cuda generation 3 50 50 512 heapsort
+
+# Original TopDown-Bubble (WS=4)
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top10 \
+cuda generation 3 10 10 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top20 \
+cuda generation 3 20 20 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top30 \
+cuda generation 3 30 30 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top40 \
+cuda generation 3 40 40 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-4/top50 \
+cuda generation 3 50 50 512 bubblesort
+
+# Original TopDown-Heap (WS=PS)
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top10 \
+cuda generation 10 10 10 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top20 \
+cuda generation 20 20 20 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top30 \
+cuda generation 30 30 30 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top40 \
+cuda generation 40 40 40 512 heapsort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top50 \
+cuda generation 50 50 50 512 heapsort
+
+# Original TopDown-Bubble (WS=PS)
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top10 \
+cuda generation 10 10 10 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top20 \
+cuda generation 20 20 20 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top30 \
+cuda generation 30 30 30 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top40 \
+cuda generation 40 40 40 512 bubblesort
+
+sbatch experiments/run_topdown_bigram.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/original/ws-ps/top50 \
+cuda generation 50 50 50 512 bubblesort
+
+# Max Context TopDown
+
+sbatch experiments/run_maxcontext_topdown.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/topdown/top10 \
+cuda generation 10 512
+
+sbatch experiments/run_maxcontext_topdown.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/topdown/top20 \
+cuda generation 20 512
+
+sbatch experiments/run_maxcontext_topdown.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/topdown/top30 \
+cuda generation 30 512
+
+sbatch experiments/run_maxcontext_topdown.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/topdown/top40 \
+cuda generation 40 512
+
+sbatch experiments/run_maxcontext_topdown.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/topdown/top50 \
+cuda generation 50 512
+
+# Dualend Max Context
+
+sbatch experiments/run_maxcontext_dualend.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/phase1/qwen3-4b-dl19/top10 \
+cuda generation 10 512
+
+sbatch experiments/run_maxcontext_dualend.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/phase1/qwen3-4b-dl19/top20 \
+cuda generation 20 512
+
+sbatch experiments/run_maxcontext_dualend.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/phase1/qwen3-4b-dl19/top30 \
+cuda generation 30 512
+
+sbatch experiments/run_maxcontext_dualend.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/phase1/qwen3-4b-dl19/top40 \
+cuda generation 40 512
+
+sbatch experiments/run_maxcontext_dualend.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/phase1/qwen3-4b-dl19/top50 \
+cuda generation 50 512
+
+# Max Context BottomUp
+
+sbatch experiments/run_maxcontext_bottomup.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/bottomup/top10 \
+cuda generation 10 512
+
+sbatch experiments/run_maxcontext_bottomup.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/bottomup/top20 \
+cuda generation 20 512
+
+sbatch experiments/run_maxcontext_bottomup.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/bottomup/top30 \
+cuda generation 30 512
+
+sbatch experiments/run_maxcontext_bottomup.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/bottomup/top40 \
+cuda generation 40 512
+
+sbatch experiments/run_maxcontext_bottomup.sh \
+Qwen/Qwen3-4B \
+msmarco-passage/trec-dl-2019/judged \
+runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
+results/maxcontext_dualend/after-parser-fix-v2/baseline/qwen3-4b-dl19/max-context/bottomup/top50 \
+cuda generation 50 512
