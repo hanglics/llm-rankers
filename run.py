@@ -381,6 +381,8 @@ def main(args):
         "total_extra_orderings": "extra orderings",
         "total_regularized_worst_moves": "regularized worst moves",
         "total_parse_fallback": "parse fallbacks",
+        "total_lexical_refusal_fallback": "lexical refusal fallbacks",
+        "total_numeric_out_of_range_fallback": "numeric out-of-range fallbacks",
     }
     optional_stat_totals = {
         attr: 0.0 for attr in optional_stat_labels if hasattr(ranker, attr)

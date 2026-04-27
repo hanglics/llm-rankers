@@ -29,6 +29,8 @@ def _setup_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
     ranker.strict_no_truncation = True
     ranker.strict_no_parse_fallback = True
     ranker.total_parse_fallback = 0
+    ranker.total_lexical_refusal_fallback = 0
+    ranker.total_numeric_out_of_range_fallback = 0
     ranker.label_scheme = "numeric_1_based"
     ranker._maxcontext_pool_size = pool_size
 
@@ -112,6 +114,8 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
     def compare_worst(self, query: str, docs: List):
         """Select the LEAST relevant document from the candidate set."""
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
+        parse_status = "parsed"
+        parse_fallback_reason = None
 
         input_text = self._build_worst_prompt(query, docs)
 
@@ -210,17 +214,23 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
                     is_numeric = getattr(self, "label_scheme", None) == "numeric_1_based"
-                    if is_numeric and self._is_numeric_refusal_output(raw_output):
+                    reason = self._classify_numeric_noop(raw_output, len(docs)) if is_numeric else None
+                    if reason is not None:
                         # Deterministic no-op: tail stays worst (no swap in BottomUp)
                         self.total_parse_fallback = getattr(self, "total_parse_fallback", 0) + 1
-                        print(f"[MaxContext] refusal no-op (worst={len(docs)}). Raw: {raw_output!r}")
+                        counter_name = f"total_{reason}_fallback"
+                        setattr(self, counter_name, getattr(self, counter_name, 0) + 1)
+                        print(f"[MaxContext] {reason} no-op (worst={len(docs)}). Raw: {raw_output!r}")
                         output = self.CHARACTERS[len(docs) - 1]
+                        parse_status = f"{reason}_noop"
+                        parse_fallback_reason = reason
                     elif getattr(self, "strict_no_parse_fallback", False):
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )
                     else:
                         output = self._clean_generation_output(raw_output).upper()
+                        parse_status = "lenient_fallback"
 
         elif self.scoring == 'likelihood':
             scores = self._score_label_candidates(input_text, len(docs))
@@ -234,7 +244,11 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
             output = ranked[0][0]
 
         if output in self.CHARACTERS[:len(docs)]:
-            self._log_comparison("worst", self.CHARACTERS[:len(docs)], output, docs)
+            self._log_comparison(
+                "worst", self.CHARACTERS[:len(docs)], output, docs,
+                parse_status=parse_status,
+                parse_fallback_reason=parse_fallback_reason,
+            )
         else:
             print(f"Unexpected output: {output}")
 
@@ -502,6 +516,10 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             Tuple[str, str]: (best_label, worst_label) as character labels
         """
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
+        parse_status = "parsed"
+        parse_fallback_reason = None
+        comparison_raw_output = None
+        is_numeric = getattr(self, "label_scheme", None) == "numeric_1_based"
 
         if len(docs) < 2:
             return self.CHARACTERS[0], self.CHARACTERS[0]
@@ -554,11 +572,35 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
                 self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
 
-                output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
-                                               skip_special_tokens=False).strip()
-                output = self._clean_generation_output(output)
+                raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:],
+                                                   skip_special_tokens=False).strip()
+                cleaned_output = self._clean_generation_output(raw_output)
                 # Always parse from the single call — never fall back to 2 separate calls
-                best, worst = self._parse_dual_output(output, len(docs))
+                try:
+                    best, worst = self._parse_dual_output(cleaned_output, len(docs))
+                except ValueError:
+                    if not is_numeric:
+                        raise
+                    has_structured = bool(re.search(
+                        r"\b(BEST|WORST|PASSAGE\s*\d+)\b",
+                        cleaned_output,
+                        flags=re.IGNORECASE,
+                    ))
+                    reason = self._classify_numeric_noop(raw_output, len(docs))
+                    if reason is None or has_structured:
+                        raise
+                    self.total_parse_fallback = getattr(self, "total_parse_fallback", 0) + 1
+                    counter_name = f"total_{reason}_fallback"
+                    setattr(self, counter_name, getattr(self, counter_name, 0) + 1)
+                    print(
+                        f"[MaxContext] dual {reason} no-op "
+                        f"(best=1, worst={len(docs)}). Raw: {raw_output!r}"
+                    )
+                    best = self.CHARACTERS[0]
+                    worst = self.CHARACTERS[len(docs) - 1]
+                    parse_status = f"{reason}_noop"
+                    parse_fallback_reason = reason
+                    comparison_raw_output = raw_output
 
         elif self.scoring == 'likelihood':
             # Explicit likelihood mode uses the same single-forward-pass shortcut
@@ -587,8 +629,18 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                     worst = c
                     break
 
-        self._log_comparison("dual_best", self.CHARACTERS[:len(docs)], best, docs)
-        self._log_comparison("dual_worst", self.CHARACTERS[:len(docs)], worst, docs)
+        self._log_comparison(
+            "dual_best", self.CHARACTERS[:len(docs)], best, docs,
+            parse_status=parse_status,
+            parse_fallback_reason=parse_fallback_reason,
+            raw_output=comparison_raw_output,
+        )
+        self._log_comparison(
+            "dual_worst", self.CHARACTERS[:len(docs)], worst, docs,
+            parse_status=parse_status,
+            parse_fallback_reason=parse_fallback_reason,
+            raw_output=comparison_raw_output,
+        )
 
         return best, worst
 
@@ -1151,13 +1203,7 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
         )
         super().__init__(*args, **kwargs)
         self._assert_maxcontext_invariants(pool_size)
-        self.CHARACTERS = [str(i + 1) for i in range(pool_size)]
-        self.num_child = pool_size - 1
-        self.method = "selection"
-        self.strict_no_truncation = True
-        self.strict_no_parse_fallback = True
-        self.label_scheme = "numeric_1_based"
-        self._maxcontext_pool_size = pool_size
+        _setup_maxcontext_numeric_attrs(self, pool_size)
 
     @staticmethod
     def _early_reject_non_qwen3(model_name: Optional[str]) -> None:
@@ -1199,6 +1245,9 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
                 f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
             )
         self._assert_maxcontext_fits(query, docs)
+        self.total_parse_fallback = 0
+        self.total_lexical_refusal_fallback = 0
+        self.total_numeric_out_of_range_fallback = 0
         return super().rerank(query, docs)
 
     def _assert_maxcontext_fits(self, query: str, docs: List[SearchResult]) -> None:
@@ -1789,6 +1838,8 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
         ranking = list(docs)
         self.total_compare = 0
         self.total_parse_fallback = 0
+        self.total_lexical_refusal_fallback = 0
+        self.total_numeric_out_of_range_fallback = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.total_bm25_bypass = 0
@@ -1888,6 +1939,8 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
         ranking = list(docs)
         self.total_compare = 0
         self.total_parse_fallback = 0
+        self.total_lexical_refusal_fallback = 0
+        self.total_numeric_out_of_range_fallback = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.total_bm25_bypass = 0

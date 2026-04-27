@@ -322,6 +322,8 @@ def build_maxcontext_numeric_compare_stub(raw_outputs, *, pool_size):
     outputs = iter(raw_outputs)
     ranker.total_compare = 0
     ranker.total_parse_fallback = 0
+    ranker.total_lexical_refusal_fallback = 0
+    ranker.total_numeric_out_of_range_fallback = 0
     ranker.num_permutation = 1
     ranker.total_prompt_tokens = 0
     ranker.total_completion_tokens = 0
@@ -335,6 +337,37 @@ def build_maxcontext_numeric_compare_stub(raw_outputs, *, pool_size):
     ranker._current_qid = None
     ranker._build_best_prompt = lambda query, docs: "prompt"
     ranker._build_worst_prompt = lambda query, docs: "prompt"
+    ranker._build_chat_prompt = lambda messages: messages[0]["content"]
+    ranker._tokenize_inputs = lambda prompt: DummyBatch(
+        {
+            "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+            "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+        }
+    )
+    ranker._generate = lambda inputs, max_new_tokens: torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+    ranker._is_supported_causal_model = lambda: True
+    return ranker
+
+
+def build_maxcontext_dualend_compare_stub(raw_outputs, *, pool_size, log_path=None):
+    ranker = object.__new__(MaxContextDualEndSetwiseLlmRanker)
+    outputs = iter(raw_outputs)
+    ranker.total_compare = 0
+    ranker.total_parse_fallback = 0
+    ranker.total_lexical_refusal_fallback = 0
+    ranker.total_numeric_out_of_range_fallback = 0
+    ranker.num_permutation = 1
+    ranker.total_prompt_tokens = 0
+    ranker.total_completion_tokens = 0
+    ranker.scoring = "generation"
+    ranker.config = SimpleNamespace(model_type="qwen3")
+    ranker.tokenizer = SimpleNamespace(decode=lambda *_args, **_kwargs: next(outputs))
+    ranker.CHARACTERS = [str(i + 1) for i in range(pool_size)]
+    ranker.strict_no_parse_fallback = True
+    ranker.label_scheme = "numeric_1_based"
+    ranker._comparison_log_path = log_path
+    ranker._current_qid = "q1"
+    ranker._format_passages = lambda docs: "\n".join(doc.text for doc in docs)
     ranker._build_chat_prompt = lambda messages: messages[0]["content"]
     ranker._tokenize_inputs = lambda prompt: DummyBatch(
         {
@@ -459,6 +492,9 @@ def test_maxcontext_dualend_byte_identity_snapshot():
         "num_child": 9,
         "strict_no_truncation": True,
         "strict_no_parse_fallback": True,
+        "total_parse_fallback": 0,
+        "total_lexical_refusal_fallback": 0,
+        "total_numeric_out_of_range_fallback": 0,
         "label_scheme": "numeric_1_based",
         "_maxcontext_pool_size": 10,
     }
@@ -829,11 +865,13 @@ def test_maxcontext_bottomup_invariants():
     prompt_ranker._build_worst_prompt.assert_called_once_with("query", make_docs(2))
 
 
-def build_dualend_stub(*, strict=False):
+def build_dualend_stub(*, strict=False, label_scheme=None, characters=None):
     ranker = object.__new__(DualEndSetwiseLlmRanker)
-    ranker.CHARACTERS = [chr(ord("A") + i) for i in range(23)]
+    ranker.CHARACTERS = characters or [chr(ord("A") + i) for i in range(23)]
     ranker.strict_no_parse_fallback = strict
     ranker.strict_no_truncation = False
+    if label_scheme is not None:
+        ranker.label_scheme = label_scheme
     ranker._comparison_log_path = None
     ranker._current_qid = None
     return ranker
@@ -886,6 +924,47 @@ def test_parse_invariants():
     assert relaxed_ranker._parse_dual_output("###", 3) == ("A", "C")
 
 
+def test_classify_numeric_noop_unit():
+    ranker = build_single_label_parser_stub(
+        strict=True,
+        label_scheme="numeric_1_based",
+        characters=[str(i) for i in range(1, 51)],
+    )
+    assert ranker._classify_numeric_noop("0", 50) == "numeric_out_of_range"
+    assert ranker._classify_numeric_noop("0<|im_end|>", 50) == "numeric_out_of_range"
+    assert ranker._classify_numeric_noop("-1", 50) == "numeric_out_of_range"
+    assert ranker._classify_numeric_noop("51", 50) == "numeric_out_of_range"
+    assert ranker._classify_numeric_noop("None of the passages are relevant.", 50) == "lexical_refusal"
+    assert ranker._classify_numeric_noop("I cannot determine.", 50) == "lexical_refusal"
+    assert ranker._classify_numeric_noop("25", 50) is None
+    assert ranker._classify_numeric_noop("Passage 51 is most relevant", 50) is None
+    assert ranker._classify_numeric_noop("The answer is 0.", 50) is None
+
+    legacy_ranker = build_single_label_parser_stub(
+        characters=[chr(ord("A") + i) for i in range(23)],
+    )
+    assert legacy_ranker._classify_numeric_noop("0", 50) is None
+
+
+def test_parse_dual_output_strict_unchanged():
+    numeric_ranker = build_dualend_stub(
+        strict=True,
+        label_scheme="numeric_1_based",
+        characters=[str(i) for i in range(1, 11)],
+    )
+    expect_raises(
+        lambda: numeric_ranker._parse_dual_output("0", 10),
+        ValueError,
+        "parse failed",
+    )
+    expect_raises(
+        lambda: numeric_ranker._parse_dual_output("Best: 0, Worst: 7", 10),
+        ValueError,
+        "parse failed",
+    )
+    assert numeric_ranker._try_parse_dual_output("Best: 17, Worst: 42", 10) is None
+
+
 def test_single_label_parser_hardening():
     numeric_valid = [str(i) for i in range(1, 31)]
     numeric_ranker = build_single_label_parser_stub(
@@ -916,6 +995,7 @@ def test_single_label_parser_hardening():
     legacy_letter_ranker = build_single_label_parser_stub(characters=letter_valid)
     assert legacy_letter_ranker._parse_single_label("10", letter_valid) == "J"
     assert legacy_letter_ranker._parse_single_label("A", ["A", "B", "C"]) == "A"
+    assert legacy_letter_ranker._parse_single_label("-1", letter_valid) == "A"
 
 
 def test_maxcontext_numeric_parse_fallback():
@@ -966,6 +1046,12 @@ def test_maxcontext_numeric_parse_fallback():
             "2",
         ),
         ("Best: 3", [str(i) for i in range(1, 11)], "3"),
+        ("0", [str(i) for i in range(1, 51)], None),
+        ("0<|im_end|>", [str(i) for i in range(1, 51)], None),
+        ("-1", [str(i) for i in range(1, 51)], None),
+        ("51", [str(i) for i in range(1, 51)], None),
+        ("0\n", [str(i) for i in range(1, 51)], None),
+        ("  0  ", [str(i) for i in range(1, 51)], None),
     ]
     for raw, valid_chars, expected in fixtures:
         assert numeric_ranker._parse_single_label(raw, valid_chars) == expected
@@ -981,6 +1067,8 @@ def test_maxcontext_compare_refusal_noop():
     assert ranker.compare("query", make_docs(40)) == "1"
     assert ranker.compare_worst("query", make_docs(50)) == "50"
     assert ranker.total_parse_fallback == 3
+    assert ranker.total_lexical_refusal_fallback == 3
+    assert ranker.total_numeric_out_of_range_fallback == 0
 
     out_of_window_ranker = build_maxcontext_numeric_compare_stub(
         ["Passage 31 is most relevant"],
@@ -992,6 +1080,75 @@ def test_maxcontext_compare_refusal_noop():
         "Raw text",
     )
     assert out_of_window_ranker.total_parse_fallback == 0
+
+
+def test_maxcontext_compare_numeric_out_of_range_noop():
+    raw_inputs = ["0", "0<|im_end|>", "-1", "51", "0\n", "  0  "]
+
+    td_ranker = build_maxcontext_numeric_compare_stub(raw_inputs, pool_size=50)
+    for _ in raw_inputs:
+        assert td_ranker.compare("query", make_docs(50)) == "1"
+    assert td_ranker.total_parse_fallback == len(raw_inputs)
+    assert td_ranker.total_numeric_out_of_range_fallback == len(raw_inputs)
+    assert td_ranker.total_lexical_refusal_fallback == 0
+
+    bu_ranker = build_maxcontext_numeric_compare_stub(raw_inputs, pool_size=50)
+    for _ in raw_inputs:
+        assert bu_ranker.compare_worst("query", make_docs(50)) == "50"
+    assert bu_ranker.total_parse_fallback == len(raw_inputs)
+    assert bu_ranker.total_numeric_out_of_range_fallback == len(raw_inputs)
+    assert bu_ranker.total_lexical_refusal_fallback == 0
+
+
+def test_maxcontext_dualend_compare_both_noop():
+    raw_inputs = ["0", "0<|im_end|>", "-1", "51", "0\n", "  0  "]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_path = str(Path(tmpdir) / "dual.jsonl")
+        de_ranker = build_maxcontext_dualend_compare_stub(raw_inputs, pool_size=50, log_path=log_path)
+        for _ in raw_inputs:
+            best, worst = de_ranker.compare_both("query", make_docs(50))
+            assert best == "1"
+            assert worst == "50"
+        assert de_ranker.total_parse_fallback == len(raw_inputs)
+        assert de_ranker.total_numeric_out_of_range_fallback == len(raw_inputs)
+        assert de_ranker.total_lexical_refusal_fallback == 0
+        log_entries = [json.loads(line) for line in Path(log_path).read_text().splitlines()]
+        assert len(log_entries) == len(raw_inputs) * 2
+        assert {entry["parse_status"] for entry in log_entries} == {"numeric_out_of_range_noop"}
+        assert {entry["parse_fallback_reason"] for entry in log_entries} == {"numeric_out_of_range"}
+        assert "0<|im_end|>" in {entry["raw_output"] for entry in log_entries}
+
+    lex_ranker = build_maxcontext_dualend_compare_stub(
+        ["None of the passages are relevant."],
+        pool_size=50,
+    )
+    best, worst = lex_ranker.compare_both("query", make_docs(50))
+    assert best == "1"
+    assert worst == "50"
+    assert lex_ranker.total_parse_fallback == 1
+    assert lex_ranker.total_lexical_refusal_fallback == 1
+    assert lex_ranker.total_numeric_out_of_range_fallback == 0
+
+    err_ranker = build_maxcontext_dualend_compare_stub(
+        ["Best: 0, Worst: 7"],
+        pool_size=10,
+    )
+    expect_raises(
+        lambda: err_ranker.compare_both("query", make_docs(10)),
+        ValueError,
+        "parse failed",
+    )
+
+    embedded_ranker = build_maxcontext_dualend_compare_stub(
+        ["Best: 3, Worst: none of the others"],
+        pool_size=10,
+    )
+    expect_raises(
+        lambda: embedded_ranker.compare_both("query", make_docs(10)),
+        ValueError,
+        "parse failed",
+    )
+    assert embedded_ranker.total_parse_fallback == 0
 
 
 def test_compare_both_duplicate_rewrite_guard():
@@ -1219,9 +1376,13 @@ def main():
     test_maxcontext_topdown_invariants()
     test_maxcontext_bottomup_invariants()
     test_parse_invariants()
+    test_classify_numeric_noop_unit()
+    test_parse_dual_output_strict_unchanged()
     test_single_label_parser_hardening()
     test_maxcontext_numeric_parse_fallback()
     test_maxcontext_compare_refusal_noop()
+    test_maxcontext_compare_numeric_out_of_range_noop()
+    test_maxcontext_dualend_compare_both_noop()
     test_compare_both_duplicate_rewrite_guard()
     test_tokenize_invariants()
     test_default_false_flags_and_logging()

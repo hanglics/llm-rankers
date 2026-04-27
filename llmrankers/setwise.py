@@ -167,7 +167,11 @@ class SetwiseLlmRanker(LlmRanker):
     def _is_supported_causal_model(self):
         return self.config.model_type in CAUSAL_MODEL_TYPES
 
-    def _log_comparison(self, comp_type: str, positions: list, selected: str, docs: list = None):
+    def _log_comparison(self, comp_type: str, positions: list, selected: str,
+                        docs: list = None,
+                        parse_status: str = None,
+                        parse_fallback_reason: str = None,
+                        raw_output: str = None):
         """Log a comparison for position bias analysis."""
         log_path = getattr(self, '_comparison_log_path', None)
         if not log_path:
@@ -184,6 +188,12 @@ class SetwiseLlmRanker(LlmRanker):
         label_scheme = getattr(self, "label_scheme", None)
         if label_scheme:
             entry["label_scheme"] = label_scheme
+        if parse_status is not None:
+            entry["parse_status"] = parse_status
+        if parse_fallback_reason is not None:
+            entry["parse_fallback_reason"] = parse_fallback_reason
+        if raw_output is not None:
+            entry["raw_output"] = raw_output
         with open(log_path, 'a') as f:
             f.write(_json.dumps(entry) + "\n")
 
@@ -207,7 +217,8 @@ class SetwiseLlmRanker(LlmRanker):
         if getattr(self, "label_scheme", None) == "numeric_1_based":
             prompt += (
                 f"\n\nReply with exactly one passage number from 1 to {len(docs)}. "
-                "Do not explain. If none of the passages are clearly relevant, "
+                "Do not explain. Do not output 0 or any number outside 1 to "
+                f"{len(docs)}. If none of the passages are clearly relevant, "
                 "still pick the single closest one."
             )
         return prompt
@@ -222,7 +233,8 @@ class SetwiseLlmRanker(LlmRanker):
         if getattr(self, "label_scheme", None) == "numeric_1_based":
             prompt += (
                 f"\n\nReply with exactly one passage number from 1 to {len(docs)}. "
-                "Do not explain. If none of the passages are clearly irrelevant, "
+                "Do not explain. Do not output 0 or any number outside 1 to "
+                f"{len(docs)}. If none of the passages are clearly irrelevant, "
                 "still pick the single least relevant one."
             )
         return prompt
@@ -453,10 +465,28 @@ class SetwiseLlmRanker(LlmRanker):
         r"\bthere\s+is\s+no\s+(least|most)\s+relevant\b|"
         r"\bif\s+there\s+was\s+a\s+passage\b"
     )
+    _NUMERIC_ONLY_REGEX = re.compile(r"^\s*(-?\d+)\s*$")
 
     def _is_numeric_refusal_output(self, raw: str) -> bool:
         cleaned = self._clean_generation_output(raw)
         return re.search(self.NUMERIC_REFUSAL_REGEX, cleaned, flags=re.IGNORECASE) is not None
+
+    def _classify_numeric_noop(self, raw: str, n_docs: int) -> Optional[str]:
+        """Return the recognized numeric-scheme no-op reason, or None."""
+        if getattr(self, "label_scheme", None) != "numeric_1_based":
+            return None
+        cleaned = self._clean_generation_output(raw)
+        if re.search(self.NUMERIC_REFUSAL_REGEX, cleaned, flags=re.IGNORECASE):
+            return "lexical_refusal"
+        match = self._NUMERIC_ONLY_REGEX.match(cleaned)
+        if match:
+            try:
+                value = int(match.group(1))
+            except ValueError:
+                return None
+            if value < 1 or value > n_docs:
+                return "numeric_out_of_range"
+        return None
 
     def _parse_single_label(self, output: str, valid_chars: Sequence[str]) -> Optional[str]:
         cleaned = self._clean_generation_output(output)
@@ -526,6 +556,9 @@ class SetwiseLlmRanker(LlmRanker):
                     return None
                 return valid_chars[0]
 
+            if self._NUMERIC_ONLY_REGEX.match(cleaned):
+                return None
+
             num_match = re.search(r"\b(\d+)\b", cleaned)
             if num_match:
                 idx = int(num_match.group(1)) - 1  # convert 1-based to 0-based
@@ -549,6 +582,8 @@ class SetwiseLlmRanker(LlmRanker):
 
     def compare(self, query: str, docs: List):
         self.total_compare += 1 if self.num_permutation == 1 else self.num_permutation
+        parse_status = "parsed"
+        parse_fallback_reason = None
 
         input_text = self._build_best_prompt(query, docs)
 
@@ -662,18 +697,24 @@ class SetwiseLlmRanker(LlmRanker):
                 output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
                 if output is None:
                     is_numeric = getattr(self, "label_scheme", None) == "numeric_1_based"
-                    if is_numeric and self._is_numeric_refusal_output(raw_output):
+                    reason = self._classify_numeric_noop(raw_output, len(docs)) if is_numeric else None
+                    if reason is not None:
                         # Deterministic no-op: head wins (no swap in TopDown)
                         self.total_parse_fallback = getattr(self, "total_parse_fallback", 0) + 1
+                        counter_name = f"total_{reason}_fallback"
+                        setattr(self, counter_name, getattr(self, counter_name, 0) + 1)
                         if _DEBUG or getattr(self, "strict_no_parse_fallback", False):
-                            print(f"[MaxContext] refusal no-op (best=1). Raw: {raw_output!r}")
+                            print(f"[MaxContext] {reason} no-op (best=1). Raw: {raw_output!r}")
                         output = self.CHARACTERS[0]
+                        parse_status = f"{reason}_noop"
+                        parse_fallback_reason = reason
                     elif getattr(self, "strict_no_parse_fallback", False):
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )
                     else:
                         output = self._clean_generation_output(raw_output).upper()
+                        parse_status = "lenient_fallback"
 
         elif self.scoring == 'likelihood':
             # Completion tokens = 0: likelihood reads scores from a single forward
@@ -687,7 +728,11 @@ class SetwiseLlmRanker(LlmRanker):
             output = ranked[0][0]
 
         if output in self.CHARACTERS[:len(docs)]:
-            self._log_comparison("best", self.CHARACTERS[:len(docs)], output, docs)
+            self._log_comparison(
+                "best", self.CHARACTERS[:len(docs)], output, docs,
+                parse_status=parse_status,
+                parse_fallback_reason=parse_fallback_reason,
+            )
         else:
             print(f"Unexpected output: {output}")
 
