@@ -10,6 +10,63 @@
 
 > Method-level insights: what works, what doesn't, and why. These directly inform your claims, experiment design, and paper narrative.
 
+## [2026-04-27] TopDown Bubblesort whole-pool comparison short-circuit was fixed; archived `6.9767` run is pre-fix only
+
+> Source: `REVERT_WINDOW_START_OPTIMIZATION.md`. This entry records both the original diagnosis and the implemented resolution.
+
+**Symptom before the fix.** TopDown Bubblesort with `hits=10, k=10, num_child=10` reported `Avg comparisons: 6.976744186046512` per query on DL19 (43 queries -> 300 total LLM calls). Heapsort under the same `hits=k=num_child=10` reported `Avg comparisons: 9.0`, matching the intuitive one-best-pick-per-shrink-step schedule for a 10-document pool.
+
+**Pre-fix root cause.** The affected code path was `llmrankers/setwise.py:SetwiseLlmRanker.rerank()` in the standard TopDown Bubblesort branch:
+
+- Upstream optimization: when the current window's selected best was the last position (`best_ind == len(window) - 1`), `last_start += len(window) - 1` could advance the next window start.
+- Local outer clamp: `if last_start < i: last_start = i`.
+- Local one-document guard: `if end_ind - start_ind < 2: break`.
+
+Under `hits == k == num_child == N`, `last_start = N - (num_child + 1) = -1`. The local clamp changed that to the outer-loop index. If a round picked the last item in its current suffix, the upstream tail-jump could move `last_start` to the final document; later iterations then saw a one-document suffix and skipped the LLM call. The observed DL19 run therefore skipped about 87 comparison opportunities relative to the simple 9-call schedule.
+
+The metric itself was honest: `compare()` increments `total_compare`, and `run.py` averages `ranker.total_compare` over queries. The low value reflected real pre-fix control flow, not a logging or batching artifact.
+
+**Implemented resolution.** Keep the upstream `last_start` optimization and keep the one-document guard, but disable only the local outer clamp for the narrow whole-pool branch:
+
+```python
+disable_outer_clamp = (
+    len(ranking) == self.k == self.num_child
+    or self.num_child >= len(ranking)
+)
+
+if not disable_outer_clamp and last_start < i:
+    last_start = i
+```
+
+This preserves ordinary TopDown Bubblesort behavior while making the target whole-pool schedule interpretable. Focused control-flow verification after the fix:
+
+```text
+n=10, num_child=10, k=10: no_swap=9, always_tail=9
+n=10, num_child=9,  k=10: no_swap=9, always_tail=2
+n=100,num_child=3,  k=10: no_swap=42, always_tail=318
+```
+
+`n=10,num_child=9,k=10` is intentionally unchanged because it has `num_child + 1 == len(ranking)`, but it does not satisfy the implemented narrow condition `num_child >= len(ranking)`.
+
+**Implications for claims and baselines.**
+
+- `claim:C9` frontier point for `TD-Bubble` (300 mean comparisons, ~126K tokens, ~110.9s wall-clock) is unaffected. Those numbers come from the standard `num_child=3, k=10, hits=100` config (`exp:main_td_bubble`).
+- Do not use the archived pre-fix `Avg comparisons: 6.9767` result as a current efficiency claim.
+- Current `TD-Bubble` under `hits=k=num_child=10` should report 9 LLM comparisons, with the final one-document suffix skipped.
+- `TD-Bubble` is still not identical to `MaxContextTopDownSetwiseLlmRanker`: MaxContext uses the dedicated MaxContext prompt/parser path and an explicit two-document BM25 bypass. Use MaxContext TopDown as the canonical whole-pool best-only baseline.
+- `idea:007` matched-hits baselines instantiate `TD-Bubble` at `hits=pool_size, k=10` with the default `num_child=3` from launchers unless a whole-pool diagnostic is explicitly requested.
+
+**What is supported / what needs qualification.**
+
+- Supported: standard `TD-Bubble` `num_child=3` frontier numbers are valid frontier anchors for claim:C9.
+- Supported: Heapsort `Avg comparisons: 9.0` under `hits=k=num_child=10` is interpretable.
+- Supported: the pre-fix Bubblesort `6.9767` count reflected actual LLM calls in that old code path.
+- Supported after the fix: `TD-Bubble` with `n=10,num_child=10,k=10` should make 9 LLM comparisons.
+- Needs qualification: any phrasing that treats standard `TD-Bubble` as algorithmically identical to MaxContext TopDown.
+- Unsupported: "TD-Bubble currently achieves the same whole-pool selection work with only 6.98 comparisons/query."
+
+**Lesson.** When a defensive clamp and a one-document skip are layered on top of a window-start optimization, degenerate-window settings can make a metric look more efficient than the intended schedule. After changing window logic, validate both actual calls and the semantic meaning of the count.
+
 ## [2026-04-26] MaxContext TopDown / BottomUp parser hardening, round 2: refusal-only deterministic no-op replaces strict-raise
 
 - Round-1's `strict_no_parse_fallback=True` (added 2026-04-25) was the right safety net but the wrong default for MaxContext single-extreme variants. Cluster sweeps at TopDown pool ∈ {20,30,40,50} and BottomUp pool ∈ {30,40,50} crashed on five reproducible Qwen3 output patterns the round-1 parser couldn't recover from:

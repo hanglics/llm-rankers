@@ -170,11 +170,15 @@ Codex critical correction (round 2): choosing baseline depth post-hoc creates a 
 **Predeclared baseline grid** — `pool_size ∈ {10, 30, 50}` (cheapest / mid / deepest Study A anchors). For each anchor, on 6 Qwens × 2 datasets, rerun:
 
 - `TD-Heap` at `hits=pool_size, k=10`
-- `TD-Bubble` at `hits=pool_size, k=10`
+- `TD-Bubble` at `hits=pool_size, k=10` (default `num_child=3` from launchers; see comparisons-axis note below if running whole-pool diagnostics)
 - `DE-Cocktail` at `hits=pool_size, num_child=3, k=10`
 - `DE-Selection` at `hits=pool_size, num_child=3, k=10`
 
 Matrix: 6 × 3 × 2 × 4 = **144 baseline runs**.
+
+**Comparisons-axis note for `TD-Bubble`.** A pre-fix whole-pool `TD-Bubble` run with `hits=k=num_child=10` produced `Avg comparisons: ~6.98` instead of the intuitive 9 because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. That was a real control-flow effect, not a logging artifact, but it has been fixed for the exact whole-pool branch: `SetwiseLlmRanker.rerank()` now disables only the outer clamp when `len(ranking) == k == num_child` or `num_child >= len(ranking)`, while still skipping one-document windows. Current verification gives 9 comparisons for `n=10,num_child=10,k=10`.
+
+Do not use the archived `~6.98` pre-fix result as an efficiency claim. Also do not describe standard `TD-Bubble` as algorithmically identical to `MaxContext-TopDown`: MaxContext uses the dedicated MaxContext prompt/parser path and an explicit two-document BM25 bypass. Use `MaxContext-TopDown` directly for the canonical whole-pool best-only baseline. Full mechanism: [`research_pipeline_setwise/FINDINGS.md`](research_pipeline_setwise/FINDINGS.md) (2026-04-27 entry); claim note: [`research-wiki/claims/C9_pareto_frontier.md`](research-wiki/claims/C9_pareto_frontier.md).
 
 **Budget-restricted alternative** (if GPU budget is tight): `pool_size ∈ {10, 50}` = 96 runs. Loses mid-range comparison. Not recommended for the headline claim.
 

@@ -783,12 +783,16 @@ class SetwiseLlmRanker(LlmRanker):
             ranking = list(reversed(ranking))
         elif self.method == "bubblesort":
             last_start = len(ranking) - (self.num_child + 1)
+            disable_outer_clamp = (
+                len(ranking) == self.k == self.num_child
+                or self.num_child >= len(ranking)
+            )
 
             for i in range(self.k):
-                # Clamp last_start so the window always contains at least
-                # num_child+1 documents (or all remaining documents) when
-                # start_ind is clamped to i.
-                if last_start < i:
+                # Keep the local clamp for ordinary windows, but preserve the
+                # upstream-style start for whole-pool runs so suffix selections
+                # do not short-circuit the remaining comparisons.
+                if not disable_outer_clamp and last_start < i:
                     last_start = i
                 start_ind = last_start
                 end_ind = min(last_start + (self.num_child + 1), len(ranking))

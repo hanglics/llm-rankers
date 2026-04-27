@@ -1237,6 +1237,8 @@ Current paper-facing takeaway from the existing results:
 - Global time frontier: `PermVote(p=2)`, `TD-Heap`, `TD-Bubble`, `DE-Cocktail`
 - This means any refined method should aim to land between `TD-Bubble` and `DE-Cocktail`, not merely beat a weak baseline.
 
+> **`TD-Bubble` interpretability note.** The frontier `TD-Bubble` numbers (300 mean comparisons / ~110.9s) come from the standard `num_child=3, k=10, hits=100` config and are unaffected. A pre-fix whole-pool run with `hits=k=num_child=10` reported `Avg comparisons: 6.9767` because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. That exact whole-pool branch is now patched: the outer clamp is disabled only when `len(ranking) == k == num_child` or `num_child >= len(ranking)`, while the one-document skip remains. Current expected behavior for `n=10,k=10,num_child=10` is 9 LLM comparisons. Still use `MaxContext-TopDown` (idea:007) for the canonical MaxContext best-only baseline because its prompt/parser and two-document BM25 bypass semantics differ from standard `TD-Bubble`. Full mechanism in [`research_pipeline_setwise/FINDINGS.md`](research_pipeline_setwise/FINDINGS.md) under the 2026-04-27 entry; claim note in `claim:C9` ([`research-wiki/claims/C9_pareto_frontier.md`](research-wiki/claims/C9_pareto_frontier.md)).
+
 #### P0. "When DualEnd Helps" Analysis
 
 Run the qualitative analysis on the existing representative DL19 result folders:

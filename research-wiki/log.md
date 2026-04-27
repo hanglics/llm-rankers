@@ -2,6 +2,11 @@
 
 Append-only mutation timeline.
 
+- 2026-04-27T23:48:07+10:00 — Audited and corrected TopDown Bubblesort `Avg comparisons` documentation after the narrow code fix:
+  - **Discovery:** pre-fix `TD-Bubble` under `hits=k=num_child=10` reported `Avg comparisons: 6.977` instead of the intuitive 9 because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. The metric was honest, but the pre-fix value was not a valid current efficiency claim.
+  - **Fix captured:** `llmrankers/setwise.py:SetwiseLlmRanker.rerank()` now disables only the outer clamp when `len(ranking) == k == num_child` or `num_child >= len(ranking)`, while keeping the upstream `last_start` optimization and the one-document skip. Focused verification gives 9 comparisons for `n=10,num_child=10,k=10`.
+  - **Docs updated:** corrected `research_pipeline_setwise/FINDINGS.md`, `experiments/main_td_bubble.md`, `experiments/analysis_pareto.md`, `claims/C9_pareto_frontier.md`, `EXPERIMENT_PLAN.md`, and `IDEA_007.md` so they no longer claim the whole-pool short-circuit is active after the fix. Standard `TD-Bubble` `num_child=3` frontier numbers (300 comparisons / ~110.9s) remain unaffected. For the canonical MaxContext best-only baseline, still use `MaxContext-TopDown` because its prompt/parser path and two-document BM25 bypass semantics differ from standard `TD-Bubble`.
+
 - 2026-04-20T10:30:00+10:00 — Wiki initialized (empty scaffold only).
 - 2026-04-20T10:35:00+10:00 — Manual backfill from project artifacts:
   - 13 papers ingested from `RESEARCH_BRIEF.md` / `LITERATURE_REVIEW.md`.
