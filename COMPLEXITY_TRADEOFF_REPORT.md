@@ -744,11 +744,12 @@ about:
 ```
 
 The final shard merge adds roughly another 10-20 dependent calls when only the
-top-`K` prefix is needed. Cost accounting should also log any deterministic
-two-document BM25 bypass used by the refiner as a separate axis. A smaller
-`F ≤ 50` pool can use one MaxContext-DualEnd refinement directly, with cost
-approximately `floor(F / 2)` Dualend calls plus the same explicit bypass
-accounting if a two-document endgame is enabled.
+top-`K` prefix is needed. A smaller `F ≤ 50` pool can use one
+MaxContext-DualEnd refinement directly, with cost approximately `floor(F / 2)`
+Dualend calls. Current MaxContext-DualEnd does not use the deterministic
+two-document BM25 bypass; that bypass belongs to the MaxContext TopDown /
+BottomUp single-extreme variants. If a future refiner adds a deterministic
+two-document endgame, report that bypass as a separate cost axis.
 
 ---
 
@@ -883,7 +884,6 @@ For `F ≈ 100–130`, sharded MaxContext-DualEnd refinement may use:
 ```text
 60–80 calls
 1,300–2,000 candidate exposures
-0–1 deterministic BM25 bypass per shard/refinement path, reported separately
 ```
 
 So total cost is approximately:
@@ -1317,7 +1317,6 @@ Sharded MaxContext-DualEnd refinement may cost:
 ```text
 50–75 calls
 1,100–1,900 candidate exposures
-0–1 deterministic BM25 bypass per shard/refinement path, reported separately
 ```
 
 So total cost is approximately:
@@ -2274,8 +2273,9 @@ HELPER:
     Requires |pool| <= 50 under the current implementation.
     Run MaxContext-DualEnd over the pool.
     Cost is approximately floor(|pool| / 2) Dualend calls.
-    If a deterministic two-document endgame is enabled, log one BM25 bypass
-    separately from LLM calls.
+    Current MaxContext-DualEnd has no deterministic BM25 bypass.
+    If a future refiner adds a two-document deterministic endgame, log that
+    bypass separately from LLM calls.
     Return a top-K or top-focused ranking.
 
   SHARDED_MAXCONTEXT_REFINE(q, finalists, K, shard_size=40):
@@ -2398,7 +2398,7 @@ HELPER:
   SHARDED_MAXCONTEXT_REFINE(q, finalists, K, shard_size=40):
     if |finalists| <= 50:
       run MaxContext-DualEnd directly
-      log deterministic BM25 bypass separately if a two-document endgame is enabled
+      note that current MaxContext-DualEnd has no deterministic BM25 bypass
       return top-K or top-focused ranking
 
     Split finalists into retrieval-stratified shards of size <= shard_size.
@@ -2425,7 +2425,7 @@ ALGORITHM:
         positive_votes[doc] += 1
 
       for doc in unselected:
-        negative_votes[doc] += optional_small_penalty
+        negative_votes[doc] += 1
 
   anchor_docs = original top-A documents from D
 
@@ -2520,7 +2520,7 @@ TourRank-style time: O(K_stage - 1)
 
 ---
 
-# 13. Review Audit Trail
+# 12. Review Audit Trail
 
 2026-04-29 — Two-round dialectic review (Claude + Codex gpt-5.5 + xhigh)
 yielded 18 substantive findings (3 BLOCKER + 9 HIGH + 5 MEDIUM + 1 LOW);
