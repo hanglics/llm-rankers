@@ -167,3 +167,4 @@ ranker_env/
 logs/
 pyserini_src/
 qwen35_env/
+.planning/
