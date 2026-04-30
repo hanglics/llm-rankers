@@ -117,18 +117,25 @@ RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"
 POOL_SIZES=(10 20 30 40 50)
 
 # -----------------------------------------------------------------------------
-# Submission helper: dry-runs print, real runs submit.
-# Tracks total jobs submitted in $JOB_COUNT.
+# Submission helper: dry-runs print, real runs ensure the output directory
+# exists then submit. Tracks total jobs submitted in $JOB_COUNT.
+#
+# Convention used by every block below: the 4th positional argument to the
+# launcher is OUTPUT_DIR. Inside this function $1 is the launcher itself, so
+# the OUTPUT_DIR is at $5. Pre-creating it here fails fast on permission /
+# typo issues at submission time instead of hours later when the job runs.
 # -----------------------------------------------------------------------------
 JOB_COUNT=0
 
 submit() {
   JOB_COUNT=$((JOB_COUNT + 1))
+  local output_dir="${5:?submit() expects OUTPUT_DIR as the 4th launcher arg}"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf 'sbatch'
     printf ' %s' "$@"
     printf '\n'
   else
+    mkdir -p "$output_dir"
     sbatch "$@"
   fi
 }
