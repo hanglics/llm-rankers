@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+# eval_max_context_jobs.sh
+#
+# Evaluate every result file produced by submit_max_context_jobs.sh under a
+# given (tag, model, dataset) using `pyserini.eval.trec_eval` with the same
+# metric set as the user's example:
+#
+#   python -m pyserini.eval.trec_eval -q -l 2 \
+#       -m ndcg_cut.3,5,10,20,30,40,50 dl19-passage <result>.txt
+#
+# For each result `<dir>/<name>.txt`, the per-query and aggregate lines from
+# the trec_eval output (everything after the "Results:" line) are saved to
+# `<dir>/<name>.eval`.
+#
+# Usage:
+#   ./eval_max_context_jobs.sh [--tag TAG] [--model MODEL]
+#                              [--dataset DL19|DL20]
+#                              [--force] [--dry-run] [-h|--help]
+#
+# Examples:
+#   ./eval_max_context_jobs.sh                                    # all defaults
+#   ./eval_max_context_jobs.sh --tag test_run_v2 --model Qwen/Qwen3-8B
+#   ./eval_max_context_jobs.sh --force                            # rebuild every .eval
+#   ./eval_max_context_jobs.sh --dry-run                          # show targets only
+
+set -euo pipefail
+
+# -----------------------------------------------------------------------------
+# Defaults (match submit_max_context_jobs.sh)
+# -----------------------------------------------------------------------------
+TAG="test_run_v1"
+MODEL="Qwen/Qwen3-4B"
+DATASET="DL19"
+DRY_RUN=0
+FORCE=0
+
+usage() {
+  cat <<'USAGE'
+Usage: eval_max_context_jobs.sh [options]
+
+Options:
+  --tag TAG          Run-tag fragment (default: test_run_v1). Must match the
+                     value passed to submit_max_context_jobs.sh.
+  --model MODEL      HuggingFace model identifier (default: Qwen/Qwen3-4B).
+                     Used to locate the model-dataset subdirectory; the model
+                     tag is the lower-cased basename after the final "/".
+  --dataset NAME     One of DL19 or DL20 (default: DL19). Mapped to qrels:
+                       DL19 -> dl19-passage
+                       DL20 -> dl20-passage
+  --force            Re-evaluate even if a .eval file already exists.
+  --dry-run          Print the planned eval commands and skip targets without
+                     actually invoking pyserini.eval.trec_eval.
+  -h | --help        Show this help and exit.
+
+For each of the 35 result files produced by submit_max_context_jobs.sh under
+the given (tag, model, dataset), this script runs:
+
+    python -m pyserini.eval.trec_eval -q -l 2 \
+        -m ndcg_cut.3,5,10,20,30,40,50 <qrels> <result>.txt
+
+and saves the per-query + aggregate lines (everything after "Results:" in the
+trec_eval output) to <result>.eval next to the source .txt file. Missing
+result files are logged but do not abort the run.
+USAGE
+}
+
+# -----------------------------------------------------------------------------
+# Argument parsing
+# -----------------------------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tag)
+      [[ $# -ge 2 ]] || { echo "Error: --tag requires a value" >&2; exit 2; }
+      TAG="$2"; shift 2 ;;
+    --model)
+      [[ $# -ge 2 ]] || { echo "Error: --model requires a value" >&2; exit 2; }
+      MODEL="$2"; shift 2 ;;
+    --dataset)
+      [[ $# -ge 2 ]] || { echo "Error: --dataset requires a value" >&2; exit 2; }
+      DATASET="$2"; shift 2 ;;
+    --force)   FORCE=1;   shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "Error: unknown argument '$1'" >&2
+      usage >&2
+      exit 2 ;;
+  esac
+done
+
+# -----------------------------------------------------------------------------
+# Resolve dataset shortcut -> qrels label + dataset tag
+# -----------------------------------------------------------------------------
+case "$DATASET" in
+  DL19|dl19) QRELS="dl19-passage"; DATASET_TAG="dl19" ;;
+  DL20|dl20) QRELS="dl20-passage"; DATASET_TAG="dl20" ;;
+  *)
+    echo "Error: --dataset must be DL19 or DL20 (got: '$DATASET')" >&2
+    exit 2 ;;
+esac
+
+MODEL_BASE="${MODEL##*/}"
+MODEL_TAG="$(printf '%s' "$MODEL_BASE" | tr '[:upper:]' '[:lower:]')"
+
+OUT_PREFIX="results/maxcontext_dualend/${TAG}"
+RUN_BASELINE="${OUT_PREFIX}/baseline/${MODEL_TAG}-${DATASET_TAG}"
+RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"
+
+POOL_SIZES=(10 20 30 40 50)
+
+cat <<INFO >&2
+==> eval_max_context_jobs.sh
+    tag         : ${TAG}
+    model       : ${MODEL}     (model_tag = ${MODEL_TAG})
+    dataset     : ${DATASET}   (qrels = ${QRELS}; tag = ${DATASET_TAG})
+    output base : ${OUT_PREFIX}
+    mode        : $([[ $DRY_RUN -eq 1 ]] && echo "DRY-RUN (no trec_eval calls)" || echo "evaluating")
+    force       : $([[ $FORCE -eq 1 ]] && echo "yes (overwrite existing .eval)" || echo "no  (skip existing)")
+INFO
+
+# -----------------------------------------------------------------------------
+# Build the list of expected result files. Mirrors the 7 blocks of
+# submit_max_context_jobs.sh in order.
+# -----------------------------------------------------------------------------
+EXPECTED=()
+
+# Block 1 - Original TopDown-Heap   (WS=4)
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/original/ws-4/top${N}/topdown_heapsort.txt")
+done
+# Block 2 - Original TopDown-Bubble (WS=4)
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/original/ws-4/top${N}/topdown_bubblesort.txt")
+done
+# Block 3 - Original TopDown-Heap   (WS=PS)
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/original/ws-ps/top${N}/topdown_heapsort.txt")
+done
+# Block 4 - Original TopDown-Bubble (WS=PS)
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/original/ws-ps/top${N}/topdown_bubblesort.txt")
+done
+# Block 5 - MaxContext-TopDown
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/max-context/topdown/top${N}/maxcontext_topdown.txt")
+done
+# Block 6 - MaxContext-DualEnd      (under phase1/, not baseline/)
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_PHASE1}/top${N}/maxcontext_dualend.txt")
+done
+# Block 7 - MaxContext-BottomUp
+for N in "${POOL_SIZES[@]}"; do
+  EXPECTED+=("${RUN_BASELINE}/max-context/bottomup/top${N}/maxcontext_bottomup.txt")
+done
+
+# -----------------------------------------------------------------------------
+# Counters
+# -----------------------------------------------------------------------------
+TOTAL=${#EXPECTED[@]}
+EVAL_OK=0
+EVAL_FAIL=0
+SKIPPED_EXISTS=0
+SKIPPED_MISSING=0
+PLANNED=0
+
+for RESULT in "${EXPECTED[@]}"; do
+  EVAL_FILE="${RESULT%.txt}.eval"
+
+  if [[ ! -f "$RESULT" ]]; then
+    echo "[MISSING] $RESULT (job not completed?)" >&2
+    SKIPPED_MISSING=$((SKIPPED_MISSING + 1))
+    continue
+  fi
+
+  if [[ -f "$EVAL_FILE" && "$FORCE" -ne 1 ]]; then
+    echo "[skip]    $EVAL_FILE already exists (--force to overwrite)" >&2
+    SKIPPED_EXISTS=$((SKIPPED_EXISTS + 1))
+    continue
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "python -m pyserini.eval.trec_eval -q -l 2 -m ndcg_cut.3,5,10,20,30,40,50 ${QRELS} ${RESULT}"
+    echo "  --> ${EVAL_FILE}"
+    PLANNED=$((PLANNED + 1))
+    continue
+  fi
+
+  echo "[eval]    ${RESULT}" >&2
+
+  # Capture stdout+stderr together so we can reliably find the "Results:" line
+  # regardless of which stream pyserini writes to.
+  if OUTPUT="$(python -m pyserini.eval.trec_eval -q -l 2 \
+                  -m ndcg_cut.3,5,10,20,30,40,50 \
+                  "${QRELS}" "${RESULT}" 2>&1)"; then
+    # Keep only the lines after the "Results:" marker.
+    BODY="$(printf '%s\n' "$OUTPUT" \
+              | awk '/^Results:[[:space:]]*$/{found=1; next} found')"
+    if [[ -z "$BODY" ]]; then
+      echo "[fail]    no 'Results:' marker in trec_eval output for $RESULT" >&2
+      printf '%s\n' "$OUTPUT" >&2
+      EVAL_FAIL=$((EVAL_FAIL + 1))
+      continue
+    fi
+    printf '%s\n' "$BODY" > "$EVAL_FILE"
+    EVAL_OK=$((EVAL_OK + 1))
+  else
+    EXIT_CODE=$?
+    echo "[fail]    trec_eval exit ${EXIT_CODE} for $RESULT" >&2
+    printf '%s\n' "$OUTPUT" >&2
+    EVAL_FAIL=$((EVAL_FAIL + 1))
+  fi
+done
+
+echo "" >&2
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "==> DRY-RUN summary: would evaluate ${PLANNED}/${TOTAL} files" >&2
+  echo "    (missing on disk: ${SKIPPED_MISSING}; already-evaluated: ${SKIPPED_EXISTS})" >&2
+else
+  echo "==> Eval summary (out of ${TOTAL} expected result files):" >&2
+  echo "    evaluated OK   : ${EVAL_OK}" >&2
+  echo "    failed         : ${EVAL_FAIL}" >&2
+  echo "    skipped (exists): ${SKIPPED_EXISTS}" >&2
+  echo "    missing on disk: ${SKIPPED_MISSING}" >&2
+  if [[ "$EVAL_FAIL" -gt 0 ]]; then
+    exit 1
+  fi
+fi
