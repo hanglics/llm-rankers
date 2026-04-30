@@ -6,7 +6,7 @@ status: completed
 config:
   metric: "rate of \"partial dual parse\" and \"only parse one\" warnings emitted by `_parse_dual_output` over Qwen generation runs; see `llmrankers/setwise_extended.py:638+`"
   models_measured: ["flan-t5 (all sizes)", "qwen3 (4b/8b/14b)", "qwen3.5 (4b/9b/27b)"]
-  source_artifacts: ["research_pipeline_setwise/FINDINGS.md (lines 164-171)"]
+  source_artifacts: ["../FINDINGS.md (lines 164-171)"]
 tests: ["idea:002", "claim:C2", "claim:C8"]
 origin_skill: manual-backfill
 created_at: 2026-04-20T10:40:00+10:00

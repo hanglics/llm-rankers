@@ -8,10 +8,10 @@ Stable-ID catalog of field gaps this project targets. Only papers and ideas addr
 
 | Gap ID | Statement | Status | Addressed by (from graph) |
 |---|---|---|---|
-| gap:G1 | Standard setwise LLM ranking extracts only one decision per call (identity of best); implicit information about worst and relative order of the rest is discarded. | partial | paper:zhuang2024_setwise, idea:001, idea:002, idea:003, idea:004, idea:006 |
+| gap:G1 | Standard setwise LLM ranking extracts only one decision per call (identity of best); implicit information about worst and relative order of the rest is discarded. | partial | paper:zhuang2024_setwise, idea:001, idea:002, idea:003, idea:004, idea:006, idea:007 |
 | gap:G2 | Position bias in setwise ranking differs for best vs worst selection; no prior study of bias under joint best+worst prompting. | partial | paper:tang2024_found_in_middle, idea:002, idea:005 |
 | gap:G3 | No systematic study of whether LLMs are symmetrically competent at identifying most vs least relevant documents. | diagnosed; mitigation pending | idea:001 (diagnosis-via-failure), idea:002 (partial mitigation), idea:006 |
-| gap:G4 | No framework for when expensive setwise variants are justified over baseline heapsort/bubblesort. | partial (frontier mapped) | paper:podolak2025_setwise_insertion, paper:peng2025_flops_reranking, idea:004, idea:005, idea:006 |
+| gap:G4 | No framework for when expensive setwise variants are justified over baseline heapsort/bubblesort. | partial (frontier mapped) | paper:podolak2025_setwise_insertion, paper:peng2025_flops_reranking, idea:004, idea:005, idea:006, idea:007 |
 | gap:G5 | LLM ranking performance may vary by model family, but prior work treats all models uniformly. | partial (pattern identified) | paper:hutter2025_positional_rag, idea:004, idea:005, idea:006 |
 
 ## Detailed gap notes
@@ -26,7 +26,7 @@ Stable-ID catalog of field gaps this project targets. Only papers and ideas addr
 - Co-elicit best+worst in one prompt (idea:002) → partial success; DualEnd wins 14/18 configs but statistically fragile (see claim:C6).
 - Fuse two independent TD/BU rankings (idea:003) → failed; imports BU bias.
 
-**Status:** Partial. Joint elicitation (idea:002, Qwen-generation path only) extracts more information per call but is expensive (5–9× wall-clock). Selective / same-call refinements (idea:004, idea:006) aim to close the efficiency gap. See claim:C2, claim:C8 for the positive story and claim:C6 for the significance caveat.
+**Status:** Partial. Joint elicitation (idea:002, Qwen-generation path only) extracts more information per call but is expensive (5–9× wall-clock). Selective / same-call refinements (idea:004, idea:006) aim to close the efficiency gap. MaxContext (idea:007) is the active whole-pool variant for extracting more information per call by fitting up to 50 Qwen passages into a single prompt. See claim:C2, claim:C8 for the positive story and claim:C6 for the significance caveat.
 
 ### gap:G2 — Positional bias under joint prompts
 
@@ -42,9 +42,9 @@ exp:main_bu_heap and exp:main_bu_bubble (along with the position-bias analysis) 
 
 ### gap:G4 — Setwise efficiency-effectiveness frontier
 
-paper:podolak2025_setwise_insertion and paper:peng2025_flops_reranking frame setwise efficiency but do not address the "more info per call" axis. The Pareto analysis (exp:analysis_pareto, backed by claim:C9) identifies an empty region between TD-Bubble and DE-Cocktail that refinement methods (idea:004/005/006) target.
+paper:podolak2025_setwise_insertion and paper:peng2025_flops_reranking frame setwise efficiency but do not address the "more info per call" axis. The Pareto analysis (exp:analysis_pareto, backed by claim:C9) identifies an empty region between TD-Bubble and DE-Cocktail that refinement methods (idea:004/005/006) and MaxContext (idea:007) target.
 
-**Status:** Frontier mapped; refinements pending.
+**Status:** Frontier mapped; refinements and MaxContext matrix pending.
 
 ### gap:G5 — Model-family-dependent performance
 

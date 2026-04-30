@@ -8,8 +8,8 @@ config:
   rationale: "Paper and UI now need like-with-like comparisons (e.g. BU-Bubble vs DE-Bubble vs TD-Bubble at matched sort)."
   source_artifacts:
     - "Need_to_Run.txt (lines 3-4)"
-    - "research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.md"
-    - "research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.json"
+    - "../SIGNIFICANCE_TESTS_PAIRWISE.md"
+    - "../SIGNIFICANCE_TESTS_PAIRWISE.json"
     - "analysis/significance_tests_pairwise.py"
     - "results-display/index.html (section id=\"pairwise-tables\")"
 tests: ["claim:C2", "claim:C6"]
@@ -44,8 +44,8 @@ Cleanest positive result: **DualEnd vs TD-Bubble on DL19** — mean Δ +0.0043, 
 
 ## Artifacts
 
-- **MD:** `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.md` — per-model rows with delta, CI, p-values, verdicts.
-- **JSON:** `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.json` — keyed by `{grouping_id}__{dataset}`.
+- **MD:** [`../SIGNIFICANCE_TESTS_PAIRWISE.md`](../SIGNIFICANCE_TESTS_PAIRWISE.md) — per-model rows with delta, CI, p-values, verdicts.
+- **JSON:** [`../SIGNIFICANCE_TESTS_PAIRWISE.json`](../SIGNIFICANCE_TESTS_PAIRWISE.json) — keyed by `{grouping_id}__{dataset}`.
 - **HTML fragment:** `results-display/_pairwise_tables_fragment.html` — regenerable; inlined into `results-display/index.html` under section `id="pairwise-tables"`.
 
 ## How to regenerate

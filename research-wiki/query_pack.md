@@ -2,18 +2,18 @@
 
 <!-- AUTO-GENERATED, max ~8000 chars. Regenerate after wiki mutations. -->
 <!-- Budget: project 300 / gaps 1200 / clusters 1600 / failed 1400 / papers 1800 / chains 900 / unknowns 500 -->
-<!-- Last built: 2026-04-20T10:55:00+10:00 (post idea:007 addition) -->
+<!-- Last refreshed: 2026-04-30T20:10:00+10:00 (post research_pipeline_setwise consolidation) -->
 
 ## Project direction
 
-Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call. Strategies tested: reverse-elicit worst (idea:001), co-elicit best+worst (idea:002), independent fusion of TD+BU (idea:003). Active refinements: selective DualEnd (idea:004), bias-aware DualEnd (idea:005), same-call regularized (idea:006), and the MaxContext family (idea:007 — whole-pool TopDown / BottomUp / DualEnd variants on Qwen, plan in IDEA_007.md). Target venue: ICTIR (claim:C10). Conservative framing.
+Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call. Strategies tested: reverse-elicit worst (idea:001), co-elicit best+worst (idea:002), independent fusion of TD+BU (idea:003). Active refinements: selective DualEnd (idea:004), bias-aware DualEnd (idea:005), same-call regularized (idea:006), and the MaxContext family (idea:007 — whole-pool TopDown / BottomUp / DualEnd variants on Qwen, plan in IDEA_007.md). Target venue: ICTIR (claim:C10). Conservative framing. The wiki root docs are now canonical after the 2026-04-30 consolidation from `research_pipeline_setwise/`.
 
 ## Top gaps
 
-- **gap:G1** — setwise extracts only one decision per call; worst-signal and relative-order info discarded. Status: partial. Linked ideas: 001 (failed), 002 (partial), 003 (failed), 004 / 006 (pending).
+- **gap:G1** — setwise extracts only one decision per call; worst-signal and relative-order info discarded. Status: partial. Linked ideas: 001 (failed), 002 (partial), 003 (failed), 004 / 006 (pending), 007 (active MaxContext).
 - **gap:G3** — LLMs are asymmetrically competent at best vs worst selection. Status: diagnosed by idea:001 failure and claim:C1; mitigation via co-elicitation (idea:002) partial; same-call regularization (idea:006) pending.
 - **gap:G2** — no prior study of position bias under joint best+worst prompting. Status: novel `dual_worst` primacy reversal documented in claim:C5 / exp:analysis_position_bias; mitigation idea:005 pending.
-- **gap:G4** — no framework for when expensive setwise variants are justified. Status: frontier mapped (claim:C9); empty region between TD-Bubble and DE-Cocktail is target for idea:004/005/006.
+- **gap:G4** — no framework for when expensive setwise variants are justified. Status: frontier mapped (claim:C9); empty region between TD-Bubble and DE-Cocktail is target for idea:004/005/006 and idea:007.
 - **gap:G5** — model-family-dependent performance (T5 vs Qwen). Status: pattern identified (claim:C7); global routing pending.
 
 ## Paper clusters
@@ -52,6 +52,7 @@ Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call.
 - dual_worst primacy reversal is observed (claim:C5) → exploit via controlled orderings + majority vote (idea:005) → pending.
 - TD-Bubble → DE-Cocktail frontier gap is 82% cost for +0.0065 NDCG (claim:C9) → selective / bias-aware variants must land in this region → pending.
 - Frontier target on wall-clock + comparisons axes (NOT token axis) → MaxContext family (idea:007): one-prompt whole-pool selection on Qwen at pool_size ≤ 50, with DualEnd / TopDown / BottomUp variants → Codex-audited plan in IDEA_007.md, staged matrix plus two single-extreme pool sweeps → not yet executed.
+- Same-method / same-sort tables are now completed (exp:same_method_tables_pending, 2026-04-21). Cleanest positive result is DualEnd vs TD-Bubble on DL19: 2 Bonferroni-significant wins on Qwen3-8B; BottomUp and BiDir same-sort tables reinforce the negative-result story.
 
 ## Open unknowns
 
@@ -59,4 +60,4 @@ Setwise LLM reranking (paper:zhuang2024_setwise) extracts one decision per call.
 - Is the `dual_worst` primacy reversal order-robust (idea:005 will reveal) or fragile under re-ordering?
 - Can selective DualEnd (idea:004) achieve quality-cost parity with DE-Cocktail at ~400 comparisons?
 - Do same-call worst constraints (idea:006) help as a regularizer or only add noise?
-- Will same-method / same-sort consolidated tables (top priority in Need_to_Run.txt) change any narrative claim?
+- Can the MaxContext family beat matched-hit baselines on comparisons-axis and wall-clock-axis without overclaiming on token cost?

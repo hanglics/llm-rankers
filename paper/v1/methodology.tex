@@ -1,0 +1,21 @@
+\section{Methodology}
+\label{sec:methodology}
+
+% TODO: To be drafted in next iteration. This section will cover:
+% - Problem formulation: zero-shot setwise reranking with LLMs
+% - Background: setwise prompting (Zhuang et al., 2024); DualEnd joint elicitation
+% - The MaxContext family algorithm: whole-pool single-prompt selection
+%   - MaxContext-DualEnd: best+worst per call, pool shrinks by 2
+%   - MaxContext-TopDown: best-only, pool shrinks by 1, deterministic n_docs=2 BM25 endgame
+%   - MaxContext-BottomUp: worst-only, pool shrinks by 1, deterministic n_docs=2 BM25 endgame
+% - Numeric labelling 1..N (replacing letter labels)
+% - Strict no-truncation invariant; abort-on-bad-parse policy
+% - Top-m Setwise Selection with Dualend Refinement (third proposed method per
+%   COMPLEXITY_TRADEOFF_REPORT §3) as a complementary efficiency-effectiveness operating point
+% - Complexity analysis: LLM calls, candidate exposures, sequential depth, parallel time
+
+\textit{[To be drafted in a subsequent revision once Phase 4 results land. This
+section will formalize the MaxContext family --- whole-pool single-prompt joint
+best-worst elicitation, plus its single-extreme variants --- alongside a
+complementary Top-$m$ Setwise+Dualend operating point that targets the same
+empty Pareto-frontier region from a different mechanistic angle.]}

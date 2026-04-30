@@ -55,7 +55,7 @@ This is fixed for the exact whole-pool branch: the local outer clamp is now disa
 n=10, num_child=10, k=10: no_swap=9, always_tail=9
 ```
 
-Do not use the archived pre-fix `6.977` value as a current efficiency claim. For canonical MaxContext whole-pool best-only baselines, use `MaxContextTopDownSetwiseLlmRanker` directly (`exp:maxcontext_topdown_pool_sweep`), because MaxContext has its own prompt/parser path and two-document BM25 bypass semantics. Full mechanism analysis in [`research_pipeline_setwise/FINDINGS.md`](../../research_pipeline_setwise/FINDINGS.md) under the 2026-04-27 entry.
+Do not use the archived pre-fix `6.977` value as a current efficiency claim. For canonical MaxContext whole-pool best-only baselines, use `MaxContextTopDownSetwiseLlmRanker` directly (`exp:maxcontext_topdown_pool_sweep`), because MaxContext has its own prompt/parser path and two-document BM25 bypass semantics. Full mechanism analysis in [`FINDINGS.md`](../FINDINGS.md) under the 2026-04-27 entry.
 
 ## Connections
 

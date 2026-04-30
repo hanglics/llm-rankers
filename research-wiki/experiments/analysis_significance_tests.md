@@ -9,7 +9,7 @@ config:
   multiple_testing: "Bonferroni within family across 18 configs"
   comparisons: "best challenger vs best TopDown per (model, dataset)"
 tests: ["claim:C1", "claim:C2", "claim:C3", "claim:C4", "claim:C6", "claim:C10"]
-source_artifacts: ["research_pipeline_setwise/SIGNIFICANCE_TESTS.md", "research_pipeline_setwise/SIGNIFICANCE_TESTS.json"]
+source_artifacts: ["../SIGNIFICANCE_TESTS.md", "../SIGNIFICANCE_TESTS.json"]
 origin_skill: manual-backfill
 created_at: 2026-04-20T10:35:00+10:00
 updated_at: 2026-04-20T10:35:00+10:00
@@ -27,7 +27,7 @@ Family-level significance table:
 
 The only Bonferroni-significant win: `qwen3-4b` DL19, `DE-Selection` 0.7220 vs `TD-Heap` 0.6775, Δ +0.0446, raw p < 0.001, Bonferroni p = 0.010.
 
-Full per-config table lives in `research_pipeline_setwise/SIGNIFICANCE_TESTS.md`.
+Full per-config table lives in [`../SIGNIFICANCE_TESTS.md`](../SIGNIFICANCE_TESTS.md).
 
 ## Connections
 

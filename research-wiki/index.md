@@ -1,7 +1,22 @@
 # Research Wiki Index
 
 <!-- AUTO-GENERATED. Regenerate after mutations. -->
-<!-- Last regenerated: 2026-04-26T15:30:00+10:00 (idea:007 round-2 MaxContext TopDown/BottomUp parser hardening: refusal-only no-op + total_parse_fallback telemetry) -->
+<!-- Last regenerated: 2026-04-30T19:30:00+10:00 (consolidation: research_pipeline_setwise/ absorbed into wiki) -->
+
+## Top-level documents (project-wide narratives + statistical archives)
+
+These are the entry-point documents for understanding the project. They were consolidated from `research_pipeline_setwise/` on 2026-04-30 and are now the canonical home for project-wide narratives.
+
+- [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md) — high-level problem statement, constraints, target venue, domain knowledge
+- [LITERATURE.md](LITERATURE.md) — comprehensive survey of LLM-based ranking literature (12 sections, 32 references) with §11.5 connection-to-this-project
+- [NARRATIVE.md](NARRATIVE.md) — central narrative integrating all 10 claims, 8 experiments, position-bias findings, paper framing
+- [IDEA_REPORT.md](IDEA_REPORT.md) — Stage-1 outcomes (idea:001/002/003), novelty check + closest-prior mapping, Stage-2+ refinement appendix (idea:004/005/006/007)
+- [PAPER_PLAN.md](PAPER_PLAN.md) — section-by-section paper outline, claims-evidence matrix (C1–C10), figure plan, key references
+- [FINDINGS.md](FINDINGS.md) — research + engineering findings log (parser fixes, position-bias quantification, when-DualEnd-helps tables)
+- [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) — code state, recent fixes timeline, current caveats, MaxContext invariants
+- [RESULTS_REVIEW.md](RESULTS_REVIEW.md) — critical review of results, venue strategy, refinement priorities, suggested reframe
+- [SIGNIFICANCE_TESTS.md](SIGNIFICANCE_TESTS.md) + [SIGNIFICANCE_TESTS.json](SIGNIFICANCE_TESTS.json) — family-level paired-AR + Bonferroni tables (54 comparisons)
+- [SIGNIFICANCE_TESTS_PAIRWISE.md](SIGNIFICANCE_TESTS_PAIRWISE.md) + [SIGNIFICANCE_TESTS_PAIRWISE.json](SIGNIFICANCE_TESTS_PAIRWISE.json) — pairwise same-sort tables (12 grouping/dataset families)
 
 ## Papers (20)
 

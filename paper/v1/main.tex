@@ -1,0 +1,69 @@
+\documentclass[11pt]{article}
+
+% Change "review" to "final" to generate the final (sometimes called camera-ready) version.
+% Change to "preprint" to generate a non-anonymous version with page numbers.
+\usepackage[review]{acl}
+
+% Standard package includes
+\usepackage{times}
+\usepackage{latexsym}
+
+% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
+\usepackage[T1]{fontenc}
+% This assumes your files are encoded as UTF8
+\usepackage[utf8]{inputenc}
+
+% Improves layout, saves space.
+\usepackage{microtype}
+
+% Improves aesthetics of typewriter font.
+\usepackage{inconsolata}
+
+% Including images
+\usepackage{graphicx}
+
+% Math
+\usepackage{amsmath,amssymb}
+
+% Tables
+\usepackage{booktabs}
+\usepackage{multirow}
+
+% Algorithms
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% Code listings (for prompts)
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+
+\title{MaxContext: Amortizing LLM Setwise Reranking with Whole-Pool Prompts}
+
+\author{Anonymous EMNLP 2026 Submission}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\input{introduction}
+\input{related_work}
+\input{methodology}
+\input{experimental_setup}
+\input{results}
+\input{analysis}
+\input{conclusion}
+
+\section*{Limitations}
+\input{limitation}
+
+% Custom bibliography entries only
+\bibliography{reference}
+
+\appendix
+
+\input{appendix}
+
+\end{document}

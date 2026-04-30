@@ -29,7 +29,7 @@ Gap: TD-Bubble → DE-Cocktail = +82% comparisons for +0.0065 NDCG. Target for s
 
 The `TD-Bubble` row (300 comparisons) is from the standard `num_child=3, k=10, hits=100` config and is unaffected. A pre-fix whole-pool `TD-Bubble` run at `hits=k=num_child=10` produced `Avg comparisons: ~6.98` instead of 9 because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. That exact branch is now patched in `llmrankers/setwise.py`; current verification gives 9 comparisons for `n=10,num_child=10,k=10`.
 
-Do not use the archived pre-fix `~6.98` value as a current efficiency point. For canonical MaxContext whole-pool best-only baselines on the Pareto frontier, use [`exp:maxcontext_topdown_pool_sweep`](maxcontext_topdown_pool_sweep.md). Full analysis: [`research_pipeline_setwise/FINDINGS.md`](../../research_pipeline_setwise/FINDINGS.md) (2026-04-27 entry); claim note: [`claim:C9`](../claims/C9_pareto_frontier.md).
+Do not use the archived pre-fix `~6.98` value as a current efficiency point. For canonical MaxContext whole-pool best-only baselines on the Pareto frontier, use [`exp:maxcontext_topdown_pool_sweep`](maxcontext_topdown_pool_sweep.md). Full analysis: [`FINDINGS.md`](../FINDINGS.md) (2026-04-27 entry); claim note: [`claim:C9`](../claims/C9_pareto_frontier.md).
 
 ## Connections
 

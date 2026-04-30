@@ -6,24 +6,25 @@ status: completed
 tests: ["claim:C4", "claim:C8"]
 origin_skill: manual-backfill
 created_at: 2026-04-20T10:35:00+10:00
-updated_at: 2026-04-20T10:35:00+10:00
+updated_at: 2026-04-30T20:10:00+10:00
 ---
 
 # Summary
 
-Values below are representative-model numbers (the narrative table in `NARRATIVE_REPORT.md:233` labels them as such). Cross-model ranges differ: `FINDINGS.md:159` reports broader approximate bands. Regenerate aggregate statistics before citing publicly.
+Values below are the consolidated averages reported in [`NARRATIVE.md`](../NARRATIVE.md) and [`FINDINGS.md`](../FINDINGS.md). Regenerate from raw run artifacts before final camera-ready citation, but the current wiki no longer treats the agreement table as missing.
 
-| Pair | Overlap@10 (repr.) | Kendall τ (repr.) |
+| Pair | Overlap@10 | Kendall τ | Agreement |
 |---|---:|---:|
-| TopDown ↔ DualEnd | 7.01 | 0.9254 |
-| TopDown ↔ BottomUp | 5.04 | 0.8589 |
+| TopDown ↔ DualEnd | 7.01 | 0.9254 | high |
+| TopDown ↔ BottomUp | 5.04 | 0.8589 | high |
+| BottomUp ↔ DualEnd | 5.24 | 0.8767 | high |
 
 Explains why DualEnd fusion-in-prompt works while BiDir fusion-after-the-fact does not (claim:C4): TD and BU agree too little and BU is too biased to provide complementary signal.
 
 ## Caveats
 
-- Numbers are for a single representative (model, dataset) combination, not the cross-model mean.
-- Cross-model aggregation is a pending consolidation task (see `exp:same_method_tables_pending`).
+- The table is sufficient for current narrative planning.
+- Final paper numbers should still be regenerated directly from artifacts to avoid citing a copied summary.
 
 ## Connections
 

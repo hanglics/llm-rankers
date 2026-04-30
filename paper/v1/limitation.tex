@@ -1,0 +1,21 @@
+\textit{[To be drafted with empirical results. Will document:
+\begin{itemize}
+\item \textbf{Model-family scope.} MaxContext is currently restricted to the
+Qwen-generation code path because only Qwen exercises true joint best-worst
+elicitation in our implementation; T5-encoder-decoder and likelihood-scoring
+paths collapse to a best-only proxy. Llama and Mistral expansion is gated on
+sanity-smoke validation.
+\item \textbf{Pool-size cap.} MaxContext is evaluated at $\text{pool size}\le
+50$. Larger pools require either explicit context budgeting or a different
+mechanism such as the Top-$m$+Dualend cascade (see Methodology).
+\item \textbf{Statistical fragility on TREC DL.} TREC DL19/20 have 43 and 54
+queries respectively, and bootstrap confidence intervals on \textsc{ndcg}@10
+are wide; we therefore report Bonferroni-corrected $p$-values and bootstrap CIs
+honestly rather than relying on point-estimate margins.
+\item \textbf{Single-extreme BM25 endgame asymmetry.} The two-document
+deterministic endgame in MaxContext-TopDown resolves ranks $N{-}1$ vs.\ $N$
+(low-impact tail), while MaxContext-BottomUp's resolves ranks $1$ vs.\ $2$
+(high-impact head); we report the two variants separately and refrain from
+treating their difference as a causal claim about NDCG@10.
+\end{itemize}
+]}

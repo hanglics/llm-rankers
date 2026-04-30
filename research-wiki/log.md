@@ -2,6 +2,20 @@
 
 Append-only mutation timeline.
 
+- 2026-04-30T20:10:00+10:00 — Refreshed wiki records to match the post-consolidation current state.
+  - `query_pack.md`: refreshed timestamp/context, added idea:007 to G1/G4, recorded same-method/same-sort tables as completed, and replaced the stale same-sort open question with the MaxContext matched-baseline question.
+  - `gap_map.md`: reconciled the view with `graph/edges.jsonl` so idea:007 appears as an addressor for gap:G1 and gap:G4.
+  - `claims/C10_framing_ictir_conservative.md`: replaced stale pre-consolidation narrative/review references, closed the same-sort-table decision point, and added MaxContext evidence as the active open decision point.
+  - `experiments/analysis_ranking_agreement.md` and `experiments/query_difficulty_stratification.md`: replaced outdated missing-summary language with the current consolidated summary tables while keeping final-paper regeneration caveats.
+
+- 2026-04-30T19:30:00+10:00 — **Consolidated `research_pipeline_setwise/` into the wiki.** The wiki is now the single source of truth for project-wide narratives, literature, statistical archives, and the paper plan; `research_pipeline_setwise/` is safe to delete.
+  - **Files copied into `research-wiki/` root:** `NARRATIVE.md` (← `NARRATIVE_REPORT.md`), `LITERATURE.md` (← `LITERATURE_REVIEW.md`), `PAPER_PLAN.md`, `RESEARCH_BRIEF.md`, `FINDINGS.md`, `IDEA_REPORT.md`, `IMPLEMENTATION_STATUS.md`, `RESULTS_REVIEW.md` (← `RESULTS_REVIEW_V1.md`), `SIGNIFICANCE_TESTS.{md,json}`, `SIGNIFICANCE_TESTS_PAIRWISE.{md,json}` — 12 files total.
+  - **Three subdirectories were not moved** (out of consolidation scope per user request): `EMNLP/`, `ICTIR/` (paper-build LaTeX trees), `templates/` (workflow templates).
+  - **Cross-refs rewritten in copied files:** all internal links from `research_pipeline_setwise/X` and `research-wiki/X` rewritten to relative wiki paths. Renames (`NARRATIVE_REPORT.md → NARRATIVE.md`, `LITERATURE_REVIEW.md → LITERATURE.md`, `RESULTS_REVIEW_V1.md → RESULTS_REVIEW.md`) propagated through inbound links.
+  - **Cross-refs rewritten in existing wiki files:** `claims/C9_pareto_frontier.md`, `claims/C10_framing_ictir_conservative.md`, `experiments/analysis_pareto.md`, `experiments/main_td_bubble.md`, `experiments/query_difficulty_stratification.md`, `experiments/dualend_parse_success.md`, `experiments/generalization_weakness.md`, `experiments/analysis_significance_tests.md`, `experiments/same_method_tables_pending.md` — all `research_pipeline_setwise/` paths replaced with relative wiki paths.
+  - **`index.md`:** new "Top-level documents" section added listing the 10 consolidated narratives + 2 JSON archives.
+  - **Historical log entries left untouched** — earlier entries that mention `research_pipeline_setwise/` as a source describe past actions and remain accurate as history.
+
 - 2026-04-27T23:48:07+10:00 — Audited and corrected TopDown Bubblesort `Avg comparisons` documentation after the narrow code fix:
   - **Discovery:** pre-fix `TD-Bubble` under `hits=k=num_child=10` reported `Avg comparisons: 6.977` instead of the intuitive 9 because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. The metric was honest, but the pre-fix value was not a valid current efficiency claim.
   - **Fix captured:** `llmrankers/setwise.py:SetwiseLlmRanker.rerank()` now disables only the outer clamp when `len(ranking) == k == num_child` or `num_child >= len(ranking)`, while keeping the upstream `last_start` optimization and the one-document skip. Focused verification gives 9 comparisons for `n=10,num_child=10,k=10`.
@@ -43,7 +57,7 @@ Append-only mutation timeline.
   - Current counts: 20 papers, 7 ideas, 31 experiments, 10 claims, 5 gaps, 159 edges.
 - 2026-04-21T19:50:00+10:00 — Closed `exp:same_method_tables_pending` (Need_to_Run priority #1). Produced 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired-AR + Bonferroni per (grouping, dataset). Artifacts:
   - `analysis/significance_tests_pairwise.py` (new driver; reuses `significance_tests.py` helpers).
-  - `research_pipeline_setwise/SIGNIFICANCE_TESTS_PAIRWISE.md` + `.json` (authoritative numbers).
+  - `SIGNIFICANCE_TESTS_PAIRWISE.md` + `.json` (originally under `research_pipeline_setwise/`; canonical copies now live in the wiki root after the 2026-04-30 consolidation).
   - `results-display/_pairwise_tables_fragment.html` (regenerable) → inlined into `results-display/index.html` under `section id="pairwise-tables"` with intro copy.
   - CSS touched: added `.results-table td .muted` style for the `(baseline)` annotation in baseline rows.
   - Updated `exp:same_method_tables_pending` status `not_submitted` → `completed`, added artifact paths and headline findings.

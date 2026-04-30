@@ -3,7 +3,7 @@
 > **Status:** Draft v3, Codex-ACCEPT (2026-04-28, gpt-5.5 + xhigh, 3 rounds). NOT YET COMMITTED. No code, doc, or experiment changes are executed from this plan; user runs §9 Step 1 to begin the staged decision process.
 > **Author:** Hang Li
 > **Date:** 2026-04-28
-> **Predecessors:** `IDEA_007.md` (MaxContext design spec), `research_pipeline_setwise/PAPER_PLAN.md` (current paper structure), `research-wiki/claims/C10_framing_ictir_conservative.md` (current framing constraint), `.planning/repo_walk/{CODE,INFRA,RESEARCH}.md` (2026-04-28 repo synthesis)
+> **Predecessors:** `IDEA_007.md` (MaxContext design spec), `research-wiki/PAPER_PLAN.md` (current paper structure), `research-wiki/claims/C10_framing_ictir_conservative.md` (current framing constraint), `.planning/repo_walk/{CODE,INFRA,RESEARCH}.md` (2026-04-28 repo synthesis)
 
 ## 1. Context
 
@@ -45,7 +45,7 @@ The existing experiments do real narrative work in a MaxContext-led paper. The k
 | **TD-Heap, TD-Bubble** (upstream Setwise) | Cheapest-cost frontier anchors. Establish the lower envelope of the comparisons-axis frontier. | claim:C9 frontier point (TD-Heap: 76.5 cmp, 0.6851 NDCG; TD-Bubble: 300 cmp, 0.6897 NDCG) | **STAYS** as §5 baseline |
 | **BU-Bubble, BU-Heap** | Motivation evidence — naive worst-selection fails; asymmetry is real and severe. **Most statistically robust result in the paper** (6 Bonferroni-sig losses, 0 wins, very_high evidence_strength). | claim:C1, claim:C3 | **STAYS** as §3 motivation. **Do not cut** — losing this loses the most rigorous numbers we have. |
 | **BiDir-RRF, BiDir-Weighted** | Motivation evidence — independent fusion can't recover the worst signal; joint signal is necessary. Tested 0.3-0.9 alpha sweep; never beats TD. | claim:C4 (very_high evidence_strength) | **STAYS** as §3 motivation. |
-| **DE-Cocktail, DE-Selection** | **Best-of** matched-hits baseline that MaxContext-DualEnd must beat on the Pareto plot. DE-Selection holds the only Bonferroni-significant DualEnd win (Qwen3-8B DL19) and is competitive in some Qwen settings, so reporting only DE-Cocktail invites reviewer pushback. The headline rule (see §8 claim:C11) is "best of {DE-Cocktail, DE-Selection, TD-Bubble} at matched `hits`." DE-Cocktail is reported separately as the current global C9 frontier point. | claim:C2, claim:C9 frontier point (DE-Cocktail: 546 cmp, 212.6s, 0.6962 NDCG); 1 Bonf-sig win on Qwen3-8B DL19 (`research_pipeline_setwise/NARRATIVE_REPORT.md:29`) | **STAYS** as §5 primary baseline (best-of). |
+| **DE-Cocktail, DE-Selection** | **Best-of** matched-hits baseline that MaxContext-DualEnd must beat on the Pareto plot. DE-Selection holds the only Bonferroni-significant DualEnd win in the family-level tests and is competitive in some Qwen settings, so reporting only DE-Cocktail invites reviewer pushback. The headline rule (see §8 claim:C11) is "best of {DE-Cocktail, DE-Selection, TD-Bubble} at matched `hits`." DE-Cocktail is reported separately as the current global C9 frontier point. | claim:C2, claim:C9 frontier point (DE-Cocktail: 546 cmp, 212.6s, 0.6962 NDCG); pairwise same-sort evidence in `research-wiki/SIGNIFICANCE_TESTS_PAIRWISE.md` | **STAYS** as §5 primary baseline (best-of). |
 | **Selective DualEnd** (idea:004) | Targets gap:G1 (information extraction) + G4 (efficiency frontier) + G5 (model-family interaction). Partial Pareto-axis overlap with MaxContext, but the gating mechanism (shortlist / uncertain / hybrid policies) is orthogonal to whole-pool elicitation. flan-t5-xl 6/12 done; Qwen 24 pending. | gap:G1, G4, G5 (per `research-wiki/ideas/idea_004_selective_dualend.md`) | **SCOPE-DEFER** (not "supersede"). Existing 6 flan-t5-xl results either dropped or moved to a §6 ablation paragraph; pending 24 not launched. Listed in §7 future work. |
 | **Bias-Aware DualEnd** (idea:005) | Targets gap:G2 (position bias under joint prompts), not C9-axis. Designed to mitigate the `dual_worst` primacy reversal (claim:C5) via controlled orderings + majority vote. **MaxContext does NOT address gap:G2 directly** (in fact, the Phase 2 order pilot is what tests whether MaxContext is itself order-stable at large windows). 12 pending. | gap:G2 (per `research-wiki/ideas/idea_005_bias_aware_dualend.md`) | **SCOPE-DEFER**. Not launched. Listed in §7 future work tied to claim:C14 (position bias at scale). |
 | **Same-Call Regularized** (idea:006) | Targets gap:G3 (asymmetric best-vs-worst competence) via worst-as-local-regularizer outside the head — a different mechanism than joint elicitation. **MaxContext does NOT address gap:G3 directly.** 12 pending. | gap:G3 (per `research-wiki/ideas/idea_006_samecall_regularized.md`) | **SCOPE-DEFER**. Not launched. Listed in §7 future work tied to the same-call worst-signal mechanism. |
@@ -68,7 +68,7 @@ The pivot's framing must survive multiple variant outcomes. The amortization fra
 
 **Branch decisions are predeclared.** The plan does not permit post-hoc title or claim selection — once Phase 4 results land, the matrix above commits the paper to a specific branch. Each branch's "Surviving claims" list governs which `research-wiki/claims/C*.md` files get committed (see §8).
 
-**Implication for pre-commit doc work.** Because branches A, B, C, D have different headline narratives, the §5.2 doc rewrites cannot be drafted before Phase 4 results determine the branch. Only the preregistration claim *stubs* (C11-C14) can land before Phase 4; the C10 / PAPER_PLAN / NARRATIVE_REPORT rewrites land after.
+**Implication for pre-commit doc work.** Because branches A, B, C, D have different headline narratives, the §5.2 doc rewrites cannot be drafted before Phase 4 results determine the branch. Only the preregistration claim *stubs* (C11-C14) can land before Phase 4; the `research-wiki/claims/C10_framing_ictir_conservative.md`, `research-wiki/PAPER_PLAN.md`, and `research-wiki/NARRATIVE.md` rewrites land after.
 
 ## 4. New Paper Architecture
 
@@ -87,7 +87,7 @@ The pivot's framing must survive multiple variant outcomes. The amortization fra
 
 ### 4.2 RQ reorganization
 
-**Old RQ structure** (per `research_pipeline_setwise/PAPER_PLAN.md`):
+**Old RQ structure** (per `research-wiki/PAPER_PLAN.md`):
 - RQ1: BottomUp vs TopDown effectiveness?
 - RQ2: DualEnd justifies extra compute?
 - RQ3: Bidirectional ensemble helps?
@@ -126,18 +126,18 @@ The original framing constraint expected MaxContext to be an additional refineme
 
 - Provisional `research-wiki/claims/C11_maxcontext_efficiency.md`, `C12_maxcontext_singleextreme.md`, `C13_long_context_amortization.md`, `C14_position_bias_at_scale.md` claim *stubs* with `status: provisional, evidence_strength: pending, predeclared_2026-04-28`. These predeclare the measurable hypotheses Phase 4 will test (see §8 for the measurable phrasings).
 - `IDEA_007.md` §7 risk #6 updated to flag the staged pivot is in-flight (Stage 1 done, Stage 2 pending Phase 4).
-- No changes yet to `claim:C10`, `PAPER_PLAN.md`, `NARRATIVE_REPORT.md`, `RESEARCH_BRIEF.md`.
+- No changes yet to `research-wiki/claims/C10_framing_ictir_conservative.md`, `research-wiki/PAPER_PLAN.md`, `research-wiki/NARRATIVE.md`, or `research-wiki/RESEARCH_BRIEF.md`.
 
 **Stage 2 (commit; lands after Phase 4 results determine the §3.5 branch):**
 
 - `research-wiki/claims/C10_framing_ictir_conservative.md` — branch-specific rewrite. For branch A: framing becomes "ICTIR-floor / EMNLP-ceiling, gated on MaxContext-DualEnd effectiveness." For branch B: same with selection-not-joint emphasis. For branch C: "core asymmetry-at-scale claim contradicts C8 at long context; reported as a finding." For branch D: "saturation/latency frontier result at smaller pool."
-- `research_pipeline_setwise/PAPER_PLAN.md` — branch-specific RQ structure (see §4.2).
-- `research_pipeline_setwise/NARRATIVE_REPORT.md` — branch-specific narrative.
-- `research_pipeline_setwise/RESEARCH_BRIEF.md` — branch-specific headline.
-- `claim:C9_pareto_frontier.md` — add MaxContext frontier point at branch's chosen `pool_size`.
+- `research-wiki/PAPER_PLAN.md` — branch-specific RQ structure (see §4.2).
+- `research-wiki/NARRATIVE.md` — branch-specific narrative.
+- `research-wiki/RESEARCH_BRIEF.md` — branch-specific headline.
+- `research-wiki/claims/C9_pareto_frontier.md` — add MaxContext frontier point at branch's chosen `pool_size`.
 - Provisional C11-C14 stubs upgraded to `status: supported / strongly_supported` with measured `evidence_strength`.
 
-These are doc-only changes (no code impact). The two-stage split ensures: (a) we commit measurable hypotheses before seeing Phase 4 numbers (preregistration discipline; protects against post-hoc rationalization); (b) the load-bearing rewrites of C10 / PAPER_PLAN / NARRATIVE_REPORT happen only after Phase 4 picks the branch.
+These are doc-only changes (no code impact). The two-stage split ensures: (a) we commit measurable hypotheses before seeing Phase 4 numbers (preregistration discipline; protects against post-hoc rationalization); (b) the load-bearing rewrites of C10 / PAPER_PLAN / NARRATIVE happen only after Phase 4 picks the branch.
 
 ### 5.3 Decision gate before commit
 
@@ -168,7 +168,7 @@ Pass criteria (must hold for **at least 3 of 4 pairs**):
 
 1. **Non-inferiority on quality.** MaxContext-DualEnd's NDCG@10 ≥ best-of {DE-Cocktail, DE-Selection} NDCG@10 minus the predeclared 0.003 margin (point estimate) AND bootstrap-CI lower bound on the difference is at least −0.005. The 0.003 margin is calibrated against TREC DL bootstrap CIs at 43-54 queries (typical ±0.01).
 2. **Cost reduction holds.** MaxContext-DualEnd's `Avg comparisons` ≤ DE-Cocktail's `Avg comparisons`. Wall-clock improvement directional (no formal margin).
-3. **Per-call parse-fallback rate** ≤ 5% of `Avg comparisons` (sanity threshold per `FINDINGS.md` 2026-04-26 entry).
+3. **Per-call parse-fallback rate** ≤ 5% of `Avg comparisons` (sanity threshold per `research-wiki/FINDINGS.md` 2026-04-26 entry).
 
 The 1-pair gate from v1 was insufficient: a single Qwen3-8B DL19 result could pass "within bootstrap CI" while being materially worse on point estimate. Expanding to 4 pairs across two model sizes and both datasets gives credible coverage against model-specific or dataset-specific quirks.
 
@@ -337,7 +337,7 @@ The current claim catalog (C1-C10) supports the asymmetry-led story. The pivot a
 - Write provisional `research-wiki/claims/C{11,12,13,14}_*.md` stubs with `status: provisional, predeclared_2026-04-28`. Each stub uses the measurable phrasings from §8, predeclared against the chosen `pool_size` from Step 2 / 2b.
 - Update `IDEA_007.md` §7 risk #6 to flag staged pivot is in-flight.
 - Commit scope-deferrals: do **not** launch idea:004 (Qwen 24 + likelihood 4 = 28 pending), idea:005 (12 pending), idea:006 (12 pending). Existing 6 idea:004 flan-t5-xl results held on disk for §6 ablation use.
-- **Do not yet rewrite** `claim:C10`, `PAPER_PLAN.md`, `NARRATIVE_REPORT.md`, `RESEARCH_BRIEF.md`, or `claim:C9` — those wait until Phase 4 picks the §3.5 branch.
+- **Do not yet rewrite** `research-wiki/claims/C10_framing_ictir_conservative.md`, `research-wiki/PAPER_PLAN.md`, `research-wiki/NARRATIVE.md`, `research-wiki/RESEARCH_BRIEF.md`, or `research-wiki/claims/C9_pareto_frontier.md` — those wait until Phase 4 picks the §3.5 branch.
 
 **Step 4 — Launch Phase 4 production (~324 runs, ~648 cluster-hours).**
 - Study A pool sweep (DualEnd): 60 runs.
@@ -357,9 +357,9 @@ The current claim catalog (C1-C10) supports the asymmetry-led story. The pivot a
 
 **Step 7 — Stage 2 doc work (branch-specific commit).**
 - Per §5.2 Stage 2: rewrite `research-wiki/claims/C10_framing_ictir_conservative.md` to the branch-specific wording from §8 (branch A / B / C / D).
-- Rewrite `research_pipeline_setwise/PAPER_PLAN.md`, `NARRATIVE_REPORT.md`, `RESEARCH_BRIEF.md` to the branch's title / RQ / narrative.
+- Rewrite `research-wiki/PAPER_PLAN.md`, `research-wiki/NARRATIVE.md`, and `research-wiki/RESEARCH_BRIEF.md` to the branch's title / RQ / narrative.
 - Promote C11-C14 stubs from `provisional` to `supported` / `strongly_supported` with measured `evidence_strength`.
-- Update `claim:C9_pareto_frontier.md` to add the chosen MaxContext frontier point(s).
+- Update `research-wiki/claims/C9_pareto_frontier.md` to add the chosen MaxContext frontier point(s).
 - Update `EXPERIMENT_PLAN.md` Pareto takeaway block.
 
 **Step 8 — Update Obsidian vault + project memory with committed framing.**
@@ -453,13 +453,13 @@ After Phase 4 Study A + baselines complete (~204 runs):
 
 1. `analysis/quality_cost_pareto.py` rerun including MaxContext-DualEnd. MaxContext should land in or near the empty region between TD-Bubble (300 cmp) and DE-Cocktail (546 cmp) on the comparisons-axis frontier.
 2. `analysis/significance_tests_pairwise.py` rerun including MaxContext-DualEnd vs **best-of {DE-Cocktail, DE-Selection, TD-Bubble}** at matched hits per claim:C11. Report Bonferroni-corrected p-values per (model, dataset, baseline) tuple.
-3. Per-query parse-fallback rate ≤ 5% (sanity threshold per FINDINGS.md 2026-04-26 entry).
+3. Per-query parse-fallback rate ≤ 5% (sanity threshold per `research-wiki/FINDINGS.md` 2026-04-26 entry).
 
 ### 11.3 Post-commit verification (paper draft)
 
 1. Every §3 motivation claim cites a completed experiment (no forward-references).
 2. Every §5 main result has a Bonferroni-corrected p-value and a bootstrap CI.
-3. claim:C10 rewrite is internally consistent across `claims/C10_*.md`, `IDEA_007.md`, `PAPER_PLAN.md`, `NARRATIVE_REPORT.md`.
+3. claim:C10 rewrite is internally consistent across `research-wiki/claims/C10_framing_ictir_conservative.md`, `IDEA_007.md`, `research-wiki/PAPER_PLAN.md`, and `research-wiki/NARRATIVE.md`.
 4. Any T5 reference in §5 is flagged as motivation-only (not main result).
 5. All five cost axes (comparisons, prompt tokens, completion tokens, total tokens, wall-clock) are reported in the efficiency table; framing claim is "fewer sequential calls + lower wall-clock latency", not "token efficiency" (per §10 risk + Codex round-1 HIGH-7).
 6. Vault `MaxContext Reranking` concept page reflects the new headline framing.
@@ -503,10 +503,10 @@ After Phase 4 Study A + baselines complete (~204 runs):
 - `IDEA_007.md` — current MaxContext design spec
 - `MAX_CONTEXT_EXPERIMENT_PLAN.md` — operator command sheet for staged matrix
 - `EXPERIMENT_PLAN.md` — current paper experiment plan (will be rewritten in Step 7)
-- `research_pipeline_setwise/PAPER_PLAN.md` — current paper structure (will be rewritten)
-- `research_pipeline_setwise/NARRATIVE_REPORT.md` — current narrative (will be rewritten)
-- `research_pipeline_setwise/RESEARCH_BRIEF.md` — current paper brief (will be rewritten)
-- `research_pipeline_setwise/FINDINGS.md` — running discovery log (append, do not rewrite)
+- `research-wiki/PAPER_PLAN.md` — current paper structure (will be rewritten)
+- `research-wiki/NARRATIVE.md` — current narrative (will be rewritten)
+- `research-wiki/RESEARCH_BRIEF.md` — current paper brief (will be rewritten)
+- `research-wiki/FINDINGS.md` — running discovery log (append, do not rewrite)
 - `research-wiki/claims/C10_framing_ictir_conservative.md` — framing constraint (will be rewritten)
 - `research-wiki/claims/C9_pareto_frontier.md` — Pareto claim (will add MaxContext frontier point)
 - `research-wiki/ideas/idea_007_maxcontext_dualend.md` — idea page (status update only)

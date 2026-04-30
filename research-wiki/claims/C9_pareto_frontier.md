@@ -34,7 +34,7 @@ A pre-fix `TD-Bubble` run under the edge-case config `hits == k == num_child == 
 
 **Implication for paper claims:** do not use the archived pre-fix `6.9767` run as a current efficiency frontier point. When comparing MaxContext methods (idea:007) against TopDown Bubblesort on the comparisons-axis or wall-clock-axis frontier, use `TD-Bubble` at its standard `num_child=3` config (the existing claim:C9 frontier point), or use `MaxContext-TopDown` directly as the canonical whole-pool best-only baseline. Even after the fix, standard `TD-Bubble` is not identical to MaxContext TopDown because MaxContext uses its own prompt/parser path and a two-document BM25 bypass.
 
-Full mechanism analysis: [`research_pipeline_setwise/FINDINGS.md`](../../research_pipeline_setwise/FINDINGS.md) under the 2026-04-27 entry; experiment-page note: [`exp:main_td_bubble`](../experiments/main_td_bubble.md).
+Full mechanism analysis: [`FINDINGS.md`](../FINDINGS.md) under the 2026-04-27 entry; experiment-page note: [`exp:main_td_bubble`](../experiments/main_td_bubble.md).
 
 ## Supporting experiments
 
