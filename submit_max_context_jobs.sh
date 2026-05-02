@@ -158,7 +158,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$MODEL" \
     "$DATASET_PATH" \
     "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-4/top${N}" \
+    "${RUN_BASELINE}/original/ws-3/top${N}" \
     cuda generation 2 "$N" "$N" 512 heapsort
 done
 
@@ -170,7 +170,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$MODEL" \
     "$DATASET_PATH" \
     "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-4/top${N}" \
+    "${RUN_BASELINE}/original/ws-3/top${N}" \
     cuda generation 2 "$N" "$N" 512 bubblesort
 done
 
