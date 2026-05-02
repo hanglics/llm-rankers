@@ -124,13 +124,13 @@ INFO
 # -----------------------------------------------------------------------------
 EXPECTED=()
 
-# Block 1 - Original TopDown-Heap   (WS=4)
+# Block 1 - Original TopDown-Heap   (WS=3)
 for N in "${POOL_SIZES[@]}"; do
-  EXPECTED+=("${RUN_BASELINE}/original/ws-4/top${N}/topdown_heapsort.txt")
+  EXPECTED+=("${RUN_BASELINE}/original/ws-3/top${N}/topdown_heapsort.txt")
 done
-# Block 2 - Original TopDown-Bubble (WS=4)
+# Block 2 - Original TopDown-Bubble (WS=3)
 for N in "${POOL_SIZES[@]}"; do
-  EXPECTED+=("${RUN_BASELINE}/original/ws-4/top${N}/topdown_bubblesort.txt")
+  EXPECTED+=("${RUN_BASELINE}/original/ws-3/top${N}/topdown_bubblesort.txt")
 done
 # Block 3 - Original TopDown-Heap   (WS=PS)
 for N in "${POOL_SIZES[@]}"; do
