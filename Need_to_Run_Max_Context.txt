@@ -5,35 +5,35 @@ Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top10 \
-cuda generation 3 10 10 512 heapsort
+cuda generation 2 10 10 512 heapsort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top20 \
-cuda generation 3 20 20 512 heapsort
+cuda generation 2 20 20 512 heapsort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top30 \
-cuda generation 3 30 30 512 heapsort
+cuda generation 2 30 30 512 heapsort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top40 \
-cuda generation 3 40 40 512 heapsort
+cuda generation 2 40 40 512 heapsort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top50 \
-cuda generation 3 50 50 512 heapsort
+cuda generation 2 50 50 512 heapsort
 
 # Original TopDown-Bubble (WS=4)
 
@@ -42,35 +42,35 @@ Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top10 \
-cuda generation 3 10 10 512 bubblesort
+cuda generation 2 10 10 512 bubblesort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top20 \
-cuda generation 3 20 20 512 bubblesort
+cuda generation 2 20 20 512 bubblesort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top30 \
-cuda generation 3 30 30 512 bubblesort
+cuda generation 2 30 30 512 bubblesort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top40 \
-cuda generation 3 40 40 512 bubblesort
+cuda generation 2 40 40 512 bubblesort
 
 sbatch experiments/run_topdown_bigram.sh \
 Qwen/Qwen3-4B \
 msmarco-passage/trec-dl-2019/judged \
 runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt \
 results/maxcontext_dualend/test_run_v1/baseline/qwen3-4b-dl19/original/ws-4/top50 \
-cuda generation 3 50 50 512 bubblesort
+cuda generation 2 50 50 512 bubblesort
 
 # Original TopDown-Heap (WS=PS)
 

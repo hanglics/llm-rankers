@@ -151,7 +151,7 @@ cat <<INFO >&2
 INFO
 
 # =============================================================================
-# Block 1 - Original TopDown-Heap (WS=4)
+# Block 1 - Original TopDown-Heap (WS=4)   [num_child = 2]
 # =============================================================================
 for N in "${POOL_SIZES[@]}"; do
   submit experiments/run_topdown_bigram.sh \
@@ -159,11 +159,11 @@ for N in "${POOL_SIZES[@]}"; do
     "$DATASET_PATH" \
     "$BM25_RUN" \
     "${RUN_BASELINE}/original/ws-4/top${N}" \
-    cuda generation 3 "$N" "$N" 512 heapsort
+    cuda generation 2 "$N" "$N" 512 heapsort
 done
 
 # =============================================================================
-# Block 2 - Original TopDown-Bubble (WS=4)
+# Block 2 - Original TopDown-Bubble (WS=4)  [num_child = 2]
 # =============================================================================
 for N in "${POOL_SIZES[@]}"; do
   submit experiments/run_topdown_bigram.sh \
@@ -171,7 +171,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$DATASET_PATH" \
     "$BM25_RUN" \
     "${RUN_BASELINE}/original/ws-4/top${N}" \
-    cuda generation 3 "$N" "$N" 512 bubblesort
+    cuda generation 2 "$N" "$N" 512 bubblesort
 done
 
 # =============================================================================
