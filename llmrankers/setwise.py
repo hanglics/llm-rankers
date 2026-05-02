@@ -783,10 +783,14 @@ class SetwiseLlmRanker(LlmRanker):
             ranking = list(reversed(ranking))
         elif self.method == "bubblesort":
             last_start = len(ranking) - (self.num_child + 1)
-            disable_outer_clamp = (
-                len(ranking) == self.k == self.num_child
-                or self.num_child >= len(ranking)
-            )
+            # Disable the outer last_start clamp whenever the comparator window
+            # already spans the whole live pool. The bubble window below is
+            #   min(start_ind + num_child + 1, len(ranking))
+            # so window-covers-pool is exactly num_child + 1 >= len(ranking).
+            # Subsumes both prior clauses: (len == k == num_child) and
+            # (num_child >= len), and adds the previously-missed boundary
+            # num_child + 1 == len (e.g. window=k=hits=10, num_child=9).
+            disable_outer_clamp = self.num_child + 1 >= len(ranking)
 
             for i in range(self.k):
                 # Keep the local clamp for ordinary windows, but preserve the
