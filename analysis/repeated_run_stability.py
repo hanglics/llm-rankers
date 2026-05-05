@@ -171,6 +171,9 @@ def infer_metadata(path: Path, results_root: Path) -> dict[str, str]:
     elif "/max-context/bottomup/" in f"/{rel_text}/":
         method = "maxctx_bottomup"
         method_family = "max-context"
+    elif "/original/bottomup/" in f"/{rel_text}/":
+        method = f"orig_bu_{stem.replace('bottomup_', '')}"
+        method_family = "original_bottomup"
     elif "/original/ws-3/" in f"/{rel_text}/":
         method = f"orig_ws3_{stem.replace('topdown_', '')}"
         method_family = "original_ws3"
@@ -606,17 +609,21 @@ def default_output_dir(results_root: Path) -> Path:
     return results_root / STABILITY_ANALYSIS_DIRNAME
 
 
-def main() -> None:
-    args = parse_args()
-    results_root = resolve_results_root(args.results_root)
-    output_dir = args.output_dir or default_output_dir(results_root)
-
+def run_stability_analysis(
+    results_root: str | Path,
+    *,
+    run_glob: str = "test_run_v*",
+    primary_metric: str = DEFAULT_PRIMARY_METRIC,
+    expected_runs: int = 10,
+    skip_per_query: bool = False,
+) -> dict[str, object]:
+    results_root = resolve_results_root(Path(results_root))
     if not results_root.exists():
-        raise SystemExit(f"Results root does not exist: {results_root}")
+        raise FileNotFoundError(f"Results root does not exist: {results_root}")
 
-    run_dirs = discover_run_dirs(results_root, args.run_glob)
+    run_dirs = discover_run_dirs(results_root, run_glob)
     if not run_dirs:
-        raise SystemExit(f"No run directories found under {results_root} matching {args.run_glob}")
+        raise FileNotFoundError(f"No run directories found under {results_root} matching {run_glob}")
 
     run_ids = [path.name for path in run_dirs]
     eval_paths = sorted(
@@ -629,9 +636,7 @@ def main() -> None:
     )
 
     if not eval_paths:
-        raise SystemExit(f"No .eval files found under run directories in {results_root}")
-
-    output_dir.mkdir(parents=True, exist_ok=True)
+        raise FileNotFoundError(f"No .eval files found under run directories in {results_root}")
 
     aggregate_groups, per_query_groups = collect_eval_values(eval_paths, results_root)
     log_groups = collect_log_values(log_paths, results_root)
@@ -659,7 +664,66 @@ def main() -> None:
     aggregate_rows = group_to_rows(aggregate_groups, aggregate_key_fields, run_ids)
     log_rows = group_to_rows(log_groups, aggregate_key_fields, run_ids) if log_groups else []
 
-    run_value_fields = run_ids
+    per_query_rows: list[dict[str, object]] = []
+    per_query_summary_rows: list[dict[str, object]] = []
+    if not skip_per_query:
+        per_query_rows = group_to_rows(per_query_groups, per_query_key_fields, run_ids)
+        per_query_summary_rows = build_per_query_summary(per_query_rows)
+
+    report = build_report(
+        results_root=results_root,
+        run_ids=run_ids,
+        aggregate_rows=aggregate_rows,
+        per_query_summary_rows=per_query_summary_rows,
+        log_rows=log_rows,
+        primary_metric=primary_metric,
+        expected_runs=expected_runs,
+    )
+
+    return {
+        "results_root": results_root,
+        "run_ids": run_ids,
+        "eval_paths": eval_paths,
+        "log_paths": log_paths,
+        "aggregate_rows": aggregate_rows,
+        "per_query_rows": per_query_rows,
+        "per_query_summary_rows": per_query_summary_rows,
+        "log_rows": log_rows,
+        "report": report,
+        "aggregate_key_fields": aggregate_key_fields,
+        "per_query_key_fields": per_query_key_fields,
+        "common_stat_fields": common_stat_fields,
+    }
+
+
+def main() -> None:
+    args = parse_args()
+    results_root = resolve_results_root(args.results_root)
+    output_dir = args.output_dir or default_output_dir(results_root)
+
+    try:
+        analysis = run_stability_analysis(
+            results_root,
+            run_glob=args.run_glob,
+            primary_metric=args.primary_metric,
+            expected_runs=args.expected_runs,
+            skip_per_query=args.skip_per_query,
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_ids = analysis["run_ids"]
+    aggregate_rows = analysis["aggregate_rows"]
+    per_query_rows = analysis["per_query_rows"]
+    per_query_summary_rows = analysis["per_query_summary_rows"]
+    log_rows = analysis["log_rows"]
+    aggregate_key_fields = analysis["aggregate_key_fields"]
+    per_query_key_fields = analysis["per_query_key_fields"]
+    common_stat_fields = analysis["common_stat_fields"]
+
+    run_value_fields = list(run_ids)
     write_csv(
         output_dir / "evaluation_stability.csv",
         aggregate_rows,
@@ -671,11 +735,7 @@ def main() -> None:
         aggregate_key_fields + common_stat_fields + run_value_fields,
     )
 
-    per_query_rows: list[dict[str, object]] = []
-    per_query_summary_rows: list[dict[str, object]] = []
     if not args.skip_per_query:
-        per_query_rows = group_to_rows(per_query_groups, per_query_key_fields, run_ids)
-        per_query_summary_rows = build_per_query_summary(per_query_rows)
         write_csv(
             output_dir / "per_query_stability.csv",
             per_query_rows,
@@ -705,20 +765,11 @@ def main() -> None:
             ],
         )
 
-    report = build_report(
-        results_root=results_root,
-        run_ids=run_ids,
-        aggregate_rows=aggregate_rows,
-        per_query_summary_rows=per_query_summary_rows,
-        log_rows=log_rows,
-        primary_metric=args.primary_metric,
-        expected_runs=args.expected_runs,
-    )
-    (output_dir / "STABILITY_REPORT.md").write_text(report)
+    (output_dir / "STABILITY_REPORT.md").write_text(str(analysis["report"]))
 
     print(f"Runs discovered: {len(run_ids)}")
-    print(f"Eval files parsed: {len(eval_paths)}")
-    print(f"Log files parsed: {len(log_paths)}")
+    print(f"Eval files parsed: {len(analysis['eval_paths'])}")
+    print(f"Log files parsed: {len(analysis['log_paths'])}")
     print(f"Wrote stability analysis to {output_dir}")
     if len(run_ids) != args.expected_runs:
         print(f"WARNING: expected {args.expected_runs} runs, found {len(run_ids)}")

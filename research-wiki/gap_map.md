@@ -6,13 +6,13 @@ mutating the graph. Claims are evidence, not addressers — they do not appear h
 
 Stable-ID catalog of field gaps this project targets. Only papers and ideas address a gap (via the `addresses_gap` edge type). Claim status about a gap is captured on the claim pages themselves.
 
-| Gap ID | Statement | Status | Addressed by (from graph) |
-|---|---|---|---|
-| gap:G1 | Standard setwise LLM ranking extracts only one decision per call (identity of best); implicit information about worst and relative order of the rest is discarded. | partial | paper:zhuang2024_setwise, idea:001, idea:002, idea:003, idea:004, idea:006, idea:007 |
-| gap:G2 | Position bias in setwise ranking differs for best vs worst selection; no prior study of bias under joint best+worst prompting. | partial | paper:tang2024_found_in_middle, idea:002, idea:005 |
-| gap:G3 | No systematic study of whether LLMs are symmetrically competent at identifying most vs least relevant documents. | diagnosed; mitigation pending | idea:001 (diagnosis-via-failure), idea:002 (partial mitigation), idea:006 |
-| gap:G4 | No framework for when expensive setwise variants are justified over baseline heapsort/bubblesort. | partial (frontier mapped) | paper:podolak2025_setwise_insertion, paper:peng2025_flops_reranking, idea:004, idea:005, idea:006, idea:007 |
-| gap:G5 | LLM ranking performance may vary by model family, but prior work treats all models uniformly. | partial (pattern identified) | paper:hutter2025_positional_rag, idea:004, idea:005, idea:006 |
+| Gap ID | Statement                                                                                                                                                          | Status                        | Addressed by (from graph)                                                                                             |
+|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| gap:G1 | Standard setwise LLM ranking extracts only one decision per call (identity of best); implicit information about worst and relative order of the rest is discarded. | partial                       | paper:zhuang2024_setwise, idea:001, idea:002, idea:003, idea:004, idea:006, idea:007, idea:008                        |
+| gap:G2 | Position bias in setwise ranking differs for best vs worst selection; no prior study of bias under joint best+worst prompting.                                     | partial                       | paper:tang2024_found_in_middle, idea:002, idea:005                                                                    |
+| gap:G3 | No systematic study of whether LLMs are symmetrically competent at identifying most vs least relevant documents.                                                   | diagnosed; mitigation pending | idea:001 (diagnosis-via-failure), idea:002 (partial mitigation), idea:006                                             |
+| gap:G4 | No framework for when expensive setwise variants are justified over baseline heapsort/bubblesort.                                                                  | partial (frontier mapped)     | paper:podolak2025_setwise_insertion, paper:peng2025_flops_reranking, idea:004, idea:005, idea:006, idea:007, idea:008 |
+| gap:G5 | LLM ranking performance may vary by model family, but prior work treats all models uniformly.                                                                      | partial (pattern identified)  | paper:hutter2025_positional_rag, idea:004, idea:005, idea:006, idea:008                                               |
 
 ## Detailed gap notes
 

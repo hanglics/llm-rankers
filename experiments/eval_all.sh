@@ -24,11 +24,25 @@ for DIR in ${DIRS}; do
     if echo "${DIR}" | grep -qi "dl19"; then
         QRELS="dl19-passage"
         DATASET_LABEL="DL19"
+        LEVEL=2
     elif echo "${DIR}" | grep -qi "dl20"; then
         QRELS="dl20-passage"
         DATASET_LABEL="DL20"
+        LEVEL=2
+    elif echo "${DIR}" | grep -qi "beir-dbpedia\|dbpedia-entity"; then
+        QRELS="beir-v1.0.0-dbpedia-entity-test"; DATASET_LABEL="BEIR DBPedia"; LEVEL=1
+    elif echo "${DIR}" | grep -qi "beir-nfcorpus\|nfcorpus"; then
+        QRELS="beir-v1.0.0-nfcorpus-test"; DATASET_LABEL="BEIR NFCorpus"; LEVEL=1
+    elif echo "${DIR}" | grep -qi "beir-scifact\|scifact"; then
+        QRELS="beir-v1.0.0-scifact-test"; DATASET_LABEL="BEIR SciFact"; LEVEL=1
+    elif echo "${DIR}" | grep -qi "beir-trec-covid\|trec-covid"; then
+        QRELS="beir-v1.0.0-trec-covid-test"; DATASET_LABEL="BEIR TREC-COVID"; LEVEL=1
+    elif echo "${DIR}" | grep -qi "beir-touche2020\|webis-touche2020"; then
+        QRELS="beir-v1.0.0-webis-touche2020-test"; DATASET_LABEL="BEIR Touche 2020"; LEVEL=1
+    elif echo "${DIR}" | grep -qi "beir-fiqa\|fiqa"; then
+        QRELS="beir-v1.0.0-fiqa-test"; DATASET_LABEL="BEIR FiQA"; LEVEL=1
     else
-        echo "Skipping ${DIR} (cannot determine qrels from name — include 'dl19' or 'dl20')"
+        echo "Skipping ${DIR} (cannot determine qrels from name — include 'dl19', 'dl20', or a supported BEIR tag)"
         continue
     fi
 
@@ -48,11 +62,11 @@ for DIR in ${DIRS}; do
     for f in ${DIR}/*.txt; do
         name=$(basename $f .txt)
         [[ "${name}" == "results" ]] && continue
-        ndcg10=$(python -m pyserini.eval.trec_eval -c -l 2 -m ndcg_cut.10 ${QRELS} ${f} 2>/dev/null | grep "ndcg_cut_10" | awk '{print $3}')
-        ndcg100=$(python -m pyserini.eval.trec_eval -c -l 2 -m ndcg_cut.100 ${QRELS} ${f} 2>/dev/null | grep "ndcg_cut_100" | awk '{print $3}')
-        map10=$(python -m pyserini.eval.trec_eval -c -l 2 -m map_cut.10 ${QRELS} ${f} 2>/dev/null | grep "map_cut_10" | awk '{print $3}')
-        map100=$(python -m pyserini.eval.trec_eval -c -l 2 -m map_cut.100 ${QRELS} ${f} 2>/dev/null | grep "map_cut_100" | awk '{print $3}')
-        recall1000=$(python -m pyserini.eval.trec_eval -c -l 2 -m recall.1000 ${QRELS} ${f} 2>/dev/null | grep "recall_1000" | awk '{print $3}')
+        ndcg10=$(python -m pyserini.eval.trec_eval -c -l ${LEVEL:-2} -m ndcg_cut.10 ${QRELS} ${f} 2>/dev/null | grep "ndcg_cut_10" | awk '{print $3}')
+        ndcg100=$(python -m pyserini.eval.trec_eval -c -l ${LEVEL:-2} -m ndcg_cut.100 ${QRELS} ${f} 2>/dev/null | grep "ndcg_cut_100" | awk '{print $3}')
+        map10=$(python -m pyserini.eval.trec_eval -c -l ${LEVEL:-2} -m map_cut.10 ${QRELS} ${f} 2>/dev/null | grep "map_cut_10" | awk '{print $3}')
+        map100=$(python -m pyserini.eval.trec_eval -c -l ${LEVEL:-2} -m map_cut.100 ${QRELS} ${f} 2>/dev/null | grep "map_cut_100" | awk '{print $3}')
+        recall1000=$(python -m pyserini.eval.trec_eval -c -l ${LEVEL:-2} -m recall.1000 ${QRELS} ${f} 2>/dev/null | grep "recall_1000" | awk '{print $3}')
         printf "%-32s %-10s %-10s %-10s %-10s %-10s\n" "${name}" "${ndcg10}" "${ndcg100}" "${map10}" "${map100}" "${recall1000}"
     done
     echo "----------------------------------------------------------------------------------------------------------------"

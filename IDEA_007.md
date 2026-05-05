@@ -9,6 +9,8 @@
 
 The current DualEnd family (`idea:002`, `exp:main_de_cocktail` / `main_de_selection`) uses 4-passage windows and costs 5.6–8.9× TD-Heap wall-clock for a +0.0058 mean NDCG@10 gain over best TopDown. `claim:C9` identifies an empty region on the Pareto frontier between TD-Bubble and DE-Cocktail. `Need_to_Run.txt` priority #2 asks for max-context DualEnd on Qwen.
 
+**Cross-link:** EMNLP 2026 multi-family extension lives in `IDEA_008_maxcontext_multi_family.md`. The Qwen-only invariants in this spec remain authoritative; the EMNLP plan documents the deliberate audited widening of `MAXCONTEXT_ALLOWED_MODEL_TYPES` to include Llama-3.1 and Ministral-3.
+
 **Proposal (idea:007):** fit the entire rerank pool into a single Qwen prompt and run one of three MaxContext variants per round: best+worst (DualEnd), best-only (TopDown), or worst-only (BottomUp). DualEnd shrinks the live pool by 2 each round; TopDown and BottomUp shrink by 1. Two orthogonal studies remain: pool-size sweep (does deeper rerank help?) and passage-length sweep (does richer per-passage signal help?).
 
 **Scope gate:** only the Qwen-generation code path exercises true joint elicitation (`setwise_extended.py:455-474`). T5 generation and all `--scoring likelihood` paths collapse to a best-only proxy (documented on `idea:002` and `claim:C10`). This experiment is strictly Qwen + generation.
@@ -125,37 +127,37 @@ Any (model, pool, pl) tuple that the preflight helper fails is dropped from the 
 
 ### 5.1 Study A — pool-size sweep at fixed `pl=512`
 
-| | |
-|---|---|
-| Fixed | `passage_length = 512`, `direction = maxcontext_dualend`, `scoring = generation`, Qwen non-thinking |
-| Variable | `pool_size ∈ {10, 20, 30, 40, 50}` |
-| Models | Qwen3-4B, Qwen3-8B, Qwen3-14B, Qwen3.5-4B, Qwen3.5-9B, Qwen3.5-27B |
-| Datasets | DL19, DL20 |
-| Matrix | 6 × 5 × 2 = **60 runs** |
+|          |                                                                                                     |
+|----------|-----------------------------------------------------------------------------------------------------|
+| Fixed    | `passage_length = 512`, `direction = maxcontext_dualend`, `scoring = generation`, Qwen non-thinking |
+| Variable | `pool_size ∈ {10, 20, 30, 40, 50}`                                                                  |
+| Models   | Qwen3-4B, Qwen3-8B, Qwen3-14B, Qwen3.5-4B, Qwen3.5-9B, Qwen3.5-27B                                  |
+| Datasets | DL19, DL20                                                                                          |
+| Matrix   | 6 × 5 × 2 = **60 runs**                                                                             |
 
 **Hypothesis:** saturation, not monotonic. Gain from 10 → 20 → 30 → 40 → 50 should flatten; the plateau point is the efficient pool size.
 
 ### 5.2 Study B — passage-length sweep at predeclared `pool_size`
 
-| | |
-|---|---|
-| Fixed | `pool_size` = smallest Study A value within 0.003 NDCG@10 of Study A max (predeclared rule; Codex round 2) |
-| Variable | `passage_length ∈ {64, 128, 256, 512}` |
-| Direction | `maxcontext_dualend` |
+|             |                                                                                                                                                                                                |
+|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Fixed       | `pool_size` = smallest Study A value within 0.003 NDCG@10 of Study A max (predeclared rule; Codex round 2)                                                                                     |
+| Variable    | `passage_length ∈ {64, 128, 256, 512}`                                                                                                                                                         |
+| Direction   | `maxcontext_dualend`                                                                                                                                                                           |
 | Control arm | same pl sweep with `direction = dualend, num_child = 3` on the same 6 Qwens × 2 datasets — preserves joint best+worst prompting + parser family. TopDown pl-curves are **supplementary only**. |
-| Matrix | 6 × 4 × 2 × 2 arms = **96 runs** (48 of which are the control arm) |
+| Matrix      | 6 × 4 × 2 × 2 arms = **96 runs** (48 of which are the control arm)                                                                                                                             |
 
 **Confound-handling rule:** if shorter `pl` wins in MaxContext but not in the control arm, attribute to long-context attention degradation. If shorter `pl` wins in both, attribute to Qwen's general passage-signal / length sensitivity. Any other pattern → further investigation before claiming anything.
 
 ### 5.3 Study C — order-robustness pilot (launch gate)
 
-| | |
-|---|---|
-| Models | **Qwen3-4B** (tightest context) + **Qwen3.5-9B** (representative mid-size) |
-| Datasets | DL19, DL20 |
-| Orderings | BM25 forward, BM25 reversed, random shuffle (fixed seed) |
-| Fixed | `pool_size = 50`, `pl = 512` |
-| Matrix | 2 × 2 × 3 = **12 runs** |
+|           |                                                                            |
+|-----------|----------------------------------------------------------------------------|
+| Models    | **Qwen3-4B** (tightest context) + **Qwen3.5-9B** (representative mid-size) |
+| Datasets  | DL19, DL20                                                                 |
+| Orderings | BM25 forward, BM25 reversed, random shuffle (fixed seed)                   |
+| Fixed     | `pool_size = 50`, `pl = 512`                                               |
+| Matrix    | 2 × 2 × 3 = **12 runs**                                                    |
 
 **This is a smoke gate, not an order-robustness claim.** Three orderings cannot rule out order effects.
 
@@ -205,13 +207,13 @@ Do not use the archived `~6.98` pre-fix result as an efficiency claim. Also do n
 
 Total: 60 (Study A) + 96 (Study B) + 12 (Study C) + 144 (baselines) = **312 runs**.
 
-| Phase | Runs | Gate |
-|---|---|---|
-| 1 — Unit-level sanity | 1 (Qwen3-4B, DL19, pool=10, pl=512) | algorithm terminates; numeric labels parse 100%; ranking is a permutation; preflight passes; zero truncations |
-| 2 — Study C order-robustness pilot | 12 | max NDCG@10 Δ across orderings ≤ 0.01 |
-| 3 — Matched-hits regression check | 1 pair (Qwen3-8B DL19, MaxContext pool=50 vs DE-Cocktail hits=50 nc=3) | MaxContext ≥ DE-Cocktail within bootstrap CI |
-| 4 — Study A + predeclared baselines | 60 + 144 = 204 | none (run in parallel) |
-| 5 — Study B at predeclared pool_size | 96 | Phase 4 yielded a defensible pool_size via the selection rule |
+| Phase                                | Runs                                                                   | Gate                                                                                                          |
+|--------------------------------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| 1 — Unit-level sanity                | 1 (Qwen3-4B, DL19, pool=10, pl=512)                                    | algorithm terminates; numeric labels parse 100%; ranking is a permutation; preflight passes; zero truncations |
+| 2 — Study C order-robustness pilot   | 12                                                                     | max NDCG@10 Δ across orderings ≤ 0.01                                                                         |
+| 3 — Matched-hits regression check    | 1 pair (Qwen3-8B DL19, MaxContext pool=50 vs DE-Cocktail hits=50 nc=3) | MaxContext ≥ DE-Cocktail within bootstrap CI                                                                  |
+| 4 — Study A + predeclared baselines  | 60 + 144 = 204                                                         | none (run in parallel)                                                                                        |
+| 5 — Study B at predeclared pool_size | 96                                                                     | Phase 4 yielded a defensible pool_size via the selection rule                                                 |
 
 ## 9. Verification & wiki follow-up
 
@@ -230,6 +232,7 @@ Total: 60 (Study A) + 96 (Study B) + 12 (Study C) + 144 (baselines) = **312 runs
 - `bias_aware_dualend` or `samecall_regularized` derivatives of MaxContext — stacks later if the base method works.
 - Auto-tuning `pool_size` per query or per model — static sweep first.
 - Changing any existing DualEnd / BottomUp / BiDir behaviour; the `CHARACTERS` → `self._labels` refactor must be behaviour-preserving for letter-direction code.
+- Llama-3.1 and Ministral-3 families are out of scope for IDEA_007 specifically; they are addressed in IDEA_008.
 
 ## 11. Audit trail
 

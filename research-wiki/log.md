@@ -2,6 +2,10 @@
 
 Append-only mutation timeline.
 
+- 2026-05-05 — **v8: pool sweep extended to 6 pools for required EMNLP model families.** Phase A: 21 → 42 cells. Phase B: 2520 → 3024 cells. Phase C: 1050 → 1260 cells. Phase C′ unchanged at 35 (preserves IDEA_007 byte-equality). Required total: 3626 → 4361 (+735). Compute impact: estimated +840 GPU-hours for Phase B pool=100. Context-fit gated by Phase A pool=100 smoke. Code changes: `submit_max_context_jobs.sh` and `eval_max_context_jobs.sh` gain `--pool-sizes` override (default 5 pools, IDEA_007 path unchanged); `submit_emnlp_jobs.sh`, `eval_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `scripts/smoke_emnlp_models.sh` extend their default sweeps.
+
+- 2026-05-05 — **EMNLP 2026 multi-family expansion plan landed.** New nodes: `idea:008`, `EMNLP_PAPER_PLAN.md`, 7 experiment pages, 4 paper pages (13 new files total). Required matrix: 3626 runs (A+B+C+C′). Optional Qwen3 extension: +2030 runs (D+E). `MAXCONTEXT_ALLOWED_MODEL_TYPES` widened from 3 to 5+ model types (with `mistral`, `mistral3`, `ministral` contingencies); new prime-constraint gate is **65 byte-equality cells** (9 IDEA_007 goldens + 35 Phase C′ Qwen3-4B re-runs + 21 Phase A smoke-as-golden).
+
 - 2026-04-30T20:10:00+10:00 — Refreshed wiki records to match the post-consolidation current state.
   - `query_pack.md`: refreshed timestamp/context, added idea:007 to G1/G4, recorded same-method/same-sort tables as completed, and replaced the stale same-sort open question with the MaxContext matched-baseline question.
   - `gap_map.md`: reconciled the view with `graph/edges.jsonl` so idea:007 appears as an addressor for gap:G1 and gap:G4.

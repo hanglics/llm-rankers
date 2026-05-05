@@ -24,7 +24,9 @@ cd /scratch/project/neural_ir/hang/llm-rankers
 #   --query_length 128
 #   --num_permutation 1
 #   --method selection
-# num_child is ignored internally by the ranker and is passed only as a placeholder.
+# num_child is overridden internally by the ranker to pool_size-1 (so each
+# comparison batch sees the entire pool). The CLI value below is a
+# self-documenting placeholder; any positive integer is functionally equivalent.
 #
 # Usage:
 #   bash experiments/run_maxcontext_dualend_order.sh <model> <dataset> <run_path> <output_dir> \
@@ -67,7 +69,7 @@ python run.py \
         --passage_length "${PASSAGE_LENGTH}" \
         "${SHUFFLE_ARGS[@]}" \
         --log_comparisons "${ANALYSIS_DIR}/maxcontext_dualend_${ORDERING}_comparisons.jsonl" \
-    setwise --num_child 3 \
+    setwise --num_child "${POOL_SIZE}" \
             --method selection \
             --k "${POOL_SIZE}" \
             --num_permutation 1 \

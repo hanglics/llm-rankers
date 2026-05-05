@@ -68,7 +68,7 @@ def main(args):
         if args.run.openai_key is not None:
             raise ValueError(
                 f"--direction {args.setwise.direction} is not supported with --openai_key. "
-                f"MaxContext requires a local Qwen3 / Qwen3.5 model."
+                f"MaxContext requires a local Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model."
             )
 
     if args.pointwise:

@@ -24,8 +24,14 @@ except ImportError as err:
 
 random.seed(929)
 
-CAUSAL_MODEL_TYPES = {"llama", "qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
-QWEN_MODEL_TYPES = {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+CAUSAL_MODEL_TYPES = frozenset({
+    "llama", "qwen2", "qwen3", "qwen3_moe", "qwen3_5",
+    "mistral", "mistral3", "ministral",
+})
+QWEN_MODEL_TYPES = frozenset({"qwen2", "qwen3", "qwen3_moe", "qwen3_5"})
+TRUST_REMOTE_CODE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
+THINKING_DISABLE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
+THINKING_BUDGET_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
 
 
 def compute_max_fit_window(
@@ -115,7 +121,7 @@ class SetwiseLlmRanker(LlmRanker):
                 "torch_dtype": "auto" if device == "cuda" else torch.float32,
                 "cache_dir": cache_dir,
             }
-            if self.config.model_type in QWEN_MODEL_TYPES:
+            if self.config.model_type in TRUST_REMOTE_CODE_MODEL_TYPES:
                 tokenizer_kwargs["trust_remote_code"] = True
                 model_kwargs["trust_remote_code"] = True
 
@@ -198,9 +204,17 @@ class SetwiseLlmRanker(LlmRanker):
             f.write(_json.dumps(entry) + "\n")
 
     def _chat_template_kwargs(self):
-        if self.config.model_type in QWEN_MODEL_TYPES:
+        if self.config.model_type in THINKING_DISABLE_MODEL_TYPES:
             return {"enable_thinking": False}
         return {}
+
+    def _generation_budget(self, mode: str) -> int:
+        """Return max_new_tokens for single-label or dual-label generation."""
+        if self.config.model_type == "t5":
+            return 2
+        if self.config.model_type in THINKING_BUDGET_MODEL_TYPES:
+            return 256 if mode == "single" else 512
+        return 32 if mode == "single" else 64
 
     def _format_passages(self, docs: Sequence[SearchResult]) -> str:
         return "\n\n".join(
@@ -435,7 +449,8 @@ class SetwiseLlmRanker(LlmRanker):
         stripped = output.strip()
 
         # --- Qwen-family thinking tokens (<think>...</think>) ---
-        # Strip complete blocks first, then any truncated/unclosed block
+        # Strip complete blocks first, then any truncated/unclosed block. This is
+        # a no-op for non-Qwen models unless they happen to emit the same tags.
         cleaned = re.sub(r"(?is)<think>.*?</think>\s*", "", stripped)
         cleaned = re.sub(r"(?is)<think>.*", "", cleaned)
 
@@ -680,7 +695,7 @@ class SetwiseLlmRanker(LlmRanker):
                 # Thinking models (e.g. Qwen3) may emit <think>...</think> before the
                 # answer, so we need enough token budget for the thinking block to
                 # complete.  Non-thinking models will hit EOS well before 256 tokens.
-                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                max_new = self._generation_budget("single")
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]

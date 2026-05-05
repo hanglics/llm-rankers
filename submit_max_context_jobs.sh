@@ -3,12 +3,16 @@
 #
 # Submit all 35 sbatch jobs from Need_to_Run_Max_Context.txt with one command,
 # parameterised by run tag, model, and dataset (DL19 / DL20). Everything else
-# (BM25 run path, pool sizes {10,20,30,40,50}, passage length, scoring mode,
-# sort algorithms, output directory layout) stays fixed.
+# (BM25 run path, passage length, scoring mode, sort algorithms, output
+# directory layout) stays fixed. Pool sizes default to {10,20,30,40,50}; use
+# --pool-sizes to override.
 #
 # Usage:
 #   ./submit_max_context_jobs.sh [--tag TAG] [--model MODEL]
-#                                [--dataset DL19|DL20] [--dry-run] [-h|--help]
+#                                [--dataset DL19|DL20]
+#                                [--include-standard-bottomup]
+#                                [--pool-sizes "10 20 30 40 50"]
+#                                [--dry-run] [-h|--help]
 #
 # Examples:
 #   ./submit_max_context_jobs.sh                                            # all defaults
@@ -19,6 +23,9 @@
 
 set -euo pipefail
 
+# IDEA_007 default behavior preserved: --include-standard-bottomup off => 35 cells.
+# EMNLP opt-in: flag on => 45 cells.
+
 # -----------------------------------------------------------------------------
 # Defaults (match the original Need_to_Run_Max_Context.txt baseline)
 # -----------------------------------------------------------------------------
@@ -26,6 +33,8 @@ TAG="test_run_v1"
 MODEL="Qwen/Qwen3-4B"
 DATASET="DL19"
 DRY_RUN=0
+INCLUDE_STANDARD_BOTTOMUP=0
+POOL_SIZES_OVERRIDE=""
 
 usage() {
   cat <<'USAGE'
@@ -43,6 +52,12 @@ Options:
                        DL20 -> msmarco-passage/trec-dl-2020/judged
                      and the corresponding BM25 run path under runs/bm25/.
   --dry-run          Print sbatch commands instead of submitting them.
+  --include-standard-bottomup
+                     Add standard BottomUp heap/bubble blocks under
+                     original/bottomup/ (EMNLP opt-in; default off).
+  --pool-sizes LIST  Override the default pool sizes with a whitespace-separated
+                     positive-integer list, e.g. "10 20 30 40 50 100".
+                     Omit this flag to preserve the canonical 5-pool layout.
   -h | --help        Show this help and exit.
 
 Submits 35 sbatch jobs (7 method blocks x 5 pool sizes {10,20,30,40,50}):
@@ -53,6 +68,9 @@ Submits 35 sbatch jobs (7 method blocks x 5 pool sizes {10,20,30,40,50}):
   - MaxContext-TopDown
   - MaxContext-DualEnd     (writes to phase1/, all others write to baseline/)
   - MaxContext-BottomUp
+
+With --include-standard-bottomup, also submits BottomUp heap+bubble blocks
+under original/bottomup/ for 45 total jobs.
 USAGE
 }
 
@@ -72,6 +90,11 @@ while [[ $# -gt 0 ]]; do
       DATASET="$2"; shift 2 ;;
     --dry-run)
       DRY_RUN=1; shift ;;
+    --include-standard-bottomup)
+      INCLUDE_STANDARD_BOTTOMUP=1; shift ;;
+    --pool-sizes)
+      [[ $# -ge 2 ]] || { echo "Error: --pool-sizes requires a value" >&2; exit 2; }
+      POOL_SIZES_OVERRIDE="$2"; shift 2 ;;
     -h|--help)
       usage; exit 0 ;;
     *)
@@ -115,6 +138,19 @@ RUN_BASELINE="${OUT_PREFIX}/baseline/${MODEL_TAG}-${DATASET_TAG}"
 RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"
 
 POOL_SIZES=(10 20 30 40 50)
+if [[ -n "${POOL_SIZES_OVERRIDE}" ]]; then
+  read -ra POOL_SIZES <<< "$POOL_SIZES_OVERRIDE"
+  [[ ${#POOL_SIZES[@]} -gt 0 ]] || {
+    echo "Error: --pool-sizes resolved to an empty array; supply at least one positive integer" >&2
+    exit 2
+  }
+  for ps in "${POOL_SIZES[@]}"; do
+    [[ "$ps" =~ ^[1-9][0-9]*$ ]] || {
+      echo "Error: --pool-sizes entry '$ps' is not a positive integer" >&2
+      exit 2
+    }
+  done
+fi
 
 # -----------------------------------------------------------------------------
 # Submission helper: dry-runs print, real runs ensure the output directory
@@ -151,7 +187,7 @@ cat <<INFO >&2
 INFO
 
 # =============================================================================
-# Block 1 - Original TopDown-Heap (WS=4)   [num_child = 2]
+# Block 1 - Original TopDown-Heap (WS=3)   [num_child = 2]
 # =============================================================================
 for N in "${POOL_SIZES[@]}"; do
   submit experiments/run_topdown_bigram.sh \
@@ -163,7 +199,7 @@ for N in "${POOL_SIZES[@]}"; do
 done
 
 # =============================================================================
-# Block 2 - Original TopDown-Bubble (WS=4)  [num_child = 2]
+# Block 2 - Original TopDown-Bubble (WS=3)  [num_child = 2]
 # =============================================================================
 for N in "${POOL_SIZES[@]}"; do
   submit experiments/run_topdown_bigram.sh \
@@ -233,6 +269,28 @@ for N in "${POOL_SIZES[@]}"; do
     "${RUN_BASELINE}/max-context/bottomup/top${N}" \
     cuda generation "$N" 512
 done
+
+if [[ "$INCLUDE_STANDARD_BOTTOMUP" -eq 1 ]]; then
+  # ===========================================================================
+  # Block 8 - Standard BottomUp-Heap (WS=3) [num_child=2, k=10]
+  # ===========================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_bottomup_heapsort.sh \
+      "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
+      "${RUN_BASELINE}/original/bottomup/top${N}" \
+      cuda generation 2 10 "$N" 512
+  done
+
+  # ===========================================================================
+  # Block 9 - Standard BottomUp-Bubble (WS=3) [num_child=2, k=10]
+  # ===========================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_bottomup_bubblesort.sh \
+      "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
+      "${RUN_BASELINE}/original/bottomup/top${N}" \
+      cuda generation 2 10 "$N" 512
+  done
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "" >&2

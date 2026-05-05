@@ -19,7 +19,11 @@ from collections import Counter
 
 random.seed(929)
 
-MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({"qwen3", "qwen3_moe", "qwen3_5"})
+MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({
+    "qwen3", "qwen3_moe", "qwen3_5",
+    "llama",
+    "mistral", "mistral3", "ministral",
+})
 
 
 def _setup_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
@@ -204,7 +208,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                 inputs = self._tokenize_inputs(prompt)
                 self.total_prompt_tokens += inputs.input_ids.shape[1]
 
-                max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
+                max_new = self._generation_budget("single")
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
@@ -567,7 +571,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 # Thinking models (Qwen3) need a larger budget: the <think>...</think>
                 # block can easily consume 200+ tokens before the answer appears.
                 # 512 tokens gives ample room for thinking + "Best: A, Worst: C".
-                max_new = 512 if self.config.model_type in QWEN_MODEL_TYPES else 64
+                max_new = self._generation_budget("dual")
                 output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
 
                 self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
@@ -676,7 +680,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             prompt += " Passage:"
             inputs = self._tokenize_inputs(prompt)
             self.total_prompt_tokens += inputs.input_ids.shape[1]
-            max_new = 256 if self.config.model_type in QWEN_MODEL_TYPES else 4
+            max_new = self._generation_budget("single")
             output_ids = self._generate(inputs, max_new_tokens=max_new)[0]
             self.total_completion_tokens += output_ids.shape[0] - inputs.input_ids.shape[1]
             raw_output = self.tokenizer.decode(output_ids[inputs.input_ids.shape[1]:], skip_special_tokens=False).strip()
@@ -1197,8 +1201,14 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
 
 
 class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
+    _MAXCONTEXT_NAME_FRAGMENTS = frozenset({
+        "qwen3", "qwen3.5", "qwen3_5",
+        "llama-3.1", "llama_3_1", "llama3.1", "meta-llama-3.1",
+        "ministral-3", "ministral_3", "ministral3",
+    })
+
     def __init__(self, *args, pool_size: int, **kwargs):
-        self._early_reject_non_qwen3(
+        self._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
@@ -1206,21 +1216,25 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
         _setup_maxcontext_numeric_attrs(self, pool_size)
 
     @staticmethod
-    def _early_reject_non_qwen3(model_name: Optional[str]) -> None:
+    def _early_reject_unsupported_family(model_name: Optional[str]) -> None:
         if not model_name:
             return
         lowered = model_name.lower()
-        if ("qwen3" in lowered) or ("qwen3.5" in lowered) or ("qwen3_5" in lowered):
+        if any(
+            fragment in lowered
+            for fragment in MaxContextDualEndSetwiseLlmRanker._MAXCONTEXT_NAME_FRAGMENTS
+        ):
             return
         raise ValueError(
-            "MaxContextDualEnd supports Qwen3 / Qwen3.5 only; got "
-            f"{model_name!r}. (Qwen2 is explicitly not supported.)"
+            "MaxContext supports Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 only; "
+            f"got {model_name!r}. "
+            "(Qwen2, Llama-2, Mistral-7B/Nemo/Small are explicitly not supported.)"
         )
 
     def _assert_maxcontext_invariants(self, pool_size: int) -> None:
         if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
             raise ValueError(
-                f"MaxContextDualEnd requires a Qwen3 / Qwen3.5 model_type; "
+                f"MaxContextDualEnd requires Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type; "
                 f"got {self.config.model_type!r}."
             )
         if self.scoring != "generation":
@@ -1801,7 +1815,7 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
     total_bm25_bypass: int = 0
 
     def __init__(self, *args, pool_size: int, **kwargs):
-        MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
+        MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
@@ -1811,7 +1825,7 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
     def _assert_maxcontext_invariants(self, pool_size: int) -> None:
         if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
             raise ValueError(
-                f"MaxContextTopDown requires a Qwen3 / Qwen3.5 model_type; "
+                f"MaxContextTopDown requires Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type; "
                 f"got {self.config.model_type!r}."
             )
         if self.scoring != "generation":
@@ -1902,7 +1916,7 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
     total_bm25_bypass: int = 0
 
     def __init__(self, *args, pool_size: int, **kwargs):
-        MaxContextDualEndSetwiseLlmRanker._early_reject_non_qwen3(
+        MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
@@ -1912,7 +1926,7 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
     def _assert_maxcontext_invariants(self, pool_size: int) -> None:
         if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
             raise ValueError(
-                f"MaxContextBottomUp requires a Qwen3 / Qwen3.5 model_type; "
+                f"MaxContextBottomUp requires Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type; "
                 f"got {self.config.model_type!r}."
             )
         if self.scoring != "generation":

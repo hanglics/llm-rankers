@@ -59,7 +59,13 @@ except ModuleNotFoundError:
 
 import run as run_module
 from llmrankers.rankers import SearchResult
-from llmrankers.setwise import SetwiseLlmRanker, compute_max_fit_window
+from llmrankers.setwise import (
+    SetwiseLlmRanker,
+    THINKING_BUDGET_MODEL_TYPES,
+    THINKING_DISABLE_MODEL_TYPES,
+    TRUST_REMOTE_CODE_MODEL_TYPES,
+    compute_max_fit_window,
+)
 from llmrankers.setwise_extended import (
     BiasAwareDualEndSetwiseLlmRanker,
     BottomUpSetwiseLlmRanker,
@@ -219,6 +225,7 @@ def instantiate_maxcontext_variant(
     ranker_cls,
     init_owner,
     *,
+    model_name_or_path="Qwen/Qwen3-4B",
     model_type="qwen3",
     scoring="generation",
     pool_size=10,
@@ -230,7 +237,7 @@ def instantiate_maxcontext_variant(
         k = pool_size
     with mock.patch.object(init_owner, "__init__", new=fake_super_init_factory(model_type)):
         return ranker_cls(
-            model_name_or_path="Qwen/Qwen3-4B",
+            model_name_or_path=model_name_or_path,
             tokenizer_name_or_path=None,
             device="cpu",
             cache_dir=None,
@@ -265,6 +272,23 @@ def assert_materialized_rerank(results, docs):
     input_docids = [doc.docid for doc in docs]
     assert set(output_docids) == set(input_docids)
     assert len(output_docids) == len(set(output_docids))
+
+
+def model_name_for_type(model_type: str) -> str:
+    if model_type == "llama":
+        return "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    if model_type in {"mistral", "mistral3", "ministral"}:
+        return "mistralai/Ministral-3-8B-Instruct-2512"
+    return "Qwen/Qwen3-4B"
+
+
+def assert_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
+    assert ranker.CHARACTERS == [str(i + 1) for i in range(pool_size)]
+    assert ranker.num_child == pool_size - 1
+    assert ranker.method == "selection"
+    assert ranker.strict_no_truncation is True
+    assert ranker.strict_no_parse_fallback is True
+    assert ranker.label_scheme == "numeric_1_based"
 
 
 def build_strict_topdown_compare_stub():
@@ -412,27 +436,25 @@ def test_maxcontext_init_invariants():
         pool_size=10,
     )
 
-    with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory("qwen3")):
-        ranker = MaxContextDualEndSetwiseLlmRanker(**common_kwargs)
-    assert ranker.CHARACTERS == [str(i + 1) for i in range(10)]
-    assert ranker.num_child == 9
-    assert ranker.method == "selection"
-    assert ranker.strict_no_truncation is True
-    assert ranker.strict_no_parse_fallback is True
-    assert ranker.label_scheme == "numeric_1_based"
+    for model_type in ("qwen3", "qwen3_moe", "qwen3_5", "llama", "mistral", "mistral3", "ministral"):
+        with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory(model_type)):
+            ranker = MaxContextDualEndSetwiseLlmRanker(
+                **{**common_kwargs, "model_name_or_path": model_name_for_type(model_type)}
+            )
+        assert_maxcontext_numeric_attrs(ranker, 10)
 
     with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory("t5")):
         expect_raises(
             lambda: MaxContextDualEndSetwiseLlmRanker(**common_kwargs),
             ValueError,
-            "Qwen3 / Qwen3.5 model_type",
+            "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
         )
 
     with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory("qwen2")):
         expect_raises(
             lambda: MaxContextDualEndSetwiseLlmRanker(**common_kwargs),
             ValueError,
-            "Qwen3 / Qwen3.5 model_type",
+            "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
         )
 
     with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory("qwen3")):
@@ -501,19 +523,113 @@ def test_maxcontext_dualend_byte_identity_snapshot():
     assert vars(ranker) == expected_snapshot
 
 
+def test_generation_budget_tier():
+    expected = {
+        "qwen2": (256, 512),
+        "qwen3": (256, 512),
+        "qwen3_moe": (256, 512),
+        "qwen3_5": (256, 512),
+        "llama": (32, 64),
+        "mistral": (32, 64),
+        "mistral3": (32, 64),
+        "ministral": (32, 64),
+        "t5": (2, 2),
+    }
+    for model_type, (single_budget, dual_budget) in expected.items():
+        ranker = object.__new__(SetwiseLlmRanker)
+        ranker.config = SimpleNamespace(model_type=model_type)
+        assert ranker._generation_budget("single") == single_budget
+        assert ranker._generation_budget("dual") == dual_budget
+
+    assert THINKING_BUDGET_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+
+
+def test_chat_template_kwargs_per_family():
+    expected = {
+        "qwen2": {"enable_thinking": False},
+        "qwen3": {"enable_thinking": False},
+        "qwen3_moe": {"enable_thinking": False},
+        "qwen3_5": {"enable_thinking": False},
+        "llama": {},
+        "mistral": {},
+        "mistral3": {},
+        "ministral": {},
+        "t5": {},
+    }
+    for model_type, kwargs in expected.items():
+        ranker = object.__new__(SetwiseLlmRanker)
+        ranker.config = SimpleNamespace(model_type=model_type)
+        assert ranker._chat_template_kwargs() == kwargs
+
+    assert THINKING_DISABLE_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+
+
+def test_trust_remote_code_per_family():
+    model_types = ("qwen2", "qwen3", "qwen3_moe", "qwen3_5", "llama", "mistral", "mistral3", "ministral")
+    for model_type in model_types:
+        config = SimpleNamespace(model_type=model_type, n_positions=4096, max_position_embeddings=4096)
+        tokenizer_loader = mock.Mock(return_value=make_stub_causal_tokenizer())
+        model_loader = mock.Mock(return_value=DummyCausalModel())
+        with mock.patch("llmrankers.setwise.AutoConfig.from_pretrained", return_value=config), \
+             mock.patch("llmrankers.setwise.AutoTokenizer.from_pretrained", tokenizer_loader), \
+             mock.patch("llmrankers.setwise.AutoModelForCausalLM.from_pretrained", model_loader):
+            SetwiseLlmRanker(
+                model_name_or_path=model_name_for_type(model_type),
+                tokenizer_name_or_path=None,
+                device="cpu",
+                num_child=3,
+                k=10,
+                scoring="generation",
+                method="heapsort",
+                num_permutation=1,
+                cache_dir=None,
+            )
+
+        expected = model_type in TRUST_REMOTE_CODE_MODEL_TYPES
+        assert tokenizer_loader.call_args.kwargs.get("trust_remote_code", False) is expected
+        assert model_loader.call_args.kwargs.get("trust_remote_code", False) is expected
+
+
+def test_early_reject_unsupported_family():
+    for model_name in (
+        "Qwen/Qwen3-4B",
+        "Qwen/Qwen3.5-9B",
+        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "mistralai/Ministral-3-8B-Instruct-2512",
+    ):
+        MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(model_name)
+
+    for model_name in (
+        "gpt2",
+        "meta-llama/Llama-2-7b-chat-hf",
+        "mistralai/Mistral-7B-Instruct-v0.3",
+    ):
+        expect_raises(
+            lambda name=model_name: MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(name),
+            ValueError,
+            "MaxContext supports Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 only",
+        )
+
+
 def test_maxcontext_topdown_invariants():
     ranker = instantiate_maxcontext_variant(
         MaxContextTopDownSetwiseLlmRanker,
         SetwiseLlmRanker,
         pool_size=10,
     )
-    assert ranker.CHARACTERS == [str(i + 1) for i in range(10)]
-    assert ranker.num_child == 9
-    assert ranker.method == "selection"
-    assert ranker.strict_no_truncation is True
-    assert ranker.strict_no_parse_fallback is True
-    assert ranker.label_scheme == "numeric_1_based"
+    assert_maxcontext_numeric_attrs(ranker, 10)
     assert ranker.total_bm25_bypass == 0
+
+    for model_type in ("llama", "mistral", "mistral3", "ministral"):
+        positive_ranker = instantiate_maxcontext_variant(
+            MaxContextTopDownSetwiseLlmRanker,
+            SetwiseLlmRanker,
+            model_name_or_path=model_name_for_type(model_type),
+            model_type=model_type,
+            pool_size=10,
+        )
+        assert_maxcontext_numeric_attrs(positive_ranker, 10)
+        assert positive_ranker.total_bm25_bypass == 0
 
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -522,7 +638,16 @@ def test_maxcontext_topdown_invariants():
             model_type="t5",
         ),
         ValueError,
-        "Qwen3 / Qwen3.5 model_type",
+        "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextTopDownSetwiseLlmRanker,
+            SetwiseLlmRanker,
+            model_type="qwen2",
+        ),
+        ValueError,
+        "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
     )
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -689,13 +814,19 @@ def test_maxcontext_bottomup_invariants():
         BottomUpSetwiseLlmRanker,
         pool_size=10,
     )
-    assert ranker.CHARACTERS == [str(i + 1) for i in range(10)]
-    assert ranker.num_child == 9
-    assert ranker.method == "selection"
-    assert ranker.strict_no_truncation is True
-    assert ranker.strict_no_parse_fallback is True
-    assert ranker.label_scheme == "numeric_1_based"
+    assert_maxcontext_numeric_attrs(ranker, 10)
     assert ranker.total_bm25_bypass == 0
+
+    for model_type in ("llama", "mistral", "mistral3", "ministral"):
+        positive_ranker = instantiate_maxcontext_variant(
+            MaxContextBottomUpSetwiseLlmRanker,
+            BottomUpSetwiseLlmRanker,
+            model_name_or_path=model_name_for_type(model_type),
+            model_type=model_type,
+            pool_size=10,
+        )
+        assert_maxcontext_numeric_attrs(positive_ranker, 10)
+        assert positive_ranker.total_bm25_bypass == 0
 
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -704,7 +835,16 @@ def test_maxcontext_bottomup_invariants():
             model_type="t5",
         ),
         ValueError,
-        "Qwen3 / Qwen3.5 model_type",
+        "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
+    )
+    expect_raises(
+        lambda: instantiate_maxcontext_variant(
+            MaxContextBottomUpSetwiseLlmRanker,
+            BottomUpSetwiseLlmRanker,
+            model_type="qwen2",
+        ),
+        ValueError,
+        "Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model_type",
     )
     expect_raises(
         lambda: instantiate_maxcontext_variant(
@@ -904,6 +1044,9 @@ def test_parse_invariants():
     numeric_ranker = build_numeric_dualend_stub()
     assert numeric_ranker._try_parse_dual_output("Best: Passage 3  \nWorst: Passage 4", 10) == ("3", "4")
     assert numeric_ranker._try_parse_dual_output("Best: 3, Worst: 4", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("Best: [3], Worst: [4]", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("**Best**: 3, **Worst**: 4", 10) == ("3", "4")
+    assert numeric_ranker._try_parse_dual_output("Best:3\n  Worst:4", 10) == ("3", "4")
     assert numeric_ranker._try_parse_dual_output("Best: 3 and Worst: 4", 10) == ("3", "4")
     assert (
         numeric_ranker._try_parse_dual_output(
@@ -1373,6 +1516,10 @@ def main():
     test_dispatch_invariants()
     test_maxcontext_init_invariants()
     test_maxcontext_dualend_byte_identity_snapshot()
+    test_generation_budget_tier()
+    test_chat_template_kwargs_per_family()
+    test_trust_remote_code_per_family()
+    test_early_reject_unsupported_family()
     test_maxcontext_topdown_invariants()
     test_maxcontext_bottomup_invariants()
     test_parse_invariants()

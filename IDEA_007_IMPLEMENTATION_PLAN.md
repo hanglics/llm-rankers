@@ -358,6 +358,24 @@ At the end of implementation, a new root-level document `/Users/hangli/projects/
 - Phase 5 (Study B, 96 runs including control arm): copy-paste commands.
 - Not an executable script — just copy-paste for operator use.
 
+## 3A. Deliberate prime-constraint relaxation for IDEA_008 (EMNLP 2026)
+
+IDEA_007 remains Qwen-only. IDEA_008 deliberately widens the implementation gates for the EMNLP 2026 multi-family extension while preserving IDEA_007's default byte-equality gates.
+
+Audited widening points in the current implementation:
+
+- `llmrankers/setwise_extended.py:22` widens `MAXCONTEXT_ALLOWED_MODEL_TYPES` from Qwen3 / Qwen3.5 to include `llama`, `mistral`, `mistral3`, and `ministral`.
+- `llmrankers/setwise_extended.py:1204` defines `_MAXCONTEXT_NAME_FRAGMENTS` for Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 names.
+- `llmrankers/setwise_extended.py:1211` and `llmrankers/setwise_extended.py:1219` rename the early admission guard to `_early_reject_unsupported_family`.
+- `llmrankers/setwise_extended.py:1818` and `llmrankers/setwise_extended.py:1919` update the MaxContext TopDown / BottomUp call sites to use the renamed guard.
+
+Audit assertions:
+
+- The existing IDEA_007 9-golden gate (§9.1) remains valid. Those goldens span `flan-t5-large`, `qwen3-8b`, and `qwen3.5-9b` across multiple methods; they are not all Qwen3-4B.
+- Phase C′ for IDEA_008 is a 35-cell Qwen3-4B DL19 rerun using the default IDEA_007 stability layout and is diffed against the existing canonical stability v1. It does not create new goldens.
+- Phase A contributes 21 new EMNLP smoke-as-golden cells only after the first successful smoke run.
+- Total prime-constraint gate: **65 byte-equality cells** = 9 IDEA_007 goldens + 35 Phase C′ canonical-stability diffs + 21 Phase A smoke-as-goldens.
+
 ## 4. CLI behaviour contract
 
 - `--direction maxcontext_dualend` requires:

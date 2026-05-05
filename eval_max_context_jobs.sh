@@ -15,6 +15,8 @@
 # Usage:
 #   ./eval_max_context_jobs.sh [--tag TAG] [--model MODEL]
 #                              [--dataset DL19|DL20]
+#                              [--include-standard-bottomup]
+#                              [--pool-sizes "10 20 30 40 50"]
 #                              [--force] [--dry-run] [-h|--help]
 #
 # Examples:
@@ -33,6 +35,8 @@ MODEL="Qwen/Qwen3-4B"
 DATASET="DL19"
 DRY_RUN=0
 FORCE=0
+INCLUDE_STANDARD_BOTTOMUP=0
+POOL_SIZES_OVERRIDE=""
 
 usage() {
   cat <<'USAGE'
@@ -48,6 +52,12 @@ Options:
                        DL19 -> dl19-passage
                        DL20 -> dl20-passage
   --force            Re-evaluate even if a .eval file already exists.
+  --include-standard-bottomup
+                     Add standard BottomUp heap/bubble targets under
+                     original/bottomup/ (EMNLP opt-in; default off).
+  --pool-sizes LIST  Override the default pool sizes with a whitespace-separated
+                     positive-integer list, e.g. "10 20 30 40 50 100".
+                     Omit this flag to preserve the canonical 5-pool layout.
   --dry-run          Print the planned eval commands and skip targets without
                      actually invoking pyserini.eval.trec_eval.
   -h | --help        Show this help and exit.
@@ -78,6 +88,10 @@ while [[ $# -gt 0 ]]; do
     --dataset)
       [[ $# -ge 2 ]] || { echo "Error: --dataset requires a value" >&2; exit 2; }
       DATASET="$2"; shift 2 ;;
+    --include-standard-bottomup) INCLUDE_STANDARD_BOTTOMUP=1; shift ;;
+    --pool-sizes)
+      [[ $# -ge 2 ]] || { echo "Error: --pool-sizes requires a value" >&2; exit 2; }
+      POOL_SIZES_OVERRIDE="$2"; shift 2 ;;
     --force)   FORCE=1;   shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -107,6 +121,19 @@ RUN_BASELINE="${OUT_PREFIX}/baseline/${MODEL_TAG}-${DATASET_TAG}"
 RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"
 
 POOL_SIZES=(10 20 30 40 50)
+if [[ -n "${POOL_SIZES_OVERRIDE}" ]]; then
+  read -ra POOL_SIZES <<< "$POOL_SIZES_OVERRIDE"
+  [[ ${#POOL_SIZES[@]} -gt 0 ]] || {
+    echo "Error: --pool-sizes resolved to an empty array; supply at least one positive integer" >&2
+    exit 2
+  }
+  for ps in "${POOL_SIZES[@]}"; do
+    [[ "$ps" =~ ^[1-9][0-9]*$ ]] || {
+      echo "Error: --pool-sizes entry '$ps' is not a positive integer" >&2
+      exit 2
+    }
+  done
+fi
 
 cat <<INFO >&2
 ==> eval_max_context_jobs.sh
@@ -152,6 +179,13 @@ done
 for N in "${POOL_SIZES[@]}"; do
   EXPECTED+=("${RUN_BASELINE}/max-context/bottomup/top${N}/maxcontext_bottomup.txt")
 done
+
+if [[ "$INCLUDE_STANDARD_BOTTOMUP" -eq 1 ]]; then
+  for N in "${POOL_SIZES[@]}"; do
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/top${N}/bottomup_heapsort.txt")
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/top${N}/bottomup_bubblesort.txt")
+  done
+fi
 
 # -----------------------------------------------------------------------------
 # Counters

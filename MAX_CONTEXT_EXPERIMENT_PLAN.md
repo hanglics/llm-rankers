@@ -350,7 +350,7 @@ for MODEL in "${MODELS[@]}"; do
 done
 ```
 
-Control arm: 48 existing DualEnd-nc3 runs at the same predeclared pool size. `CONTROL_METHOD=selection` keeps the selection-sort family aligned with MaxContext while preserving the original DualEnd direction and `num_child=3` control constraint from IDEA_007.
+Control arm: 48 existing DualEnd-nc3 runs at the same predeclared pool size. `CONTROL_METHOD=selection` keeps the selection-sort family aligned with MaxContext while preserving the original DualEnd direction and `num_child=2` control constraint from IDEA_007.
 
 ```bash
 for MODEL in "${MODELS[@]}"; do
@@ -451,3 +451,7 @@ Notes:
 - Monitor jobs with `squeue -u $USER`.
 - The base MaxContext logs go under `results/analysis/position_bias_maxcontext/...` by design; do not merge them into the legacy `results/analysis/position_bias/...` tree.
 - Phase 5 assumes exactly one control method to keep the study at 96 logical runs. The sheet defaults that control to `dualend_selection`.
+
+## Note: EMNLP 2026 Multi-Family Expansion
+
+The Qwen-only IDEA_007 matrix in this sheet is authoritative for IDEA_007 phase numbering (1A/1B/1C, 2, 3, 4A/4B/4D/4E, 5). The EMNLP 2026 extension lives in `EMNLP_EXPERIMENT_PLAN.md` with separate phase numbering (A/B/C/C′/D/E) and uses `submit_emnlp_jobs.sh`. EMNLP v8 uses pool sizes `{10,20,30,40,50,100}` for the three required model families on Phase A/B/C; Phase C′ retains `{10,20,30,40,50}` for IDEA_007 byte-equality, and optional Phase D/E Qwen3 runs remain at the five-pool sweep. Do not edit `MODELS` at lines 35-42; the IDEA_007 staged matrix remains Qwen-only by design.

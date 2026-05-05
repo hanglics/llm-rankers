@@ -12,13 +12,14 @@ These are the entry-point documents for understanding the project. They were con
 - [NARRATIVE.md](NARRATIVE.md) — central narrative integrating all 10 claims, 8 experiments, position-bias findings, paper framing
 - [IDEA_REPORT.md](IDEA_REPORT.md) — Stage-1 outcomes (idea:001/002/003), novelty check + closest-prior mapping, Stage-2+ refinement appendix (idea:004/005/006/007)
 - [PAPER_PLAN.md](PAPER_PLAN.md) — section-by-section paper outline, claims-evidence matrix (C1–C10), figure plan, key references
+- [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — EMNLP 2026 MaxContext multi-family short-paper outline and canonical seven-method axis
 - [FINDINGS.md](FINDINGS.md) — research + engineering findings log (parser fixes, position-bias quantification, when-DualEnd-helps tables)
 - [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) — code state, recent fixes timeline, current caveats, MaxContext invariants
 - [RESULTS_REVIEW.md](RESULTS_REVIEW.md) — critical review of results, venue strategy, refinement priorities, suggested reframe
 - [SIGNIFICANCE_TESTS.md](SIGNIFICANCE_TESTS.md) + [SIGNIFICANCE_TESTS.json](SIGNIFICANCE_TESTS.json) — family-level paired-AR + Bonferroni tables (54 comparisons)
 - [SIGNIFICANCE_TESTS_PAIRWISE.md](SIGNIFICANCE_TESTS_PAIRWISE.md) + [SIGNIFICANCE_TESTS_PAIRWISE.json](SIGNIFICANCE_TESTS_PAIRWISE.json) — pairwise same-sort tables (12 grouping/dataset families)
 
-## Papers (20)
+## Papers (24)
 
 ### Core (foundational to this project)
 
@@ -49,7 +50,14 @@ These are the entry-point documents for understanding the project. They were con
 - [chen2025_icr_attention](papers/chen2025_icr_attention.md) — Attention-based rerankers (ICLR 2025)
 - [ma2023_zero_shot_listwise](papers/ma2023_zero_shot_listwise.md) — Zero-shot listwise on open LLMs
 
-## Ideas (7)
+### Model family references (EMNLP 2026)
+
+- [llama3_1_paper](papers/llama3_1_paper.md) — Llama 3.1 / Llama 3 Herd report
+- [mistral3_paper](papers/mistral3_paper.md) — Ministral 3 model family report
+- [qwen3_paper](papers/qwen3_paper.md) — Qwen3 Technical Report
+- [qwen3_5_paper](papers/qwen3_5_paper.md) — Qwen3.5 series model-card reference
+
+## Ideas (8)
 
 - [idea:001 BottomUp](ideas/idea_001_bottomup.md) — failed (reverse-selection alone)
 - [idea:002 DualEnd](ideas/idea_002_dualend.md) — succeeded partial (joint best+worst; only Qwen-generation path exercises true joint elicitation)
@@ -58,8 +66,9 @@ These are the entry-point documents for understanding the project. They were con
 - [idea:005 Bias-Aware DualEnd](ideas/idea_005_bias_aware_dualend.md) — proposed (all pending)
 - [idea:006 Same-Call Regularized](ideas/idea_006_samecall_regularized.md) — proposed (all pending)
 - [idea:007 MaxContext family](ideas/idea_007_maxcontext_dualend.md) — active plan (Codex-audited 3 rounds, ready to execute; see `IDEA_007.md`)
+- [idea:008 MaxContext multi-family](ideas/idea_008_maxcontext_multi_family.md) — active EMNLP 2026 short-paper extension (Qwen3.5 + Llama-3.1 + Ministral-3)
 
-## Experiments (33)
+## Experiments (40)
 
 ### Main sweeps (9 models × 2 datasets = 18 runs each)
 
@@ -108,6 +117,20 @@ These are the entry-point documents for understanding the project. They were con
 - [exp:maxcontext_dualend_baselines](experiments/maxcontext_dualend_baselines.md) — matched-`hits` predeclared baselines at {10, 30, 50}, 144 runs
 - [exp:maxcontext_topdown_pool_sweep](experiments/maxcontext_topdown_pool_sweep.md) — whole-pool best-only sweep
 - [exp:maxcontext_bottomup_pool_sweep](experiments/maxcontext_bottomup_pool_sweep.md) — whole-pool worst-only sweep
+
+### EMNLP 2026 short-paper extension
+
+- [idea:008 MaxContext multi-family](ideas/idea_008_maxcontext_multi_family.md) — EMNLP 2026 extension spec
+- [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — short-paper section sketch and canonical seven methods
+- [exp:emnlp_phase_a_smoke](experiments/emnlp_phase_a_smoke.md) — Phase A smoke gate, 42 cells
+- [exp:emnlp_phase_b_main_matrix](experiments/emnlp_phase_b_main_matrix.md) — Phase B required main matrix, 3024 cells
+- [exp:emnlp_phase_c_stability](experiments/emnlp_phase_c_stability.md) — Phase C required stability, 1260 scientific cells / 1620 stability-layout submissions
+- [exp:emnlp_phase_c_prime_constraint_recheck](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C′ byte-equality recheck, 35 cells
+- [exp:emnlp_phase_d_qwen3_optional](experiments/emnlp_phase_d_qwen3_optional.md) — Phase D optional Qwen3 main matrix, 1680 cells
+- [exp:emnlp_phase_e_qwen3_stability_optional](experiments/emnlp_phase_e_qwen3_stability_optional.md) — Phase E optional Qwen3-8B stability, 350 cells
+- Required EMNLP total: 4361 cells; with optional Qwen3 phases: 6391 cells.
+- [exp:cross_model_stability](experiments/cross_model_stability.md) — cross-family stability analysis
+- [paper:dubey2024_llama3](papers/llama3_1_paper.md), [paper:mistral3_2025](papers/mistral3_paper.md), [paper:yang2025_qwen3](papers/qwen3_paper.md), [paper:qwen3_5_model_card](papers/qwen3_5_paper.md) — model-family references
 
 ## Claims (10)
 
