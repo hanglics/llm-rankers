@@ -1,0 +1,58 @@
+\section{Experimental Setup}
+\label{sec:experimental_setup}
+
+\paragraph{Datasets and retrieval.}
+We evaluate on TREC Deep Learning 2019~\citep{craswell2020dl19}
+(43 queries) and 2020~\citep{craswell2021dl20} (54 queries) over MS MARCO
+passage, plus four BEIR~\citep{thakur2021beir} domains selected to vary
+topic, corpus style, and query count: dbpedia-entity, nfcorpus, scifact,
+and trec-covid. The first-stage ranking is BM25 from Pyserini
+\citep{lin2021pyserini}. MaxContext reranks the BM25 top-$N$ documents
+with $W=k=N$ so that all three variants receive the same initial pool.
+
+\paragraph{Models and inference.}
+The main matrix uses four open-weight checkpoints across three model
+families: Qwen3.5-4B, Qwen3.5-9B, Llama-3.1-8B-Instruct, and
+Ministral-3-8B-Instruct-2512. Their published context windows span 128K
+tokens for Llama 3.1 to 256K--262K for Ministral 3 and Qwen3.5
+\citep{llama31modelcard,ministral3modelcard,qwen35modelcard}, comfortably
+above the approximately 26K-token prompt produced by $N{=}50$ and
+$\ell{=}512$. We use generation scoring with greedy decoding and disable
+reasoning/thinking traces when the model interface exposes such a switch.
+All runs enforce the invariants in \S\ref{sec:methodology}: numeric
+labels, no truncation, no permutation self-consistency, and
+abort-on-invalid labels. A size sweep over Qwen3.5-\{0.8B, 2B, 27B\} and
+Ministral-3-\{3B, 14B\} is appendix-only.
+
+\paragraph{Method grid.}
+The three MaxContext variants are evaluated at
+$N \in \{10,20,30,40,50\}$ on TREC DL19/20. For the four BEIR domains we
+use $N \in \{10,30,50\}$ to keep the short-paper compute budget
+tractable while preserving the low/mid/high pool-size anchors. The
+primary quality comparison is at $N{=}50$, where the deterministic
+LLM-call ratio is largest in the planned grid: $25$ calls for
+\textsc{DualEnd} vs.\ $48$ for either single-extreme control.
+
+\paragraph{Statistical protocol.}
+For each model-dataset cell, we test non-inferiority of
+\textsc{MaxContext-DualEnd} against \textsc{MaxContext-TopDown} and
+\textsc{MaxContext-BottomUp} separately. Let
+$\Delta = \text{nDCG@10}(\textsc{DualEnd}) -
+\text{nDCG@10}(\text{baseline})$ over paired per-query scores. With
+margin $\delta=0.01$, the one-sided test is
+$H_0: \Delta \le -\delta$ vs.\ $H_1: \Delta > -\delta$, implemented as a
+paired sign-flip permutation test with $10{,}000$ resamples and
+$\alpha=0.05$. We report paired-bootstrap 95\% CIs for every point
+estimate. BH-FDR correction ($q=0.05$) is applied separately within the
+24-cell TopDown and BottomUp comparator families; Bonferroni and
+Holm-corrected values are appendix transparency columns.
+
+\paragraph{Stability and cost reporting.}
+A 10-seed input-order rerun on Qwen3-4B / DL19 with
+\texttt{--shuffle\_ranking random} measures sensitivity to candidate
+ordering; we report SD, range, and worst-pair deltas and do not assume
+transfer to Qwen3.5-4B. Each job logs LLM calls, prompt/completion/total
+tokens, parser-recovery rate, BM25 bypass count, per-query wall-clock,
+and total wall-clock. Code, launchers, prompts, JSONL logs, and an
+HF-revision-pinned manifest will be released with the paper under the
+repository license.

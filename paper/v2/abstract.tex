@@ -1,0 +1,20 @@
+Setwise LLM reranking~\citep{zhuang2024setwise} usually asks a model to
+select the best document from a small candidate window and embeds those
+decisions in a sorting procedure. Current long-context open-weight models
+can instead fit a complete first-stage rerank pool in one prompt for the
+common $N \le 50$ setting. We introduce \textbf{MaxContext}, a zero-shot
+setwise reranker whose every LLM call sees the current whole live pool.
+The family has three output types: joint best+worst
+(\textsc{DualEnd}), best-only (\textsc{TopDown}), and worst-only
+(\textsc{BottomUp}). The call-count difference is deterministic:
+\textsc{MaxContext-DualEnd} ranks a pool of size $N$ in
+$\lfloor N/2 \rfloor$ LLM calls, while either single-extreme variant needs
+$N{-}2$ LLM calls plus one deterministic two-document BM25 endgame. At
+$N{=}50$, this is $25$ vs.\ $48$ LLM calls. The empirical question is
+whether this call reduction can be obtained without degrading nDCG@10. We
+evaluate on TREC DL19/20 and four BEIR domains across Qwen3.5-4B/9B,
+Llama-3.1-8B-Instruct, and Ministral-3-8B-Instruct-2512, using a
+predeclared one-sided paired-permutation non-inferiority test
+($\delta=0.01$, BH-FDR corrected) plus an input-order stability protocol.
+We frame the efficiency claim only on LLM calls and wall-clock; token
+costs are reported transparently but are not the basis of the claim.

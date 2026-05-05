@@ -1,0 +1,55 @@
+\section{Introduction}
+\label{sec:introduction}
+
+LLM zero-shot reranking has converged on four prompting paradigms —
+pointwise~\citep{nogueira2020monot5}, pairwise~\citep{qin2024prp},
+listwise~\citep{sun2023rankgpt}, and setwise~\citep{zhuang2024setwise}.
+Setwise prompting occupies a useful middle ground: one LLM call compares
+more than two documents, but the model returns only a short label rather
+than a full permutation. The original formulation keeps the prompt small:
+each call sees a candidate window of $c{+}1$ passages, selects the most
+relevant one, and feeds that selection into heapsort or bubblesort. This
+design is easy to parse and cheap per call, which helps explain why it has
+become a standard zero-shot baseline.
+
+The context-window constraint that motivated small setwise windows is now
+less binding for many open-weight rerankers. With passage length
+$\ell=512$, a query and $50$ passages require roughly $26$K prompt tokens
+before output reserve, below the advertised windows of current
+128K--262K-token models used in this paper. This does not make
+small-window setwise obsolete: long prompts can increase token cost,
+latency per call, and position sensitivity. It does, however, expose a
+simple missing baseline. If the whole live pool fits in context, how much
+setwise sorting machinery is still needed?
+
+\paragraph{This paper.} We close this mismatch with \textbf{MaxContext},
+a zero-shot setwise reranker whose every LLM call prompts over the
+current whole live rerank pool. The method keeps the setwise output
+interface deliberately small: documents are labelled numerically
+$1,\ldots,|L|$, and the model returns either one extreme or both extremes
+of the live pool. \textsc{MaxContext-DualEnd} asks for the best and worst
+document jointly and removes two documents per call. The two controls,
+\textsc{MaxContext-TopDown} and \textsc{MaxContext-BottomUp}, ask for
+only the best or only the worst and remove one document per call, closing
+the final two-document residual with a deterministic BM25 endgame.
+
+This three-way design separates two questions that are easy to conflate:
+whether whole-pool setwise selection is viable at long context, and
+whether joint best-worst elicitation preserves quality while reducing the
+number of serial LLM calls. At the matched operating point $W=k=N$,
+\textsc{DualEnd} uses $\lfloor N/2 \rfloor$ LLM calls, whereas either
+single-extreme control uses $N{-}2$ LLM calls plus one BM25 bypass. At
+$N{=}50$, the comparison is $25$ vs.\ $48$ LLM calls. We therefore test a
+conservative claim: MaxContext-DualEnd should be non-inferior in nDCG@10
+to the whole-pool single-extreme controls while using roughly half as many
+LLM calls. We report wall-clock and all token axes, but the call-count
+claim is not a token-efficiency claim~\citep{peng2025flopsreranking}.
+
+\textbf{Contributions.} (i) MaxContext, with three output-type variants
+and a deterministic LLM-call-count gap of $\lfloor N/2 \rfloor$ vs.\
+$N{-}2$; (ii) a predeclared non-inferiority protocol
+($H_0: \Delta \le -\delta$ vs.\ $H_1: \Delta > -\delta$,
+$\delta=0.01$, BH-FDR corrected) for judging quality at each
+model-dataset cell; and (iii) a compact four-model, six-dataset EMNLP
+short-paper matrix with an input-order stability check rather than an
+unqualified robustness assumption.

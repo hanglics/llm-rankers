@@ -6,6 +6,11 @@
 5. Use relstring to evaluate the help provided by selecting worst, moving best from the bottom to top
 
 Models:
-1. Qwen3.5
-2. Llama
-3. Mistral
+1. QWEN3.5 (0.8B, 2B, 4B, 9B, 27B)
+2. Llama3.1 (8B)
+3. Mistral3 (3B, 8B, 14B)
+
+Datasets:
+1. DL19
+2. DL20
+3. BEIR (dbpedia, nfcorpus, scifact, trec-covid, touche2020, fiqa)

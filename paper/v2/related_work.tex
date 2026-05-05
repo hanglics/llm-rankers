@@ -1,0 +1,48 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\paragraph{Setwise prompting and extensions.}
+\citet{zhuang2024setwise} introduce setwise prompting: present a small
+candidate window, ask the LLM to choose the most relevant passage, and
+embed that choice inside heapsort or bubblesort. We build on the public
+\texttt{llm-rankers} implementation~\citep{ielab_llmrankers} but replace
+the fixed letter-label window with numeric labels so that the full live
+pool is addressable. Recent setwise extensions improve other parts of
+the pipeline: Setwise Insertion warm-starts sorting from the BM25 order
+\citep{podolak2025setwiseinsertion}, while Rank-R1 trains the comparator
+to reason before selecting within a larger setwise window
+\citep{zhuang2025rankr1}. MaxContext is orthogonal: it asks what happens
+when the window is the whole live pool.
+
+\paragraph{Tournament-style reranking.}
+TourRank~\citep{chen2025tourrank} and
+BLITZRANK~\citep{blitzrank2026} also try to extract more value from each
+multi-document judgement, using tournament structure, accumulated
+evidence, or tournament graphs. These methods change how comparisons are
+scheduled and aggregated. MaxContext instead changes the live-pool
+granularity of a setwise selector. A matched-budget tournament comparison
+would require sweeps over grouping, advancement, and graph-query knobs;
+we leave that head-to-head to appendix smokes and future work rather than
+making it load-bearing in a four-page short paper.
+
+\paragraph{Listwise reranking.}
+Listwise rerankers ask the model to output an ordered list, often over a
+sliding window or local candidate block
+\citep{sun2023rankgpt,ma2023zsl,zhang2025rankwithoutgpt,ren2025selfcalibrated}.
+Their cost-quality tradeoff is therefore different from MaxContext's:
+they can produce a local permutation with fewer calls, but require longer
+structured outputs and face different parsing and order-sensitivity
+failure modes. Our half-call claim is only against whole-pool
+single-extreme setwise controls, not against listwise rerankers.
+
+\paragraph{Long-context robustness and efficiency.}
+Long contexts do not remove positional effects:
+\citet{liu2024lostmiddle} show that models can under-use middle context,
+and \citet{tang2024foundmiddle} improve listwise ranking with permutation
+self-consistency at the cost of repeated calls. We therefore measure
+input-order stability rather than assuming whole-pool prompts are
+order-invariant. Finally, \citet{peng2025flopsreranking} argue that
+reranker efficiency should not be summarized by proxy metrics alone. We
+report calls, prompt/completion/total tokens, parser recovery, BM25
+bypasses, and wall-clock, while keeping the main claim narrowly about LLM
+calls and observed wall-clock.
