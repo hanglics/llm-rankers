@@ -4,7 +4,16 @@ import openai
 import os
 import time
 import re
-from transformers import T5Tokenizer, T5ForConditionalGeneration, AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import (
+    T5Tokenizer,
+    T5ForConditionalGeneration,
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    AutoModelForImageTextToText,
+    AutoProcessor,
+)
+from ._processor_adapter import ProcessorTokenizerAdapter
 import torch
 import copy
 from collections import Counter
@@ -25,13 +34,21 @@ except ImportError as err:
 random.seed(929)
 
 CAUSAL_MODEL_TYPES = frozenset({
-    "llama", "qwen2", "qwen3", "qwen3_moe", "qwen3_5",
-    "mistral", "mistral3", "ministral",
+    "llama", "qwen2", "qwen3", "qwen3_moe",
+    "mistral", "ministral",
 })
-QWEN_MODEL_TYPES = frozenset({"qwen2", "qwen3", "qwen3_moe", "qwen3_5"})
+MULTIMODAL_MODEL_TYPES = frozenset({"mistral3", "qwen3_5", "qwen3_5_moe"})
+QWEN_MODEL_TYPES = frozenset({"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe"})
 TRUST_REMOTE_CODE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
 THINKING_DISABLE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
 THINKING_BUDGET_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
+
+
+def _is_multimodal_config(config) -> bool:
+    return (
+        getattr(config, "model_type", None) in MULTIMODAL_MODEL_TYPES
+        and hasattr(config, "vision_config")
+    )
 
 
 def compute_max_fit_window(
@@ -57,7 +74,7 @@ def compute_max_fit_window(
     )
 
     rendered_prompt = input_text
-    if ranker._is_supported_causal_model():
+    if ranker._uses_chat_template():
         rendered_prompt = ranker._build_chat_prompt([{"role": "user", "content": input_text}])
 
     rendered_ids = ranker.tokenizer.encode(rendered_prompt, add_special_tokens=True)
@@ -92,58 +109,96 @@ class SetwiseLlmRanker(LlmRanker):
         self.scoring = scoring
         self._apply_character_scheme(character_scheme)
         self._warned_input_truncation = False
-        if self.config.model_type == 't5':
-            self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
-                                                         if tokenizer_name_or_path is not None else
-                                                         model_name_or_path,
-                                                         cache_dir=cache_dir)
-            self.llm = T5ForConditionalGeneration.from_pretrained(model_name_or_path,
-                                                                  device_map='auto',
-                                                                  torch_dtype=torch.float16 if device == 'cuda'
-                                                                  else torch.float32,
-                                                                  cache_dir=cache_dir)
-            self.decoder_input_ids = self.tokenizer.encode("<pad> Passage",
-                                                           return_tensors="pt",
-                                                           add_special_tokens=False).to(self.device) if self.tokenizer else None
-            self.dual_decoder_input_ids = self.tokenizer.encode("<pad> Best:",
-                                                                return_tensors="pt",
-                                                                add_special_tokens=False).to(self.device) if self.tokenizer else None
-
-            self.target_token_ids = self.tokenizer.batch_encode_plus([f'<pad> Passage {self.CHARACTERS[i]}'
-                                                                      for i in range(len(self.CHARACTERS))],
-                                                                     return_tensors="pt",
-                                                                     add_special_tokens=False,
-                                                                     padding=True).input_ids[:, -1]
-        elif self._is_supported_causal_model():
-            tokenizer_kwargs = {"cache_dir": cache_dir}
-            model_kwargs = {
-                "device_map": "auto",
-                "torch_dtype": "auto" if device == "cuda" else torch.float32,
-                "cache_dir": cache_dir,
-            }
-            if self.config.model_type in TRUST_REMOTE_CODE_MODEL_TYPES:
-                tokenizer_kwargs["trust_remote_code"] = True
-                model_kwargs["trust_remote_code"] = True
-
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
-            if hasattr(self.tokenizer, "use_default_system_prompt"):
-                self.tokenizer.use_default_system_prompt = False
-            if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
-            if 'vicuna' in model_name_or_path and 'v1.5' in model_name_or_path:
-                self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% set system_message = 'A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user\\'s questions.' %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{{ system_message }}{% endif %}{% if message['role'] == 'user' %}{{ ' USER: ' + message['content'].strip() }}{% elif message['role'] == 'assistant' %}{{ ' ASSISTANT: ' + message['content'].strip() + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ ' ASSISTANT:' }}{% endif %}"
-            self.llm = AutoModelForCausalLM.from_pretrained(
-                model_name_or_path,
-                **model_kwargs,
-            ).eval()
-        else:
-            raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for setwise:(")
+        self._load_model_and_tokenizer(model_name_or_path, tokenizer_name_or_path, device, cache_dir)
+        if self._is_multimodal_model() and self.scoring == "likelihood":
+            raise NotImplementedError(
+                f"--scoring likelihood is not supported for multimodal model_type="
+                f"{self.config.model_type!r}. Use --scoring generation."
+            )
 
         self.method = method
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
         self.max_input_tokens = self._resolve_max_input_tokens()
+
+    def _load_model_and_tokenizer(self, model_name_or_path, tokenizer_name_or_path, device, cache_dir):
+        if self.config.model_type == 't5':
+            self._load_t5(model_name_or_path, tokenizer_name_or_path, device, cache_dir)
+        elif _is_multimodal_config(self.config):
+            self._load_multimodal(model_name_or_path, tokenizer_name_or_path, device, cache_dir)
+        elif self._is_supported_causal_model():
+            self._load_causal(model_name_or_path, tokenizer_name_or_path, device, cache_dir)
+        else:
+            raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for setwise:(")
+
+    def _load_t5(self, model_name_or_path, tokenizer_name_or_path, device, cache_dir):
+        self._is_multimodal = False
+        self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
+                                                     if tokenizer_name_or_path is not None else
+                                                     model_name_or_path,
+                                                     cache_dir=cache_dir)
+        self.llm = T5ForConditionalGeneration.from_pretrained(model_name_or_path,
+                                                              device_map='auto',
+                                                              torch_dtype=torch.float16 if device == 'cuda'
+                                                              else torch.float32,
+                                                              cache_dir=cache_dir)
+        self.decoder_input_ids = self.tokenizer.encode("<pad> Passage",
+                                                       return_tensors="pt",
+                                                       add_special_tokens=False).to(self.device) if self.tokenizer else None
+        self.dual_decoder_input_ids = self.tokenizer.encode("<pad> Best:",
+                                                            return_tensors="pt",
+                                                            add_special_tokens=False).to(self.device) if self.tokenizer else None
+
+        self.target_token_ids = self.tokenizer.batch_encode_plus([f'<pad> Passage {self.CHARACTERS[i]}'
+                                                                  for i in range(len(self.CHARACTERS))],
+                                                                 return_tensors="pt",
+                                                                 add_special_tokens=False,
+                                                                 padding=True).input_ids[:, -1]
+
+    def _load_causal(self, model_name_or_path, tokenizer_name_or_path, device, cache_dir):
+        self._is_multimodal = False
+        tokenizer_kwargs = {"cache_dir": cache_dir}
+        model_kwargs = {
+            "device_map": "auto",
+            "torch_dtype": "auto" if device == "cuda" else torch.float32,
+            "cache_dir": cache_dir,
+        }
+        if self.config.model_type in TRUST_REMOTE_CODE_MODEL_TYPES:
+            tokenizer_kwargs["trust_remote_code"] = True
+            model_kwargs["trust_remote_code"] = True
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, **tokenizer_kwargs)
+        if hasattr(self.tokenizer, "use_default_system_prompt"):
+            self.tokenizer.use_default_system_prompt = False
+        if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        if not self._is_multimodal and 'vicuna' in model_name_or_path and 'v1.5' in model_name_or_path:
+            self.tokenizer.chat_template = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% set system_message = 'A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user\\'s questions.' %}{% endif %}{% for message in loop_messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{{ system_message }}{% endif %}{% if message['role'] == 'user' %}{{ ' USER: ' + message['content'].strip() }}{% elif message['role'] == 'assistant' %}{{ ' ASSISTANT: ' + message['content'].strip() + eos_token }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ ' ASSISTANT:' }}{% endif %}"
+        self.llm = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path,
+            **model_kwargs,
+        ).eval()
+
+    def _load_multimodal(self, model_name_or_path, tokenizer_name_or_path, device, cache_dir):
+        processor_kwargs = {"cache_dir": cache_dir, "trust_remote_code": True}
+        self.processor = AutoProcessor.from_pretrained(
+            tokenizer_name_or_path or model_name_or_path,
+            **processor_kwargs,
+        )
+        self.tokenizer = ProcessorTokenizerAdapter(self.processor)
+        if hasattr(self.tokenizer, "use_default_system_prompt"):
+            self.tokenizer.use_default_system_prompt = False
+        if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.llm = AutoModelForImageTextToText.from_pretrained(
+            model_name_or_path,
+            cache_dir=cache_dir,
+            device_map="auto",
+            torch_dtype="auto" if device == "cuda" else torch.float32,
+            trust_remote_code=True,
+        ).eval()
+        self._is_multimodal = True
 
     def _apply_character_scheme(self, scheme: str) -> None:
         if scheme == "letters_a_w":
@@ -172,6 +227,15 @@ class SetwiseLlmRanker(LlmRanker):
 
     def _is_supported_causal_model(self):
         return self.config.model_type in CAUSAL_MODEL_TYPES
+
+    def _is_multimodal_model(self):
+        return getattr(self, "_is_multimodal", False)
+
+    def _uses_chat_template(self):
+        return self._is_supported_causal_model() or self._is_multimodal_model()
+
+    def _uses_causal_style_generation(self):
+        return self._is_supported_causal_model() or self._is_multimodal_model()
 
     def _log_comparison(self, comp_type: str, positions: list, selected: str,
                         docs: list = None,
@@ -270,6 +334,16 @@ class SetwiseLlmRanker(LlmRanker):
             value = getattr(self.config, attr, None)
             if isinstance(value, int) and value > 0:
                 candidates.append(value)
+        text_config = getattr(self.config, "text_config", None)
+        if text_config is not None:
+            for attr in ("n_positions", "max_position_embeddings"):
+                value = (
+                    text_config.get(attr)
+                    if isinstance(text_config, dict)
+                    else getattr(text_config, attr, None)
+                )
+                if isinstance(value, int) and value > 0:
+                    candidates.append(value)
         return min(candidates) if candidates else None
 
     def _raw_tokenizer_kwargs(self, padding=False, add_special_tokens=True):
@@ -404,6 +478,11 @@ class SetwiseLlmRanker(LlmRanker):
             # Causal-model label scoring uses short teacher-forced answer strings
             # instead of assuming A/B/C is a single tokenizer token.
             return self._score_causal_label_candidates(input_text, n_docs)
+        if self._is_multimodal_model():
+            raise NotImplementedError(
+                f"--scoring likelihood is not supported for multimodal model_type="
+                f"{self.config.model_type!r}. Use --scoring generation."
+            )
 
         raise NotImplementedError(
             f"Likelihood scoring is not implemented for model type {self.config.model_type}."
@@ -417,7 +496,7 @@ class SetwiseLlmRanker(LlmRanker):
         }
         if decoder_input_ids is not None:
             kwargs["decoder_input_ids"] = decoder_input_ids
-        if self._is_supported_causal_model():
+        if self._uses_causal_style_generation():
             generation_config = copy.deepcopy(getattr(self.llm, "generation_config", None))
             if generation_config is not None:
                 generation_config.do_sample = False
@@ -683,7 +762,7 @@ class SetwiseLlmRanker(LlmRanker):
                         else:
                             output = self.CHARACTERS[random.choice(most_common_candidates)]
 
-            elif self._is_supported_causal_model():
+            elif self._uses_chat_template():
                 conversation = [{"role": "user", "content": input_text}]
 
                 prompt = self._build_chat_prompt(conversation)

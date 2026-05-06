@@ -5,9 +5,19 @@ from collections import defaultdict
 from tqdm import tqdm
 import copy
 import torch
-from transformers import T5Tokenizer, T5ForConditionalGeneration, AutoConfig, AutoTokenizer, AutoModelForCausalLM
+from transformers import (
+    T5Tokenizer,
+    T5ForConditionalGeneration,
+    AutoConfig,
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    AutoModelForImageTextToText,
+    AutoProcessor,
+)
 from torch.utils.data import Dataset, DataLoader
 from transformers import DataCollatorWithPadding
+from ._processor_adapter import ProcessorTokenizerAdapter
+from .setwise import _is_multimodal_config
 import tiktoken
 import openai
 import time
@@ -48,6 +58,7 @@ Passage B: "{doc2}"
 Output Passage A or Passage B:"""
 
         self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+        self._is_multimodal = False
         if self.config.model_type == 't5':
             self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
                                                          if tokenizer_name_or_path is not None else
@@ -74,12 +85,42 @@ Output Passage A or Passage B:"""
                                                             torch_dtype=torch.float16 if device == 'cuda'
                                                             else torch.float32,
                                                             cache_dir=cache_dir).eval()
+        elif _is_multimodal_config(self.config):
+            self.processor = AutoProcessor.from_pretrained(
+                tokenizer_name_or_path or model_name_or_path,
+                cache_dir=cache_dir,
+                trust_remote_code=True,
+            )
+            self.tokenizer = ProcessorTokenizerAdapter(self.processor)
+            if hasattr(self.tokenizer, "use_default_system_prompt"):
+                self.tokenizer.use_default_system_prompt = False
+            if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.padding_side = "left"
+            self.llm = AutoModelForImageTextToText.from_pretrained(
+                model_name_or_path,
+                device_map='auto',
+                torch_dtype=torch.float16 if device == 'cuda'
+                else torch.float32,
+                cache_dir=cache_dir,
+                trust_remote_code=True,
+            ).eval()
+            self._is_multimodal = True
         else:
             raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for pairwise :(")
 
         self.total_compare = 0
         self.total_completion_tokens = 0
         self.total_prompt_tokens = 0
+
+    def _is_supported_causal_model(self):
+        return self.config.model_type == 'llama'
+
+    def _is_multimodal_model(self):
+        return getattr(self, "_is_multimodal", False)
+
+    def _uses_chat_template(self):
+        return self._is_supported_causal_model() or self._is_multimodal_model()
 
     def compare(self, query: str, docs: List):
         self.total_compare += 1
@@ -102,7 +143,7 @@ Output Passage A or Passage B:"""
 
             output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
-        elif self.config.model_type == 'llama':
+        elif self._uses_chat_template():
             conversation0 = [{"role": "user", "content": input_texts[0]}]
             conversation1 = [{"role": "user", "content": input_texts[1]}]
 

@@ -11,7 +11,9 @@ try:
     import ir_datasets
 except ModuleNotFoundError as exc:
     raise SystemExit("Missing dependency: install ir_datasets before running this probe.") from exc
-from transformers import AutoConfig, AutoTokenizer
+from transformers import AutoConfig, AutoProcessor, AutoTokenizer
+from llmrankers._processor_adapter import ProcessorTokenizerAdapter
+from llmrankers.setwise import _is_multimodal_config
 
 FAMILIES = {
     "qwen3.5": "Qwen/Qwen3.5-9B",
@@ -46,12 +48,18 @@ def max_pos(config, tokenizer):
         value = getattr(config, attr, None)
         if isinstance(value, int) and value > 0:
             return value
+    text_config = getattr(config, "text_config", None)
+    if text_config is not None:
+        for attr in ("max_position_embeddings", "n_positions"):
+            value = text_config.get(attr) if isinstance(text_config, dict) else getattr(text_config, attr, None)
+            if isinstance(value, int) and value > 0:
+                return value
     value = getattr(tokenizer, "model_max_length", None)
     if isinstance(value, int) and 0 < value < 10**8:
         return value
     raise ValueError("could not resolve max_position_embeddings")
 def chat_kwargs(config):
-    qwen_types = {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+    qwen_types = {"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe"}
     return {"enable_thinking": False} if getattr(config, "model_type", "") in qwen_types else {}
 def enc(tokenizer, text, max_length=None):
     kwargs = {"add_special_tokens": False}
@@ -90,7 +98,12 @@ def render_prompt(tokenizer, config, query, passage, pool_size):
 def probe(family, dataset_name, args):
     model_id = FAMILIES[family]
     config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    if _is_multimodal_config(config):
+        tokenizer = ProcessorTokenizerAdapter(
+            AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+        )
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     dataset = ir_datasets.load(DATASETS[dataset_name])
     p95_tokens, passage = p95_passage(dataset, tokenizer, args.sample_size, args.passage_length)
     query = sample_query(dataset, tokenizer, args.query_length)

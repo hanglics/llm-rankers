@@ -57,19 +57,41 @@ try:
 except ModuleNotFoundError:
     sys.modules["openai"] = ModuleType("openai")
 
+try:
+    import transformers  # noqa: F401
+except ModuleNotFoundError:
+    transformers_stub = ModuleType("transformers")
+
+    class _AutoStub:
+        from_pretrained = staticmethod(_missing_dependency)
+
+    transformers_stub.AutoConfig = _AutoStub
+    transformers_stub.AutoTokenizer = _AutoStub
+    transformers_stub.AutoModelForCausalLM = _AutoStub
+    transformers_stub.AutoModelForImageTextToText = _AutoStub
+    transformers_stub.AutoProcessor = _AutoStub
+    transformers_stub.T5Tokenizer = _AutoStub
+    transformers_stub.T5ForConditionalGeneration = _AutoStub
+    transformers_stub.DataCollatorWithPadding = object
+    sys.modules["transformers"] = transformers_stub
+
 import run as run_module
 from llmrankers.rankers import SearchResult
+from llmrankers._processor_adapter import ProcessorTokenizerAdapter
 from llmrankers.setwise import (
+    MULTIMODAL_MODEL_TYPES,
     SetwiseLlmRanker,
     THINKING_BUDGET_MODEL_TYPES,
     THINKING_DISABLE_MODEL_TYPES,
     TRUST_REMOTE_CODE_MODEL_TYPES,
+    _is_multimodal_config,
     compute_max_fit_window,
 )
 from llmrankers.setwise_extended import (
     BiasAwareDualEndSetwiseLlmRanker,
     BottomUpSetwiseLlmRanker,
     DualEndSetwiseLlmRanker,
+    MAXCONTEXT_ALLOWED_MODEL_TYPES,
     MaxContextBottomUpSetwiseLlmRanker,
     MaxContextDualEndSetwiseLlmRanker,
     MaxContextTopDownSetwiseLlmRanker,
@@ -89,8 +111,22 @@ class DummyBatch(dict):
 
 
 class DummyTokenizer:
-    def encode(self, text, add_special_tokens=True):
-        return list(range(self._length(text, add_special_tokens)))
+    pad_token = None
+    eos_token = "</s>"
+    pad_token_id = 0
+    eos_token_id = 2
+    model_max_length = 4096
+    padding_side = "right"
+
+    def __init__(self):
+        self.chat_template = None
+        self.use_default_system_prompt = True
+
+    def encode(self, text, add_special_tokens=True, return_tensors=None, **_kwargs):
+        ids = list(range(self._length(text, add_special_tokens)))
+        if return_tensors == "pt":
+            return torch.tensor([ids], dtype=torch.long)
+        return ids
 
     def __call__(
         self,
@@ -138,6 +174,79 @@ class DummyTokenizer:
     def _length(text, add_special_tokens):
         base = len(str(text).split())
         return base + (1 if add_special_tokens else 0)
+
+    def decode(self, ids, skip_special_tokens=True):
+        if hasattr(ids, "tolist"):
+            ids = ids.tolist()
+        return " ".join(str(token) for token in ids)
+
+    def batch_decode(self, rows, skip_special_tokens=True):
+        return [self.decode(row, skip_special_tokens=skip_special_tokens) for row in rows]
+
+    def batch_encode_plus(self, texts, return_tensors=None, add_special_tokens=True, padding=False):
+        encoded = [self.encode(text, add_special_tokens=add_special_tokens) for text in texts]
+        if padding:
+            width = max(len(row) for row in encoded)
+            encoded = [row + [self.pad_token_id] * (width - len(row)) for row in encoded]
+        input_ids = torch.tensor(encoded, dtype=torch.long) if return_tensors == "pt" else encoded
+        return SimpleNamespace(input_ids=input_ids)
+
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True, **_kwargs):
+        rendered = "\n".join(message["content"] for message in messages)
+        if add_generation_prompt:
+            rendered += "\nassistant:"
+        if tokenize:
+            return self.encode(rendered)
+        return rendered
+
+    def tokenize(self, text):
+        return str(text).split()
+
+    def convert_tokens_to_ids(self, tokens):
+        return list(range(len(tokens)))
+
+    def convert_tokens_to_string(self, tokens):
+        return " ".join(tokens)
+
+
+class DummyMistralTokenizer(DummyTokenizer):
+    def __init__(self):
+        self.use_default_system_prompt = True
+
+    def __setattr__(self, name, value):
+        if name == "chat_template":
+            raise AttributeError("MistralCommonBackend does not support chat_template assignment")
+        super().__setattr__(name, value)
+
+    @property
+    def chat_template(self):
+        return None
+
+    @chat_template.setter
+    def chat_template(self, value):
+        raise AttributeError("MistralCommonBackend does not support chat_template assignment")
+
+    def convert_tokens_to_string(self, tokens):
+        raise NotImplementedError("MistralCommonBackend gap")
+
+
+class DummyQwen35Tokenizer(DummyTokenizer):
+    pass
+
+
+class DummyProcessor:
+    def __init__(self, tokenizer=None, *, fail_apply_chat_template_once=False):
+        self.tokenizer = tokenizer if tokenizer is not None else DummyQwen35Tokenizer()
+        self.fail_apply_chat_template_once = fail_apply_chat_template_once
+
+    def apply_chat_template(self, *args, **kwargs):
+        if self.fail_apply_chat_template_once:
+            self.fail_apply_chat_template_once = False
+            raise TypeError("processor rejected plain text message shape")
+        return self.tokenizer.apply_chat_template(*args, **kwargs)
+
+    def __call__(self, text=None, images=None, return_tensors=None):
+        return self.tokenizer(text or "", return_tensors=return_tensors)
 
 
 class DummyCausalModel:
@@ -277,6 +386,10 @@ def assert_materialized_rerank(results, docs):
 def model_name_for_type(model_type: str) -> str:
     if model_type == "llama":
         return "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    if model_type == "qwen3_5":
+        return "Qwen/Qwen3.5-9B"
+    if model_type == "qwen3_5_moe":
+        return "Qwen/Qwen3.5-35B-A3B"
     if model_type in {"mistral", "mistral3", "ministral"}:
         return "mistralai/Ministral-3-8B-Instruct-2512"
     return "Qwen/Qwen3-4B"
@@ -436,7 +549,7 @@ def test_maxcontext_init_invariants():
         pool_size=10,
     )
 
-    for model_type in ("qwen3", "qwen3_moe", "qwen3_5", "llama", "mistral", "mistral3", "ministral"):
+    for model_type in ("qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe", "llama", "mistral", "mistral3", "ministral"):
         with mock.patch.object(DualEndSetwiseLlmRanker, "__init__", new=fake_super_init_factory(model_type)):
             ranker = MaxContextDualEndSetwiseLlmRanker(
                 **{**common_kwargs, "model_name_or_path": model_name_for_type(model_type)}
@@ -529,6 +642,7 @@ def test_generation_budget_tier():
         "qwen3": (256, 512),
         "qwen3_moe": (256, 512),
         "qwen3_5": (256, 512),
+        "qwen3_5_moe": (256, 512),
         "llama": (32, 64),
         "mistral": (32, 64),
         "mistral3": (32, 64),
@@ -541,7 +655,7 @@ def test_generation_budget_tier():
         assert ranker._generation_budget("single") == single_budget
         assert ranker._generation_budget("dual") == dual_budget
 
-    assert THINKING_BUDGET_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+    assert THINKING_BUDGET_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe"}
 
 
 def test_chat_template_kwargs_per_family():
@@ -550,6 +664,7 @@ def test_chat_template_kwargs_per_family():
         "qwen3": {"enable_thinking": False},
         "qwen3_moe": {"enable_thinking": False},
         "qwen3_5": {"enable_thinking": False},
+        "qwen3_5_moe": {"enable_thinking": False},
         "llama": {},
         "mistral": {},
         "mistral3": {},
@@ -561,11 +676,12 @@ def test_chat_template_kwargs_per_family():
         ranker.config = SimpleNamespace(model_type=model_type)
         assert ranker._chat_template_kwargs() == kwargs
 
-    assert THINKING_DISABLE_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5"}
+    assert THINKING_DISABLE_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe"}
 
 
 def test_trust_remote_code_per_family():
-    model_types = ("qwen2", "qwen3", "qwen3_moe", "qwen3_5", "llama", "mistral", "mistral3", "ministral")
+    assert TRUST_REMOTE_CODE_MODEL_TYPES == {"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe"}
+    model_types = ("qwen2", "qwen3", "qwen3_moe", "llama", "mistral", "ministral")
     for model_type in model_types:
         config = SimpleNamespace(model_type=model_type, n_positions=4096, max_position_embeddings=4096)
         tokenizer_loader = mock.Mock(return_value=make_stub_causal_tokenizer())
@@ -589,11 +705,111 @@ def test_trust_remote_code_per_family():
         assert tokenizer_loader.call_args.kwargs.get("trust_remote_code", False) is expected
         assert model_loader.call_args.kwargs.get("trust_remote_code", False) is expected
 
+    for model_type in ("qwen3_5", "qwen3_5_moe", "mistral3"):
+        config = SimpleNamespace(
+            model_type=model_type,
+            vision_config=SimpleNamespace(),
+            n_positions=4096,
+            max_position_embeddings=4096,
+        )
+        processor_loader = mock.Mock(return_value=DummyProcessor(DummyQwen35Tokenizer()))
+        model_loader = mock.Mock(return_value=DummyCausalModel())
+        with mock.patch("llmrankers.setwise.AutoConfig.from_pretrained", return_value=config), \
+             mock.patch("llmrankers.setwise.AutoProcessor.from_pretrained", processor_loader), \
+             mock.patch("llmrankers.setwise.AutoModelForImageTextToText.from_pretrained", model_loader):
+            ranker = SetwiseLlmRanker(
+                model_name_or_path=model_name_for_type(model_type),
+                tokenizer_name_or_path=None,
+                device="cpu",
+                num_child=3,
+                k=10,
+                scoring="generation",
+                method="heapsort",
+                num_permutation=1,
+                cache_dir=None,
+            )
+
+        assert ranker._is_multimodal_model() is True
+        assert processor_loader.call_args.kwargs["trust_remote_code"] is True
+        assert model_loader.call_args.kwargs["trust_remote_code"] is True
+
+
+def test_multimodal_predicate_and_adapter():
+    assert MULTIMODAL_MODEL_TYPES == {"mistral3", "qwen3_5", "qwen3_5_moe"}
+    assert _is_multimodal_config(SimpleNamespace(model_type="mistral3", vision_config=SimpleNamespace()))
+    assert _is_multimodal_config(SimpleNamespace(model_type="qwen3_5", vision_config=SimpleNamespace()))
+    assert not _is_multimodal_config(SimpleNamespace(model_type="qwen3_5_text"))
+    assert not _is_multimodal_config(SimpleNamespace(model_type="qwen3"))
+
+    adapter = ProcessorTokenizerAdapter(
+        DummyProcessor(DummyMistralTokenizer(), fail_apply_chat_template_once=True)
+    )
+    rendered = adapter.apply_chat_template(
+        [{"role": "user", "content": "hello"}],
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+    assert "hello" in rendered
+    assert adapter.convert_tokens_to_string(["a", "b"]) == "0 1"
+    adapter.chat_template = "ignored"
+    assert adapter.chat_template is None
+    adapter.use_default_system_prompt = False
+    assert adapter._tok.use_default_system_prompt is False
+    adapter.padding_side = "left"
+    assert adapter._tok.padding_side == "left"
+
+
+def test_maxcontext_multimodal_generation_gates():
+    for ranker_cls, method_name, raw_output in (
+        (MaxContextBottomUpSetwiseLlmRanker, "compare_worst", "2"),
+        (MaxContextDualEndSetwiseLlmRanker, "compare_both", "Best: 1, Worst: 3"),
+        (MaxContextDualEndSetwiseLlmRanker, "_compare_worst_single", "2"),
+    ):
+        ranker = object.__new__(ranker_cls)
+        ranker.config = SimpleNamespace(model_type="mistral3")
+        ranker._is_multimodal = True
+        ranker.scoring = "generation"
+        ranker.num_permutation = 1
+        ranker.total_compare = 0
+        ranker.total_prompt_tokens = 0
+        ranker.total_completion_tokens = 0
+        ranker.CHARACTERS = ["1", "2", "3"]
+        ranker.label_scheme = "numeric_1_based"
+        ranker.strict_no_parse_fallback = True
+        ranker._comparison_log_path = None
+        ranker._current_qid = None
+        ranker.tokenizer = SimpleNamespace(decode=lambda *_args, **_kwargs: raw_output)
+        ranker._build_worst_prompt = lambda query, docs: "worst prompt"
+        ranker._build_best_prompt = lambda query, docs: "best prompt"
+        ranker._format_passages = lambda docs: "\n".join(doc.text for doc in docs)
+        ranker._build_chat_prompt = lambda messages: messages[0]["content"] + " chat"
+        ranker._tokenize_inputs = lambda prompt: DummyBatch(
+            {
+                "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+                "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+            }
+        )
+        calls = []
+        ranker._generate = lambda inputs, max_new_tokens: (
+            calls.append(max_new_tokens) or torch.tensor([[1, 2, 3, 4]], dtype=torch.long)
+        )
+
+        assert ranker._is_supported_causal_model() is False
+        result = getattr(ranker, method_name)("query", make_docs(3))
+        assert calls, f"{method_name} did not enter multimodal generation branch"
+        if method_name == "compare_both":
+            assert result == ("1", "3")
+        else:
+            assert result == "2"
+
+    assert "qwen3_5_moe" in MAXCONTEXT_ALLOWED_MODEL_TYPES
+
 
 def test_early_reject_unsupported_family():
     for model_name in (
         "Qwen/Qwen3-4B",
         "Qwen/Qwen3.5-9B",
+        "Qwen/Qwen3.5-35B-A3B",
         "meta-llama/Meta-Llama-3.1-8B-Instruct",
         "mistralai/Ministral-3-8B-Instruct-2512",
     ):
@@ -1418,6 +1634,7 @@ def test_likelihood_substitute_and_fit_helper():
     helper_ranker._format_passages = lambda docs: "\n".join(f"Passage {i+1}: {doc.text}" for i, doc in enumerate(docs))
     helper_ranker._build_chat_prompt = lambda messages: messages[0]["content"] + " chat"
     helper_ranker._is_supported_causal_model = lambda: True
+    helper_ranker._uses_chat_template = lambda: True
     docs = [SimpleNamespace(text="alpha beta"), SimpleNamespace(text="gamma delta")]
     fits, rendered_length, budget = compute_max_fit_window(helper_ranker, "query terms", docs, reserved_output_tokens=4)
     assert isinstance(fits, bool)
@@ -1519,6 +1736,8 @@ def main():
     test_generation_budget_tier()
     test_chat_template_kwargs_per_family()
     test_trust_remote_code_per_family()
+    test_multimodal_predicate_and_adapter()
+    test_maxcontext_multimodal_generation_gates()
     test_early_reject_unsupported_family()
     test_maxcontext_topdown_invariants()
     test_maxcontext_bottomup_invariants()

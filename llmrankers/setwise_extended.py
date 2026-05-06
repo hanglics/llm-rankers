@@ -20,7 +20,7 @@ from collections import Counter
 random.seed(929)
 
 MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({
-    "qwen3", "qwen3_moe", "qwen3_5",
+    "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe",
     "llama",
     "mistral", "mistral3", "ministral",
 })
@@ -200,7 +200,7 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                         else:
                             output = self.CHARACTERS[random.choice(most_common_candidates)]
 
-            elif self._is_supported_causal_model():
+            elif self._uses_chat_template():
                 conversation = [{"role": "user", "content": input_text}]
                 prompt = self._build_chat_prompt(conversation)
                 prompt += " Passage:"
@@ -561,7 +561,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 best = ranked[0][0]
                 worst = ranked[-1][0]
 
-            elif self._is_supported_causal_model():
+            elif self._uses_chat_template():
                 conversation = [{"role": "user", "content": input_text}]
                 prompt = self._build_chat_prompt(conversation)
 
@@ -674,7 +674,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             output = self._parse_single_label(raw_output, self.CHARACTERS[:len(docs)])
             if output is None:
                 output = self._clean_generation_output(raw_output).upper()
-        elif self._is_supported_causal_model():
+        elif self._uses_chat_template():
             conversation = [{"role": "user", "content": input_text}]
             prompt = self._build_chat_prompt(conversation)
             prompt += " Passage:"

@@ -13,6 +13,8 @@ Phase gates:
 3. Phase C′ byte-equality control must pass before interpreting EMNLP results.
 4. Optional Phase D/E runs launch only after required Phase B/C results are green or budget-cleared.
 
+Loader architecture gate: Mistral 3 (`model_type=mistral3`) and Qwen 3.5 (`qwen3_5`, `qwen3_5_moe`) are vision-language configs and must use the multimodal loader path (`MULTIMODAL_MODEL_TYPES` in `llmrankers/setwise.py`: `AutoProcessor` + `AutoModelForImageTextToText`). The IR task remains text-only; image inputs are unused. Qwen 3 (`qwen3`, `qwen3_moe`) stays on the existing causal-LM path for byte-equality with IDEA_007.
+
 All commands below run from the cluster login node. If your cluster root differs, replace `/scratch/project/neural_ir/hang/llm-rankers` consistently.
 
 The setup block below defines unexported shell variables and helper functions on your login-node shell. The EMNLP submit/eval scripts re-establish their own environment; the block exists to make copy-paste loops explicit and auditable.

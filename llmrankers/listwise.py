@@ -4,7 +4,17 @@ from typing import List
 import copy
 import openai
 import torch
-from transformers import T5Tokenizer, T5ForConditionalGeneration, AutoTokenizer, AutoModelForCausalLM, AutoConfig
+from transformers import (
+    T5Tokenizer,
+    T5ForConditionalGeneration,
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    AutoConfig,
+    AutoModelForImageTextToText,
+    AutoProcessor,
+)
+from ._processor_adapter import ProcessorTokenizerAdapter
+from .setwise import _is_multimodal_config
 
 
 def max_tokens(model):
@@ -213,6 +223,7 @@ class ListwiseLlmRanker(OpenAiListwiseLlmRanker):
         self.step_size = step_size
         self.num_repeat = num_repeat
         self.config = AutoConfig.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+        self._is_multimodal = False
 
         if self.config.model_type == 't5':
             self.tokenizer = T5Tokenizer.from_pretrained(tokenizer_name_or_path
@@ -243,8 +254,43 @@ class ListwiseLlmRanker(OpenAiListwiseLlmRanker):
                                                             torch_dtype=torch.float16 if device == 'cuda'
                                                             else torch.float32,
                                                             cache_dir=cache_dir).eval()
+        elif _is_multimodal_config(self.config):
+            self.processor = AutoProcessor.from_pretrained(
+                tokenizer_name_or_path or model_name_or_path,
+                cache_dir=cache_dir,
+                trust_remote_code=True,
+            )
+            self.tokenizer = ProcessorTokenizerAdapter(self.processor)
+            if hasattr(self.tokenizer, "use_default_system_prompt"):
+                self.tokenizer.use_default_system_prompt = False
+            if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.llm = AutoModelForImageTextToText.from_pretrained(
+                model_name_or_path,
+                device_map='auto',
+                torch_dtype=torch.float16 if device == 'cuda'
+                else torch.float32,
+                cache_dir=cache_dir,
+                trust_remote_code=True,
+            ).eval()
+            self._is_multimodal = True
         else:
             raise NotImplementedError(f"Model type {self.config.model_type} is not supported yet for listwise :(")
+
+        if self._is_multimodal_model() and self.scoring == "likelihood":
+            raise NotImplementedError(
+                f"--scoring likelihood is not supported for multimodal model_type="
+                f"{self.config.model_type!r}. Use --scoring generation."
+            )
+
+    def _is_supported_causal_model(self):
+        return self.config.model_type == 'llama'
+
+    def _is_multimodal_model(self):
+        return getattr(self, "_is_multimodal", False)
+
+    def _uses_chat_template(self):
+        return self._is_supported_causal_model() or self._is_multimodal_model()
 
     def compare(self, query: str, docs: List):
         self.total_compare += 1
@@ -258,7 +304,7 @@ class ListwiseLlmRanker(OpenAiListwiseLlmRanker):
                 self.total_completion_tokens += output_ids.shape[0]
                 output = self.tokenizer.decode(output_ids,
                                                skip_special_tokens=True).strip()
-            elif self.config.model_type == 'llama':
+            elif self._uses_chat_template():
                 input_text = create_permutation_instruction_chat(query, docs, model_name=None)
                 input_ids = self.tokenizer.apply_chat_template(input_text, return_tensors="pt",
                                                                add_generation_prompt=True).to(self.device)

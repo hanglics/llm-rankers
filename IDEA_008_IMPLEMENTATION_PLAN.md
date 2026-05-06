@@ -37,7 +37,7 @@ The core invariants remain:
 
 The authoritative line-level audit is the v7 plan §A. This implementation plan records the file surface and points to the corresponding plan sections rather than duplicating each patch.
 
-- `llmrankers/setwise.py` — plan §A.1: split causal/Qwen/trust/thinking constants; preserve Qwen2 generation-budget and chat-template behavior; add `_generation_budget()`.
+- `llmrankers/setwise.py` — plan §A.1 plus multimodal loader v3: split causal/Qwen/trust/thinking constants; preserve Qwen2/Qwen3 generation-budget and chat-template behavior; add `_generation_budget()`; route `mistral3`, `qwen3_5`, and `qwen3_5_moe` through `MULTIMODAL_MODEL_TYPES` using `AutoProcessor` + `AutoModelForImageTextToText`.
 - `llmrankers/setwise_extended.py` — plan §A.2: widen `MAXCONTEXT_ALLOWED_MODEL_TYPES`; rename `_early_reject_unsupported_family`; update invariant messages; preserve strict numeric MaxContext helpers.
 - `run.py` — plan §A.3: update the MaxContext local-model `--openai_key` rejection message.
 - `scripts/check_maxcontext_invariants.py` — plan §A.4: add family-admission, trust, thinking-kwargs, generation-budget, and early-reject tests.
@@ -182,9 +182,11 @@ Modified docs/wiki files:
 - Ministral-7B, Nemo, and Small; use Ministral-3 only.
 - Llama-2 family.
 - Qwen2 family for MaxContext; Qwen2 remains allowed only for standard methods.
+- Bare inner Qwen3.5 text configs (`qwen3_5_text`, `qwen3_5_moe_text`) are not supported as top-level model configs in this refactor; the dispatcher intentionally raises `NotImplementedError` if encountered.
 
 ## 12. Audit Trail
 
+- **v3 multimodal loader (2026-05-06):** Phase 3a adds the authoritative `MULTIMODAL_MODEL_TYPES={mistral3,qwen3_5,qwen3_5_moe}` dispatch, `ProcessorTokenizerAdapter`, and a text-only multimodal loader for Mistral 3 / Qwen 3.5 vision-language configs. `qwen3` / `qwen3_moe` remain on the existing causal path for IDEA_007 byte-equality; `qwen3_5_text` / `qwen3_5_moe_text` inner configs are explicitly unsupported.
 - **v3 (2026-05-06):** launcher consolidation applied: standard EMNLP TopDown/BottomUp methods use bigram launchers, `run_bottomup_bigram.sh` added, stability default layout expands to 1980 submissions, and Phase C′ remains 35 cells via `--idea007-only`.
 - **v2 (2026-05-06):** v8 pool=100 delta applied: Phase A 42, Phase B 3024, Phase C 1260 scientific / 1620 submitted, required total 4361; IDEA_007 65-cell prime gate unchanged.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit.

@@ -30,8 +30,8 @@ The line-level implementation is recorded in the v7 plan §A and summarized in `
 
 Summary:
 
-- `llmrankers/setwise.py` splits model-family constants while preserving Qwen2 behavior, adds Mistral contingencies to the causal family gate, gates `trust_remote_code`, gates Qwen thinking kwargs, and centralizes generation budgets.
-- `llmrankers/setwise_extended.py` widens `MAXCONTEXT_ALLOWED_MODEL_TYPES`, renames `_early_reject_non_qwen3` to `_early_reject_unsupported_family`, and updates MaxContext invariant messages for Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3.
+- `llmrankers/setwise.py` splits model-family constants while preserving Qwen2/Qwen3 behavior, gates `trust_remote_code`, gates Qwen thinking kwargs, centralizes generation budgets, and adds a multimodal loader path for vision-language `mistral3`, `qwen3_5`, and `qwen3_5_moe` configs (`AutoProcessor` + `AutoModelForImageTextToText`) used in text-only IR mode.
+- `llmrankers/setwise_extended.py` widens `MAXCONTEXT_ALLOWED_MODEL_TYPES`, including `qwen3_5_moe`, renames `_early_reject_non_qwen3` to `_early_reject_unsupported_family`, and updates MaxContext invariant messages for Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3.
 - `run.py` updates the local-model error message for MaxContext with `--openai_key`.
 - Evaluation and launcher scripts add BEIR qrels mapping and EMNLP-specific submission, evaluation, smoke, and stability wrappers.
 - Analysis adds cross-model stability and EMNLP MaxContext-only position-bias tracks.
@@ -89,6 +89,7 @@ Optional phases:
 
 ## 8. Audit Trail
 
+- **v4 (2026-05-06):** multimodal loader refactor applied for Mistral 3 and Qwen 3.5 vision-language configs. The ranker uses text-only prompts through `AutoProcessor` / `AutoModelForImageTextToText`; Qwen3 / Qwen3-MoE remain on the existing causal path for byte-equality.
 - **v2 (2026-05-06):** v8 extends required EMNLP Phase A/B/C to include pool=100 for Qwen3.5 / Llama-3.1 / Ministral-3; Phase C′ and optional Qwen3 phases remain at the v7 five-pool sweep.
 - **v3 (2026-05-06):** standard TopDown/BottomUp launcher consolidation applied; Phase C stability submissions use the default 11-block layout, while Phase C′ keeps the 35-cell gate through `--idea007-only`.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit on the EMNLP plan.

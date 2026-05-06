@@ -4,7 +4,7 @@ from pyserini.search.lucene import LuceneSearcher
 from pyserini.search._base import get_topics
 from llmrankers.rankers import SearchResult
 from llmrankers.pointwise import PointwiseLlmRanker, MonoT5LlmRanker
-from llmrankers.setwise import SetwiseLlmRanker, OpenAiSetwiseLlmRanker
+from llmrankers.setwise import SetwiseLlmRanker, OpenAiSetwiseLlmRanker, _is_multimodal_config
 from llmrankers.setwise_extended import (
     BiasAwareDualEndSetwiseLlmRanker,
     BidirectionalEnsembleRanker,
@@ -19,6 +19,7 @@ from llmrankers.setwise_extended import (
 from llmrankers.pairwise import PairwiseLlmRanker, DuoT5LlmRanker, OpenAiPairwiseLlmRanker
 from llmrankers.listwise import OpenAiListwiseLlmRanker, ListwiseLlmRanker
 from tqdm import tqdm
+from transformers import AutoConfig
 import argparse
 import sys
 import json
@@ -71,7 +72,32 @@ def main(args):
                 f"MaxContext requires a local Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model."
             )
 
+    peek_config = None
+
+    def validate_local_multimodal_config():
+        nonlocal peek_config
+        if args.run.openai_key is not None:
+            return None
+        if peek_config is None:
+            peek_config = AutoConfig.from_pretrained(
+                args.run.model_name_or_path,
+                cache_dir=args.run.cache_dir,
+                trust_remote_code=True,
+            )
+        if _is_multimodal_config(peek_config):
+            if args.run.scoring == "likelihood":
+                raise SystemExit(
+                    f"Error: --scoring likelihood is not supported for multimodal "
+                    f"model_type={peek_config.model_type!r}. Use --scoring generation."
+                )
+            logger.warning(
+                "Model type %s is multimodal; vision inputs are unused for text-only IR reranking.",
+                peek_config.model_type,
+            )
+        return peek_config
+
     if args.pointwise:
+        validate_local_multimodal_config()
         if 'monot5' in args.run.model_name_or_path:
             ranker = MonoT5LlmRanker(model_name_or_path=args.run.model_name_or_path,
                                      tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -95,6 +121,7 @@ def main(args):
                                             method=args.setwise.method,
                                             k=args.setwise.k)
         elif args.setwise.direction == 'topdown':
+            validate_local_multimodal_config()
             ranker = SetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                       device=args.run.device,
@@ -106,6 +133,7 @@ def main(args):
                                       num_permutation=args.setwise.num_permutation,
                                       k=args.setwise.k)
         elif args.setwise.direction == 'bottomup':
+            validate_local_multimodal_config()
             ranker = BottomUpSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                               tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                               device=args.run.device,
@@ -116,6 +144,7 @@ def main(args):
                                               num_permutation=args.setwise.num_permutation,
                                               k=args.setwise.k)
         elif args.setwise.direction == 'dualend':
+            validate_local_multimodal_config()
             ranker = DualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                              tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                              device=args.run.device,
@@ -126,6 +155,7 @@ def main(args):
                                              num_permutation=args.setwise.num_permutation,
                                              k=args.setwise.k)
         elif args.setwise.direction == 'selective_dualend':
+            validate_local_multimodal_config()
             ranker = SelectiveDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                                       device=args.run.device,
@@ -145,6 +175,7 @@ def main(args):
                     'bias_aware_dualend supports only bubblesort and selection; '
                     'heapsort bypasses the order-robust joint prompting path.'
                 )
+            validate_local_multimodal_config()
             ranker = BiasAwareDualEndSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                                       tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                                       device=args.run.device,
@@ -160,6 +191,7 @@ def main(args):
                                                       uncertainty_percentile=args.setwise.uncertainty_percentile,
                                                       order_robust_orderings=args.setwise.order_robust_orderings)
         elif args.setwise.direction == 'samecall_regularized':
+            validate_local_multimodal_config()
             ranker = SameCallRegularizedSetwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                                          tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                                          device=args.run.device,
@@ -170,6 +202,7 @@ def main(args):
                                                          num_permutation=args.setwise.num_permutation,
                                                          k=args.setwise.k)
         elif args.setwise.direction == 'bidirectional':
+            validate_local_multimodal_config()
             ranker = BidirectionalEnsembleRanker(model_name_or_path=args.run.model_name_or_path,
                                                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                                 device=args.run.device,
@@ -198,6 +231,7 @@ def main(args):
                 raise ValueError(
                     "maxcontext_dualend requires --method selection."
                 )
+            validate_local_multimodal_config()
             ranker = MaxContextDualEndSetwiseLlmRanker(
                 model_name_or_path=args.run.model_name_or_path,
                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -227,6 +261,7 @@ def main(args):
                 raise ValueError(
                     "maxcontext_topdown requires --method selection."
                 )
+            validate_local_multimodal_config()
             ranker = MaxContextTopDownSetwiseLlmRanker(
                 model_name_or_path=args.run.model_name_or_path,
                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -256,6 +291,7 @@ def main(args):
                 raise ValueError(
                     "maxcontext_bottomup requires --method selection."
                 )
+            validate_local_multimodal_config()
             ranker = MaxContextBottomUpSetwiseLlmRanker(
                 model_name_or_path=args.run.model_name_or_path,
                 tokenizer_name_or_path=args.run.tokenizer_name_or_path,
@@ -283,6 +319,7 @@ def main(args):
                                              k=args.pairwise.k)
 
         elif 'duot5' in args.run.model_name_or_path:
+            validate_local_multimodal_config()
             ranker = DuoT5LlmRanker(model_name_or_path=args.run.model_name_or_path,
                                     tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                     device=args.run.device,
@@ -291,6 +328,7 @@ def main(args):
                                     batch_size=args.pairwise.batch_size,
                                     k=args.pairwise.k)
         else:
+            validate_local_multimodal_config()
             ranker = PairwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                        tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                        device=args.run.device,
@@ -307,6 +345,7 @@ def main(args):
                                              step_size=args.listwise.step_size,
                                              num_repeat=args.listwise.num_repeat)
         else:
+            validate_local_multimodal_config()
             ranker = ListwiseLlmRanker(model_name_or_path=args.run.model_name_or_path,
                                        tokenizer_name_or_path=args.run.tokenizer_name_or_path,
                                        device=args.run.device,
