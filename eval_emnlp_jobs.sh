@@ -1,17 +1,50 @@
 #!/usr/bin/env bash
+#SBATCH --partition=general
+#SBATCH --time=00:30:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
 # Evaluate EMNLP main-matrix outputs next to their .txt files.
 
 set -euo pipefail
 
-# Activate pyserini environment. trec_eval lives in ranker_env per the
-# project's HPC configuration. Tolerate non-HPC environments where `module`
-# is unavailable — the user is expected to have ranker_env active manually.
-if command -v module >/dev/null 2>&1; then
+ORIGINAL_ARGS=("$@")
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+EVAL_PARTITION="${EVAL_PARTITION:-general}"
+EVAL_TIME_LIMIT="${EVAL_TIME_LIMIT:-00:30:00}"
+EVAL_CPUS_PER_TASK="${EVAL_CPUS_PER_TASK:-2}"
+EVAL_MEM="${EVAL_MEM:-16G}"
+EVAL_LOG_DIR="${EVAL_LOG_DIR:-logs/eval}"
+EVAL_CONDA_ENV="${EVAL_CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
+
+activate_eval_env() {
+  command -v module >/dev/null 2>&1 || {
+    echo "Error: module command unavailable inside SLURM eval job" >&2
+    exit 2
+  }
   module load anaconda3/2023.09-0
   source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
   module load cuda/12.2.0
-  conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
-fi
+  conda activate "$EVAL_CONDA_ENV"
+}
+
+submit_eval_job() {
+  local job_name="$1"
+  command -v sbatch >/dev/null 2>&1 || {
+    echo "Error: non-dry-run eval requires sbatch; use --dry-run to inspect locally" >&2
+    exit 2
+  }
+  mkdir -p "$EVAL_LOG_DIR"
+  sbatch \
+    --job-name="$job_name" \
+    --partition="$EVAL_PARTITION" \
+    --time="$EVAL_TIME_LIMIT" \
+    --cpus-per-task="$EVAL_CPUS_PER_TASK" \
+    --mem="$EVAL_MEM" \
+    --output="${EVAL_LOG_DIR}/${job_name}-%j.out" \
+    --error="${EVAL_LOG_DIR}/${job_name}-%j.err" \
+    --export="ALL,LLMRANKERS_EVAL_IN_JOB=1,EVAL_CONDA_ENV=${EVAL_CONDA_ENV}" \
+    "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
+}
 
 METHOD=""
 MODEL=""
@@ -36,6 +69,10 @@ Options mirror submit_emnlp_jobs.sh:
   --force             Re-evaluate existing .eval files.
   --dry-run           Print eval commands without invoking pyserini.
   -h | --help         Show this help.
+
+Non-dry-run evaluation submits this script as a CPU SLURM job. Override the
+CPU queue with EVAL_PARTITION, EVAL_TIME_LIMIT, EVAL_CPUS_PER_TASK, EVAL_MEM,
+or EVAL_CONDA_ENV if needed.
 USAGE
 }
 
@@ -88,6 +125,16 @@ fi
 MODEL_TAG="$(printf '%s' "${MODEL##*/}" | tr './' '-' | tr '[:upper:]' '[:lower:]')"
 if [[ -z "$OUTPUT_ROOT" ]]; then
   OUTPUT_ROOT="results/emnlp/main/${TAG}"
+fi
+
+if [[ "$DRY_RUN" -eq 0 && "${LLMRANKERS_EVAL_IN_JOB:-0}" != "1" ]]; then
+  POOL_JOB_TAG="$(printf '%s' "$POOL_SIZE" | tr -cd '[:alnum:]_-')"
+  submit_eval_job "eval-emnlp-${METHOD}-${DATASET_TAG}-${POOL_JOB_TAG}"
+  exit 0
+fi
+
+if [[ "${LLMRANKERS_EVAL_IN_JOB:-0}" == "1" ]]; then
+  activate_eval_env
 fi
 
 OK=0

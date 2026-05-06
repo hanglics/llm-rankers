@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#SBATCH --partition=general
+#SBATCH --time=00:30:00
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=16G
 # eval_max_context_jobs.sh
 #
 # Evaluate every result file produced by submit_max_context_jobs.sh under a
@@ -27,15 +31,44 @@
 
 set -euo pipefail
 
-# Activate pyserini environment. trec_eval lives in ranker_env per the
-# project's HPC configuration. Tolerate non-HPC environments where `module`
-# is unavailable — the user is expected to have ranker_env active manually.
-if command -v module >/dev/null 2>&1; then
+ORIGINAL_ARGS=("$@")
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+EVAL_PARTITION="${EVAL_PARTITION:-general}"
+EVAL_TIME_LIMIT="${EVAL_TIME_LIMIT:-00:30:00}"
+EVAL_CPUS_PER_TASK="${EVAL_CPUS_PER_TASK:-2}"
+EVAL_MEM="${EVAL_MEM:-16G}"
+EVAL_LOG_DIR="${EVAL_LOG_DIR:-logs/eval}"
+EVAL_CONDA_ENV="${EVAL_CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
+
+activate_eval_env() {
+  command -v module >/dev/null 2>&1 || {
+    echo "Error: module command unavailable inside SLURM eval job" >&2
+    exit 2
+  }
   module load anaconda3/2023.09-0
   source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
   module load cuda/12.2.0
-  conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
-fi
+  conda activate "$EVAL_CONDA_ENV"
+}
+
+submit_eval_job() {
+  local job_name="$1"
+  command -v sbatch >/dev/null 2>&1 || {
+    echo "Error: non-dry-run eval requires sbatch; use --dry-run to inspect locally" >&2
+    exit 2
+  }
+  mkdir -p "$EVAL_LOG_DIR"
+  sbatch \
+    --job-name="$job_name" \
+    --partition="$EVAL_PARTITION" \
+    --time="$EVAL_TIME_LIMIT" \
+    --cpus-per-task="$EVAL_CPUS_PER_TASK" \
+    --mem="$EVAL_MEM" \
+    --output="${EVAL_LOG_DIR}/${job_name}-%j.out" \
+    --error="${EVAL_LOG_DIR}/${job_name}-%j.err" \
+    --export="ALL,LLMRANKERS_EVAL_IN_JOB=1,EVAL_CONDA_ENV=${EVAL_CONDA_ENV}" \
+    "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
+}
 
 # -----------------------------------------------------------------------------
 # Defaults (match submit_max_context_jobs.sh)
@@ -81,6 +114,10 @@ the given (tag, model, dataset), this script runs:
 and saves the per-query + aggregate lines (everything after "Results:" in the
 trec_eval output) to <result>.eval next to the source .txt file. Missing
 result files are logged but do not abort the run.
+
+Non-dry-run evaluation submits this script as a CPU SLURM job. Override the
+CPU queue with EVAL_PARTITION, EVAL_TIME_LIMIT, EVAL_CPUS_PER_TASK, EVAL_MEM,
+or EVAL_CONDA_ENV if needed.
 USAGE
 }
 
@@ -143,6 +180,15 @@ if [[ -n "${POOL_SIZES_OVERRIDE}" ]]; then
       exit 2
     }
   done
+fi
+
+if [[ "$DRY_RUN" -eq 0 && "${LLMRANKERS_EVAL_IN_JOB:-0}" != "1" ]]; then
+  submit_eval_job "eval-maxctx-${MODEL_TAG}-${DATASET_TAG}"
+  exit 0
+fi
+
+if [[ "${LLMRANKERS_EVAL_IN_JOB:-0}" == "1" ]]; then
+  activate_eval_env
 fi
 
 cat <<INFO >&2
