@@ -278,6 +278,8 @@ class SetwiseLlmRanker(LlmRanker):
             return 2
         if self.config.model_type in THINKING_BUDGET_MODEL_TYPES:
             return 256 if mode == "single" else 512
+        if self.config.model_type in MULTIMODAL_MODEL_TYPES:
+            return 256 if mode == "single" else 512
         return 32 if mode == "single" else 64
 
     def _format_passages(self, docs: Sequence[SearchResult]) -> str:
@@ -511,6 +513,14 @@ class SetwiseLlmRanker(LlmRanker):
                 ):
                     if hasattr(generation_config, attr):
                         setattr(generation_config, attr, None)
+                # Multimodal models (e.g. Mistral 3) ship a 256K `max_length`
+                # default in generation_config which collides with our explicit
+                # `max_new_tokens` and triggers a HF warning. Behavior is
+                # unchanged either way (max_new_tokens takes precedence), so
+                # null `max_length` for multimodal models only — keeps causal
+                # paths byte-identical.
+                if self._is_multimodal_model() and getattr(generation_config, "max_length", None):
+                    generation_config.max_length = None
                 if self.tokenizer.pad_token_id is not None:
                     generation_config.pad_token_id = self.tokenizer.pad_token_id
                 if self.tokenizer.eos_token_id is not None:
@@ -546,6 +556,12 @@ class SetwiseLlmRanker(LlmRanker):
         # --- General XML-style tags left over from any tokenizer ---
         # Strip isolated angle-bracket tokens like <s>, </s>, <bos>, <eos>, etc.
         cleaned = re.sub(r"</?(?:s|bos|eos|sep|cls|mask|pad)\s*>", " ", cleaned)
+
+        # --- Paired markdown emphasis markers (LLM chat models often format
+        # answers with markdown bold, e.g. "Best: **Passage 3**"). Only paired
+        # markers are stripped; isolated `*` or `_` in passage content survive.
+        cleaned = re.sub(r"\*\*(.+?)\*\*", r"\1", cleaned)
+        cleaned = re.sub(r"__(.+?)__", r"\1", cleaned)
 
         cleaned = cleaned.strip()
         return cleaned or stripped
