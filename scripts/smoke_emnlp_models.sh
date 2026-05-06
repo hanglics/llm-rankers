@@ -1,49 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --partition=general
-#SBATCH --time=00:30:00
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=16G
 # Phase A EMNLP smoke gate: 3 models x 7 methods x dl19 x pools {50,100}.
 
 set -euo pipefail
-
-ORIGINAL_ARGS=("$@")
-SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-VERIFY_PARTITION="${VERIFY_PARTITION:-general}"
-VERIFY_TIME_LIMIT="${VERIFY_TIME_LIMIT:-00:30:00}"
-VERIFY_CPUS_PER_TASK="${VERIFY_CPUS_PER_TASK:-2}"
-VERIFY_MEM="${VERIFY_MEM:-16G}"
-VERIFY_LOG_DIR="${VERIFY_LOG_DIR:-logs/eval}"
-VERIFY_CONDA_ENV="${VERIFY_CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
-
-activate_verify_env() {
-  command -v module >/dev/null 2>&1 || {
-    echo "Error: module command unavailable inside SLURM smoke verify job" >&2
-    exit 2
-  }
-  module load anaconda3/2023.09-0
-  source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
-  module load cuda/12.2.0
-  conda activate "$VERIFY_CONDA_ENV"
-}
-
-submit_verify_job() {
-  command -v sbatch >/dev/null 2>&1 || {
-    echo "Error: smoke --verify-only requires sbatch; use submit/eval dry-runs locally" >&2
-    exit 2
-  }
-  mkdir -p "$VERIFY_LOG_DIR"
-  sbatch \
-    --job-name="emnlp-smoke-verify" \
-    --partition="$VERIFY_PARTITION" \
-    --time="$VERIFY_TIME_LIMIT" \
-    --cpus-per-task="$VERIFY_CPUS_PER_TASK" \
-    --mem="$VERIFY_MEM" \
-    --output="${VERIFY_LOG_DIR}/emnlp-smoke-verify-%j.out" \
-    --error="${VERIFY_LOG_DIR}/emnlp-smoke-verify-%j.err" \
-    --export="ALL,LLMRANKERS_SMOKE_VERIFY_IN_JOB=1,VERIFY_CONDA_ENV=${VERIFY_CONDA_ENV}" \
-    "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
-}
 
 DRY_RUN=0
 EVAL_ONLY=0
@@ -61,8 +19,8 @@ Outputs are written under results/emnlp/smoke/phase_a/{model_tag}/dl19/{method}/
 Use --eval-only after the jobs complete to write .eval files next to the .txt
 outputs, then --verify-only to apply the method-aware smoke checks.
 
-Submit mode is a login-node dispatcher. Eval-only delegates to eval helpers
-that submit CPU SLURM jobs. Verify-only submits one CPU SLURM job.
+Runs on the login node in your interactive shell; activate ranker_env before
+invoking eval-only or verify-only. Submit mode dispatches GPU SLURM jobs only.
 USAGE
 }
 
@@ -170,21 +128,6 @@ PY
 print_summary() {
   echo "[smoke] processed ${#MODELS[@]} × ${#METHODS[@]} × ${#SMOKE_POOLS[@]} = $((${#MODELS[@]} * ${#METHODS[@]} * ${#SMOKE_POOLS[@]})) cells"
 }
-
-if [[ "$VERIFY_ONLY" -eq 1 && "$DRY_RUN" -eq 0 && "${LLMRANKERS_SMOKE_VERIFY_IN_JOB:-0}" != "1" ]]; then
-  submit_verify_job
-  exit 0
-fi
-
-if [[ "$VERIFY_ONLY" -eq 1 && "$DRY_RUN" -eq 1 && "${LLMRANKERS_SMOKE_VERIFY_IN_JOB:-0}" != "1" ]]; then
-  echo "[dry-run] would submit emnlp-smoke-verify CPU job"
-  print_summary
-  exit 0
-fi
-
-if [[ "$VERIFY_ONLY" -eq 1 && "${LLMRANKERS_SMOKE_VERIFY_IN_JOB:-0}" == "1" ]]; then
-  activate_verify_env
-fi
 
 if [[ "$VERIFY_ONLY" -eq 0 && "$EVAL_ONLY" -eq 0 ]]; then
   for model in "${MODELS[@]}"; do
