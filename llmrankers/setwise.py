@@ -499,9 +499,14 @@ class SetwiseLlmRanker(LlmRanker):
         if decoder_input_ids is not None:
             kwargs["decoder_input_ids"] = decoder_input_ids
         if self._uses_causal_style_generation():
-            generation_config = copy.deepcopy(getattr(self.llm, "generation_config", None))
-            if generation_config is not None:
-                generation_config.do_sample = False
+            if self._is_multimodal_model():
+                # Multimodal models (e.g. Mistral 3) ship a 256K `max_length` in
+                # their generation_config. If we deepcopy the config and pass it
+                # back, HF interprets it as a user-override and warns about the
+                # `max_new_tokens` vs `max_length` conflict. Instead, use
+                # kwargs-only here: HF treats the model's pristine config as
+                # "default" and `max_new_tokens` takes precedence cleanly.
+                kwargs["do_sample"] = False
                 for attr in (
                     "temperature",
                     "top_k",
@@ -511,27 +516,37 @@ class SetwiseLlmRanker(LlmRanker):
                     "epsilon_cutoff",
                     "eta_cutoff",
                 ):
-                    if hasattr(generation_config, attr):
-                        setattr(generation_config, attr, None)
-                # Multimodal models (e.g. Mistral 3) ship a 256K `max_length`
-                # default in generation_config which collides with our explicit
-                # `max_new_tokens` and triggers a HF warning. Behavior is
-                # unchanged either way (max_new_tokens takes precedence), so
-                # null `max_length` for multimodal models only — keeps causal
-                # paths byte-identical.
-                if self._is_multimodal_model() and getattr(generation_config, "max_length", None):
-                    generation_config.max_length = None
-                if self.tokenizer.pad_token_id is not None:
-                    generation_config.pad_token_id = self.tokenizer.pad_token_id
-                if self.tokenizer.eos_token_id is not None:
-                    generation_config.eos_token_id = self.tokenizer.eos_token_id
-                kwargs["generation_config"] = generation_config
-            else:
-                kwargs["do_sample"] = False
+                    kwargs[attr] = None
                 if self.tokenizer.pad_token_id is not None:
                     kwargs["pad_token_id"] = self.tokenizer.pad_token_id
                 if self.tokenizer.eos_token_id is not None:
                     kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+            else:
+                generation_config = copy.deepcopy(getattr(self.llm, "generation_config", None))
+                if generation_config is not None:
+                    generation_config.do_sample = False
+                    for attr in (
+                        "temperature",
+                        "top_k",
+                        "top_p",
+                        "min_p",
+                        "typical_p",
+                        "epsilon_cutoff",
+                        "eta_cutoff",
+                    ):
+                        if hasattr(generation_config, attr):
+                            setattr(generation_config, attr, None)
+                    if self.tokenizer.pad_token_id is not None:
+                        generation_config.pad_token_id = self.tokenizer.pad_token_id
+                    if self.tokenizer.eos_token_id is not None:
+                        generation_config.eos_token_id = self.tokenizer.eos_token_id
+                    kwargs["generation_config"] = generation_config
+                else:
+                    kwargs["do_sample"] = False
+                    if self.tokenizer.pad_token_id is not None:
+                        kwargs["pad_token_id"] = self.tokenizer.pad_token_id
+                    if self.tokenizer.eos_token_id is not None:
+                        kwargs["eos_token_id"] = self.tokenizer.eos_token_id
         return self.llm.generate(**kwargs)
 
     def _clean_generation_output(self, output: str) -> str:

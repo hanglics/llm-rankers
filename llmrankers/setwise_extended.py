@@ -719,6 +719,7 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         valid_chars = set(self.CHARACTERS[:n_docs])
         strict = getattr(self, "strict_no_parse_fallback", False)
         is_numeric_scheme = getattr(self, "label_scheme", None) == "numeric_1_based"
+        is_multimodal = getattr(self, "_is_multimodal", False)
 
         # Label pattern: bare letter or letter in square brackets, e.g. A, [A]
         _L = r'\[?([A-W])\]?'
@@ -732,6 +733,28 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             if strict and (best is not None or worst is not None):
                 return invalid_pair
             return None
+
+        # --- Pattern 0 (multimodal-only): LAST occurrence of BEST/WORST + digit ---
+        # Verbose multimodal chat models (e.g. Mistral 3) often emit a
+        # chain-of-thought prelude where "Best: None of the passages..." appears
+        # before the actual answer. The clean answer arrives at the END of the
+        # output, often with parens or other prose between BEST/WORST and the
+        # digit (e.g. "Best (closest to anthropological environment): 15"). The
+        # lazy `.{0,200}?` separator tolerates that, and `re.finditer` + last
+        # match prefers the trailing summary. Multimodal-gated to preserve Qwen
+        # 3 byte-equality.
+        if is_multimodal and is_numeric_scheme:
+            best_iter = list(re.finditer(r'\bBEST\b.{0,200}?(\d+)', output_upper))
+            worst_iter = list(re.finditer(r'\bWORST\b.{0,200}?(\d+)', output_upper))
+            if best_iter and worst_iter:
+                parsed = validate_pair(
+                    self._num_to_label(int(best_iter[-1].group(1)), n_docs),
+                    self._num_to_label(int(worst_iter[-1].group(1)), n_docs),
+                )
+                if parsed is invalid_pair:
+                    return None
+                if parsed is not None:
+                    return parsed
 
         if not is_numeric_scheme:
             # --- Pattern 1: "Best: X, Worst: Y" with letter labels ---
@@ -753,7 +776,12 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         worst_num_match = re.search(r'WORST[:\s]*(?:PASSAGE\s*)?(\d+)', output_upper)
         if best_num_match or worst_num_match:
             if not (best_num_match and worst_num_match):
-                if strict:
+                # Strict early-return for non-multimodal models only — verbose
+                # multimodal output (e.g. Mistral 3 partial match where
+                # "Best: None..." prevents BEST capture but "Worst: 12" matches)
+                # should fall through to Pattern 6 instead of failing loud.
+                # Qwen 3 byte-equality preserved (non-multimodal still strict).
+                if strict and not is_multimodal:
                     return None
             else:
                 parsed = validate_pair(
