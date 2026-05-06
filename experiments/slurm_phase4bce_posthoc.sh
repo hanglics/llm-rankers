@@ -19,7 +19,12 @@
 
 module load anaconda3/2023.09-0
 source $EBROOTANACONDA3/etc/profile.d/conda.sh
-conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+# CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
+# / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
+# ranker_env (Qwen3 family + pyserini); qwen35_env is used for Qwen3.5,
+# Llama-3.1, and Ministral-3 model families.
+CONDA_ENV="${CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
+conda activate "$CONDA_ENV"
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini

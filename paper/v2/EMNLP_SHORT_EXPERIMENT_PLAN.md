@@ -1,8 +1,9 @@
 # EMNLP_SHORT_EXPERIMENT_PLAN.md — experiments for the v2 short paper
 
-> **Status:** v1 — addresses Codex round-1 NEEDS_MAJOR_REVISION findings (2026-05-02). Companion to [`EMNLP_SHORT_PLAN.md`](EMNLP_SHORT_PLAN.md).
+> **Status:** v3 — aligned to the canonical v8 EMNLP plan (2026-05-06). Companion to [`EMNLP_SHORT_PLAN.md`](EMNLP_SHORT_PLAN.md).
 > **Goal:** support claims H1–H4 from the short-paper plan with the smallest matrix that survives reviewer pushback in 4 pages.
-> **Hardware target:** NVIDIA H100 80 GB on Vast.ai, single-GPU per job.
+> **Hardware target:** NVIDIA H100 80 GB on the project's HPC cluster, single-GPU per job. SLURM dispatchers (`submit_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `submit_max_context_jobs.sh`) resolve the conda env per model family (`ranker_env` for Qwen3 / pyserini, `qwen35_env` for Qwen3.5 / Llama-3.1 / Ministral-3) and propagate it via `sbatch --export=ALL,CONDA_ENV=...`.
+> **Relationship to v8:** the canonical implementation plan is `EMNLP_EXPERIMENT_PLAN.md` + `IDEA_008_IMPLEMENTATION_PLAN.md` + `IDEA_008_maxcontext_multi_family.md`. v8's required matrix (9 models × 8 datasets × 7 methods × 6 pool sizes = 3024 main + 1260 stability + 35 prime-recheck = 4361 jobs) is the production launcher. The paper's Tier-1 selects **4 of v8's 9 required models** and **3 of v8's 7 methods (the MaxContext family)** for the main-paper headline; the rest are appendix-only.
 
 ---
 
@@ -12,24 +13,31 @@ The user's nine-checkpoint lineup is generous for a short paper. Splitting into 
 
 | Family | Tier 1 (main paper) | Tier 2 (appendix) | Pinned HF identifier (revision pinned at launch) |
 |---|---|---|---|
-| Qwen3.5 | Qwen3.5-4B, Qwen3.5-9B | Qwen3.5-0.8B, Qwen3.5-2B, Qwen3.5-27B | `Qwen/Qwen3.5-4B`, `Qwen/Qwen3.5-9B` (Tier 1); `Qwen/Qwen3.5-0.8B`, `Qwen/Qwen3.5-2B`, `Qwen/Qwen3.5-27B` (Tier 2). Per Codex round-2 §7, the user's original 0.8B / 2B labels do exist as Qwen3.5 release names; v1's "correction" to 0.5B / 1.5B was wrong and is reverted here. |
-| Llama 3.1 | Llama-3.1-8B-Instruct | — | `meta-llama/Llama-3.1-8B-Instruct`. Llama-70B out of scope. |
+| Qwen3.5 | Qwen3.5-4B, Qwen3.5-9B | Qwen3.5-0.8B, Qwen3.5-2B, Qwen3.5-27B | `Qwen/Qwen3.5-4B`, `Qwen/Qwen3.5-9B` (Tier 1); `Qwen/Qwen3.5-0.8B`, `Qwen/Qwen3.5-2B`, `Qwen/Qwen3.5-27B` (Tier 2). Note: v8 dropped the trailing `-Instruct` suffix (corrected against the actual HF release names; v1/v2 paper plan had `-Instruct`, fixed in v3). |
+| Llama 3.1 | Meta-Llama-3.1-8B-Instruct | — | `meta-llama/Meta-Llama-3.1-8B-Instruct` (v8 canonical; v1/v2 used the legacy `meta-llama/Llama-3.1-8B-Instruct` alias, fixed in v3). Llama-70B out of scope. |
 | Ministral 3 | Ministral-3-8B-Instruct-2512 | Ministral-3-3B-Instruct-2512, Ministral-3-14B-Instruct-2512 | `mistralai/Ministral-3-8B-Instruct-2512` (Tier 1); Tier 2 = `mistralai/Ministral-3-3B-Instruct-2512` and `mistralai/Ministral-3-14B-Instruct-2512`. Per Codex round-2 §7, "Mistral 3" is the Ministral 3 family at 3B/8B/14B (not the older `Ministral-8B-Instruct-2410` from October 2024). |
+| Qwen3 (optional, v8 Phase D/E) | — | Qwen3-{0.6B,1.7B,4B,8B,14B,32B} | Used by v8 Phase D (optional Qwen3 main matrix, 1680 jobs) and Phase E (optional Qwen3-8B stability, 350 jobs). Not main paper; appendix-only. |
 
-**Tier 1 final lineup (4 checkpoints).** `Qwen/Qwen3.5-4B`, `Qwen/Qwen3.5-9B`, `meta-llama/Llama-3.1-8B-Instruct`, `mistralai/Ministral-3-8B-Instruct-2512`. Three families × ~8B parameter scale dominates. The smaller / larger checkpoints in Tier 2 isolate the *model-scale* axis from the *algorithmic-comparison* axis.
+**Tier 1 final lineup (4 checkpoints).** `Qwen/Qwen3.5-4B`, `Qwen/Qwen3.5-9B`, `meta-llama/Meta-Llama-3.1-8B-Instruct`, `mistralai/Ministral-3-8B-Instruct-2512`. Three families × ~8B parameter scale dominates. The smaller / larger checkpoints in Tier 2 isolate the *model-scale* axis from the *algorithmic-comparison* axis. v8's required matrix is broader (9 models = 5 Qwen3.5 + 1 Llama + 3 Ministral) — Tier 1 is the **paper-headline subset** of v8's required matrix; v8 produces the full 9-model dataset, the paper selects 4 for the main-paper Table 1.
 
 **Defensive rebuttal language for the "why these four" reviewer ask** (per Codex round-1 §6): *"We use four checkpoints as a controlled main-paper matrix: two Qwen3.5 sizes plus one Llama and one Mistral-class model around the 8B scale; the remaining size sweep is appendix-only to avoid conflating model scale with the algorithmic comparison."*
 
-**Pre-launch code change** (mandatory before any Tier-1 / Tier-2 launches; see also §7 checklist):
+**Pre-launch code change** (mostly DONE per the v8 implementation; see also §7 checklist):
 
-1. `llmrankers/setwise.py:27-28` — extend `CAUSAL_MODEL_TYPES` to include `mistral` (Llama is already in the existing set).
-2. `llmrankers/setwise_extended.py:22` — extend `MAXCONTEXT_ALLOWED_MODEL_TYPES` to include `llama` and `mistral`.
-3. `MaxContext{DualEnd,TopDown,BottomUp}SetwiseLlmRanker._early_reject_non_qwen3` (lines around `setwise_extended.py:1209` per Codex) — generalise the regex / allowlist; mirror to all three variants.
-4. **Per-family chat-template smoke** — Qwen uses `<|im_start|>` template; Llama uses `<|begin_of_text|>` / `<|eot_id|>`; Mistral uses `[INST]` / `[/INST]`. Each family must emit a clean numeric `Best: <int>, Worst: <int>` (or single-int) label without leaking template tokens into the response. The sanity smoke in Phase 1 covers this.
-5. **Per-family refusal-pattern coverage** — the existing `NUMERIC_REFUSAL_REGEX` is Qwen-trained; Llama and Mistral may emit different out-of-range / refusal strings. Run a 5-query smoke at $N{=}50$ per family before any production submission and add new fixtures to `scripts/check_maxcontext_invariants.py` if new patterns appear.
-6. **Plumb `--seed` through `run.py`** (currently only `random.seed(929)` at `run.py:26` is hard-coded; no `--seed` argument exists per Codex round-1 §8). Required for the 10× stability protocol in Phase 3.
-7. **Add per-query wall-clock and total-token logging** to `run.py` (Codex round-1 §14 notes only `Avg comparisons`, `Avg prompt tokens`, `Avg completion tokens`, and per-query *time* are currently logged; we want `Avg total tokens` + total wall-clock seconds for the cost-axis appendix table).
-8. **Fix submit/eval path mismatch** — `submit_max_context_jobs.sh:161,173` writes `original/ws-3/...`; `eval_max_context_jobs.sh:129,133` expects `original/ws-4/...`. Standardise on one (recommend `ws-3` to match the `num_child=2 -> window-of-3` convention).
+1. ✅ **DONE in v8**: `llmrankers/setwise.py:27-28` — `CAUSAL_MODEL_TYPES` extended to include `mistral`, `mistral3`, `ministral` (alongside the existing `llama`, `qwen2`, `qwen3`, `qwen3_moe`, `qwen3_5`).
+2. ✅ **DONE in v8**: `llmrankers/setwise_extended.py:22-26` — `MAXCONTEXT_ALLOWED_MODEL_TYPES` widened to `{qwen3, qwen3_moe, qwen3_5, llama, mistral, mistral3, ministral}`.
+3. ✅ **DONE in v8**: `MaxContext{DualEnd,TopDown,BottomUp}SetwiseLlmRanker._early_reject_non_qwen3` renamed to `_early_reject_unsupported_family` (`setwise_extended.py:1219`); class-level `_MAXCONTEXT_NAME_FRAGMENTS` includes Qwen3, Qwen3.5, Llama-3.1, Ministral-3 fragments.
+4. **Per-family chat-template smoke** — Qwen uses `<|im_start|>` template; Llama uses `<|begin_of_text|>` / `<|eot_id|>`; Mistral uses `[INST]` / `[/INST]`. Each family must emit a clean numeric `Best: <int>, Worst: <int>` (or single-int) label without leaking template tokens into the response. Runtime smoke covered by `scripts/smoke_emnlp_models.sh` (v8 Phase A: 42 cells = 3 representative models × 7 methods × dl19 × pools {50,100}).
+5. **Per-family refusal-pattern coverage** — the existing `NUMERIC_REFUSAL_REGEX` is Qwen-trained; Llama and Mistral may emit different out-of-range / refusal strings. Phase A smoke gates on `Avg parse fallbacks: 0` and `Avg numeric out-of-range fallbacks: 0` for the MaxContext methods on the 3 required families. Any new pattern observed during smoke must be added to `scripts/check_maxcontext_invariants.py` fixtures.
+6. ⚠️ **NOT REQUIRED for v8 Phase C**: paper-plan v1/v2 required `--seed` plumbing through `run.py` for the original Qwen3-4B/DL19 H4 protocol. v8 Phase C uses 10 reps with byte-equality semantics (deterministic greedy decoding); paper-plan v3 H4 inherits v8's Phase C scope. If the paper still wants input-order-shuffle stability (the original H4 protocol), `--seed` plumbing remains a TODO; if input-order is treated as appendix-only methodology, this can be skipped.
+7. **Add per-query wall-clock and total-token logging** to `run.py` — TODO (per Codex round-1 §14; needed for the cost-axis appendix table). v8 implementation has not yet plumbed `Avg total tokens`.
+8. ✅ **DONE in v8**: submit/eval path is consistent (`submit_max_context_jobs.sh` and `eval_max_context_jobs.sh` both use `original/ws-3/...` and `original/ws-ps/...`; the legacy `ws-4` mismatch is gone).
+
+**v8 implementation adds** (post paper plan v1/v2):
+- `submit_emnlp_jobs.sh`, `eval_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `scripts/smoke_emnlp_models.sh`, `scripts/probe_beir_pool100_fit.py`, `analysis/cross_model_stability.py`, `analysis/position_bias_emnlp.py`.
+- `submit_max_context_jobs.sh` and `eval_max_context_jobs.sh` gain `--pool-sizes` override (default 5 pools / IDEA_007 byte-equality preserved; pass `"10 20 30 40 50 100"` to add pool=100).
+- `--include-standard-bottomup` opt-in flag adds standard BottomUp heap+bubble blocks (default-off path is byte-identical to IDEA_007's 35-cell stability layout).
+- `experiments/run_*.sh` launchers gain `CONDA_ENV` env-var support (default ranker_env preserved).
 
 ## 2. Dataset matrix (Tier 1 vs Tier 2)
 
@@ -60,26 +68,32 @@ Per §1 items 1–8. Verify with:
 - Deterministic local count-only smoke for the new families (per the bubblesort-clamp fix pattern).
 - `submit_max_context_jobs.sh --dry-run` matches `eval_max_context_jobs.sh --dry-run` expected paths byte-for-byte.
 
-### Phase 1 — Per-family parse-stability smoke (~12 GPU-hours)
+### Phase 1 — Per-family parse-stability smoke (subsumed by v8 Phase A)
 
-Single-config smoke at $N{=}50$, DL19, $pl{=}512$ on:
-- `Qwen/Qwen3.5-4B` (re-confirm baseline)
-- `meta-llama/Llama-3.1-8B-Instruct`
-- `mistralai/Ministral-3-8B-Instruct-2512`
+**v8 alignment:** v8's Phase A smoke (`scripts/smoke_emnlp_models.sh`) subsumes paper-plan Phase 1 with broader scope: 3 representative models (Qwen3.5-9B, Meta-Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512) × 7 methods (4 standard + 3 MaxContext) × dl19 × pools {50, 100} × 1 rep = 42 cells. Use v8 Phase A as the per-family parse-stability gate; paper-plan Phase 1's narrow 9-job version is no longer a separate phase.
 
-per MaxContext-DualEnd, MaxContext-TopDown, MaxContext-BottomUp = 9 jobs.
+```bash
+bash scripts/smoke_emnlp_models.sh --dry-run    # verify 42-cell expansion
+bash scripts/smoke_emnlp_models.sh              # submit
+bash scripts/smoke_emnlp_models.sh --eval-only  # after completion
+bash scripts/smoke_emnlp_models.sh --verify-only
+```
 
-**Pass criterion:** every job completes; `parse-fallback rate` $\le 5\%$ of LLM calls; no truncation aborts; output is a permutation of the input pool. **Fail handling:** add the missing refusal pattern to the regex, re-run the failing job; if still failing, drop that family from Tier 1 → Branch C in `EMNLP_SHORT_PLAN.md` §4.
+**Pass criterion:** every cell completes; for MaxContext methods, `Avg parse fallbacks: 0` and `Avg numeric out-of-range fallbacks: 0` in the per-cell `.log`; for all methods, full `.txt` coverage (`n_queries × pool_size` lines), valid top-10 permutation, positive nDCG@10, no `Traceback` / `ERROR` / `exceeds model limit`. **Fail handling:** if a family fails on its pool=100 cells but passes pool=50, drop pool=100 for that family (Branch H). If a family fails parse-stability across both pool sizes, drop the family → Branch C.
 
-### Phase 2 — Tier-1 production matrix
+**BEIR pool=100 fit probe:** before any Phase B BEIR pool=100 submission, run `python3 scripts/probe_beir_pool100_fit.py`. The probe is tokenizer-only (AutoConfig + AutoTokenizer; no model weights), samples real BEIR corpus passages via `ir_datasets`, and reports per-(family, dataset) `headroom = max_position_embeddings - 4096 - prompt_tokens`. Cells with negative headroom must drop pool=100 before Phase B launches.
+
+### Phase 2 — Tier-1 production matrix (paper-headline subset of v8 Phase B)
 
 | Variable | Values | Count |
 |---|---|---|
-| Models | Qwen3.5-4B, Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512 | 4 |
+| Models | Qwen3.5-4B, Qwen3.5-9B, Meta-Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512 | 4 |
 | Methods | MaxContext-DualEnd, MaxContext-TopDown, MaxContext-BottomUp | 3 |
-| Pool sizes ($N{=}k{=}\text{hits}$) | 10, 20, 30, 40, 50 | 5 |
+| Pool sizes ($N{=}k{=}\text{hits}$) | 10, 20, 30, 40, 50, 100 (gated on Phase A pool=100 smoke + BEIR fit probe) | 6 |
 | Datasets | DL19, DL20, BEIR-dbpedia, BEIR-nfcorpus, BEIR-scifact, BEIR-trec-covid | 6 |
-| Total runs | $4 \times 3 \times 5 \times 6$ | **360** |
+| Total runs | $4 \times 3 \times 6 \times 6$ | **432** (paper-headline subset; v8 Phase B is a superset at **3024** total) |
+
+v8 Phase B launches all $7 \times 9 \times 8 \times 6 = 3024$ cells. The paper extracts the 432 cells matching this Tier-1 subset for Table 1 and Figure 1; the remaining 2592 cells (5 v8-required models not in Tier 1, 4 standard methods, 2 BEIR datasets in v8 Tier 2) populate the appendix.
 
 **Compute estimate (revised per Codex round-1 §9 with realistic per-query and per-dataset numbers):**
 
@@ -106,25 +120,31 @@ Cost-reduction options to consider before launch:
 - **Cut Qwen3.5-9B for the BEIR domains only** (keep DL19/20 only on the bigger model). Saves $\sim 540$ H100-h. Trade: BEIR generalisation is then established only on Qwen3.5-4B / Llama-3.1-8B / Ministral-8B (still three families).
 - **Run only $N \in \{10, 30, 50\}$ on BEIR** (drop $N{=}20, 40$ for BEIR domains). Saves $\sim 800$ H100-h. Trade: the Pareto curve has fewer points on the BEIR panel.
 
-**Recommended Tier-1 trim:** keep all 4 models on DL19/20 at all 5 $N$ (small datasets are cheap), and use $N \in \{10, 30, 50\}$ on the 4 BEIR domains for all 4 models. This compromise:
-- Tier 1 production runs: $4 \times 3 \times 5 \times 2 + 4 \times 3 \times 3 \times 4 = 120 + 144 = 264$ runs.
-- Approximate wall-clock: $\sim 80 + 100 + 0.6 \times (92 + 555 + 596 + 738) = \sim 1370$ H100-h.
+**Recommended Tier-1 trim** (with pool=100 gated):
+- DL19/20: 4 models × 3 MaxContext methods × 6 pools × 2 datasets = **144 runs** (~180 H100-h).
+- BEIR: 4 models × 3 methods × $N \in \{10, 30, 50, 100\}$ × 4 domains = **192 runs** (BEIR pool=100 conditional on per-family fit probe pass; ~1100-1500 H100-h depending on per-family pool=100 wall-clock).
+- Total Tier-1 paper-headline subset: **336 runs**, ~1300-1700 H100-h.
 
-### Phase 3 — Stability re-runs (10× on Qwen3-4B / DL19)
+**Note:** v8 Phase B runs all 3024 cells regardless of paper trim — the trim above is what the paper extracts for main-paper Table 1 / Figure 1. The full 3024-cell matrix is in appendix.
 
-Per the user's request: 10 independent re-runs of `Need_to_Run_Max_Context.txt` on Qwen3-4B / DL19. Per Codex round-1 §8, MaxContext generation is greedy (`do_sample=False` at `setwise.py:409`), so the 10× variability source is **not** in the LLM decoding step itself — it must come from somewhere else.
+### Phase 3 — Stability re-runs (v8 Phase C: 3 EMNLP families × DL19 × 10 reps)
 
-**Source-of-variability decision:** use **input-order seed plumbing**. After Phase 0 item 6 (plumb `--seed` through `run.py`), each job runs with a different `--seed` value $\in \{0, 1, \ldots, 9\}$, where `--seed` controls (a) the per-query input-order shuffling under `--shuffle_ranking random`, (b) Python `random.seed()`, (c) NumPy / Torch RNG seeds. **The ranking input order across the 10 runs is therefore different**, isolating *input-order stability* of MaxContext at the Qwen3-4B / DL19 / $N \in \{10..50\}$ scale.
+Per v8 Phase C: 10 independent re-runs on each of the 3 required EMNLP families (`Qwen3.5-9B`, `Meta-Llama-3.1-8B-Instruct`, `Ministral-3-8B-Instruct-2512`) on DL19, launched via `submit_emnlp_stability_jobs.sh` which wraps `submit_max_context_jobs.sh --include-standard-bottomup --pool-sizes "10 20 30 40 50 100"`.
 
-Note the v0 plan's "kernel-determinism" hypothesis is unsupported by current evidence and is dropped.
+**Cell counts:**
+- Scientific Phase C cells (7 EMNLP methods × 3 models × dl19 × 6 pools × 10 reps) = **1260**.
+- Stability-layout submissions (9 method blocks including ws-3/ws-PS overhead × 6 pools × 10 reps × 3 models) = **1620**.
 
-**Job-scope clarification (Codex round-3 §6).** `Need_to_Run_Max_Context.txt` contains 35 jobs across 7 method blocks: 4 standard-Setwise blocks (TD-Heap-WS=4, TD-Bubble-WS=4, TD-Heap-WS=PS, TD-Bubble-WS=PS) and 3 MaxContext blocks (DualEnd, TopDown, BottomUp). The H4 input-order-stability claim is **scoped to the 15 MaxContext jobs** (3 methods × 5 pool sizes), not all 35. The 20 standard-Setwise jobs are out of scope for the v2 paper anyway and stay out of the H4 claim. The user's "10× the file" request is honoured by re-launching all 35, but only the 15 MaxContext entries feed claim H4.
+The H4 input-order-stability claim is **scoped to the 18 MaxContext (method × pool) cells per model = 54 cells across the 3 families**, not all 9 method blocks. The 4 ws-3/ws-PS standard-Setwise blocks per model are launched for IDEA_007 layout compatibility but are out of paper scope.
 
-**Output-directory seeding** (Codex round-3 §8). The 10 runs must not overwrite each other. The recommended layout: `results/maxcontext_dualend/<TAG>/seed-<S>/...` where `<S> ∈ {0..9}`. The submit script needs a `--seed` flag that both seeds the run and routes the output under the seed-specific subdirectory.
+**Source-of-variability decision (v8 inherits paper plan v2 protocol — partially):** v8 Phase C runs the 10 reps with deterministic greedy decoding (`do_sample=False` at `setwise.py:409`), so the 10 reps measure **byte-equality across runs**, not input-order sensitivity. If the paper wants input-order H4 (the original protocol), `--seed` plumbing in `run.py` is still a TODO (Phase 0 item 6 above). The two interpretations:
 
-**Pass criterion (claim H4):** for each MaxContext (method, pool-size) cell, the nDCG@10 across 10 runs satisfies all three of: SD $\le 0.005$, max−min range $\le 0.015$, and worst-pair $|\Delta| \le 0.015$. **Fail handling:** investigate, then if a threshold is persistently exceeded, frame H4 as a measured input-order-sensitivity number; report SD + range bars on Table 1 / Figure 1 (Branch G in `EMNLP_SHORT_PLAN.md` §4).
+- **v8 Phase C as-is (byte-equality check)**: H4 reduces to "10 reps produce byte-identical .eval files" — a deterministic-implementation guard. Useful but narrow.
+- **Paper-plan H4 (input-order sensitivity)**: requires `--seed` + `--shuffle_ranking random` plumbing. Use seed values $\{0..9\}$, output to `results/maxcontext_dualend/<TAG>/seed-<S>/...`. **Recommendation:** treat H4 as appendix-only methodology and use v8 Phase C's deterministic 10× as the main paper's stability sanity; add `--seed` plumbing only if a reviewer demands input-order data.
 
-**Compute:** $35 \times 10 = 350$ jobs (all 35 re-launched even though only the 15 MaxContext entries feed H4 — keeps `Need_to_Run_Max_Context.txt` as the single source of truth for the launcher). Qwen3-4B / DL19 single-DualEnd-job wall-clock at $N{=}50$ is observed at $\sim 137$ minutes; lighter for smaller $N$ and for the standard-Setwise jobs that don't touch MaxContext. Mean per-job estimate $\sim 60$ minutes, so $\sim 350$ H100-h.
+**Pass criterion (claim H4 under either interpretation):** for each (family, method, pool-size) cell, the nDCG@10 across 10 runs satisfies all three of: SD $\le 0.005$, max−min range $\le 0.015$, worst-pair $|\Delta| \le 0.015$. Under the byte-equality interpretation these will trivially pass; under the input-order interpretation they're a real test.
+
+**Compute (v8 Phase C):** ~1620 stability-layout jobs across 3 families × 10 reps × 9 method blocks × 6 pools. Qwen3.5-9B / DL19 single-DualEnd-job wall-clock at $N=50$ is estimated at $\sim 27$ min (per `EMNLP_BUDGET.md` ballparks); $N=100$ doubles plus prefill overhead. Mean per-job ≈ $30$-$60$ min, so Phase C is roughly **800–1500 H100-hours** for required EMNLP families. Optional Phase E (Qwen3-8B / DL19 / 5 pools / 10 reps = 350 jobs) adds another ~150-300 H100-hours.
 
 ### Phase 4 — Tier 2 (appendix only)
 
@@ -236,6 +256,14 @@ Same as `EMNLP_SHORT_PLAN.md` §10. In particular: no T5, no pre-007 baselines a
   - §4: H1 hypothesis direction **inverted to the textbook non-inferiority form** $H_0: \Delta \le -\delta$ vs $H_1: \Delta > -\delta$. v1 had it backwards (rejecting v1's $H_0: \Delta \ge -\delta$ would have supported *inferiority*, not non-inferiority).
   - §4: multiplicity correction explicitly applied **per comparator family** (separate FDR runs for H1$_\text{TD}$ and H1$_\text{BU}$). Holm-Bonferroni and Bonferroni adjusted $p$-values added as appendix transparency columns alongside BH-FDR.
   - §7: pre-launch checklist gains 5 items — `AutoConfig.model_type` verification, license / gated-access checks for Llama and Ministral 3, significance-script update, run-manifest with HF revision hashes, `--shuffle_ranking random` propagation alongside `--seed`.
+- v3 (2026-05-06) — aligns experiment plan with the canonical v8 EMNLP plan (`EMNLP_EXPERIMENT_PLAN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md`, `IDEA_008_maxcontext_multi_family.md`):
+  - **HF identifier fixes:** Qwen3.5 stripped of trailing `-Instruct` (corrected against actual HF release names; v8's canonical IDs are `Qwen/Qwen3.5-{0.8B,2B,4B,9B,27B}`). Llama-3.1 prefixed with `Meta-` to match v8's `meta-llama/Meta-Llama-3.1-8B-Instruct` canonical form.
+  - §1 model lineup: Tier-2 row added for v8 Phase D/E optional Qwen3 family (Qwen3-{0.6B,1.7B,4B,8B,14B,32B}). Note that v8's required matrix is broader (9 models) than the paper's Tier 1 (4 models); paper headline is the 4-model subset.
+  - §1 code prerequisites: items 1, 2, 3, 8 marked ✅ DONE in v8 implementation. Items 4, 5 covered by Phase A smoke. Items 6, 7 noted as still-TODO with v8 fallback semantics.
+  - §3 Phase 3 stability: rewritten to reflect v8 Phase C scope (3 EMNLP families × DL19 × 10 reps via `submit_emnlp_stability_jobs.sh`); acknowledges that v8 Phase C uses deterministic 10× (byte-equality), while the original paper-plan input-order H4 protocol requires additional `--seed` plumbing (TODO; appendix-only if reviewer demands).
+  - §3 Phase 1 / 2: pool sweep extended to include $N=100$ for the 3 required EMNLP families, gated on Phase A pool=100 smoke + BEIR pool=100 fit probe (`scripts/probe_beir_pool100_fit.py`).
+  - §7 pre-launch checklist: many items now done by v8 implementation; remaining items flagged.
+  - Header: status updated; relationship to v8 plan documented.
 
 ---
 

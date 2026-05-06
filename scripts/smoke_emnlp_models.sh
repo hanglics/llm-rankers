@@ -3,6 +3,20 @@
 
 set -euo pipefail
 
+# Activate pyserini environment for the inline python3 calls in verify_cell
+# and to keep the smoke script's environment aligned with eval_emnlp_jobs.sh /
+# eval_max_context_jobs.sh. Tolerate non-HPC environments where `module` is
+# unavailable — the user is expected to have ranker_env active manually then.
+# Per-cell SLURM jobs spawned by submit_emnlp_jobs.sh resolve their own
+# CONDA_ENV per model family (qwen35_env for Qwen3.5/Llama-3.1/Ministral-3),
+# so this preamble is only the head-node activation.
+if command -v module >/dev/null 2>&1; then
+  module load anaconda3/2023.09-0
+  source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
+  module load cuda/12.2.0
+  conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+fi
+
 DRY_RUN=0
 EVAL_ONLY=0
 VERIFY_ONLY=0

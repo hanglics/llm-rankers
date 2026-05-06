@@ -15,8 +15,12 @@ module load anaconda3/2023.09-0
 # module load java/21.0.8
 source $EBROOTANACONDA3/etc/profile.d/conda.sh
 module load cuda/12.2.0
-conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
-# conda activate /scratch/project/neural_ir/hang/llm-rankers/qwen35_env
+# CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
+# / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
+# ranker_env (Qwen3 family + pyserini); qwen35_env is used for Qwen3.5,
+# Llama-3.1, and Ministral-3 model families.
+CONDA_ENV="${CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
+conda activate "$CONDA_ENV"
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"Qwen/Qwen3-4B"}
@@ -32,8 +36,14 @@ PASSAGE_LENGTH=${10:-512}
 
 mkdir -p ${OUTPUT_DIR}
 
-# Comparison logging for position bias analysis (Phase 4A)
-ANALYSIS_DIR="results/analysis/position_bias/$(basename ${OUTPUT_DIR})"
+# Comparison logging for position bias analysis (Phase 4A).
+# ANALYSIS_LOG_DIR override avoids basename collisions when OUTPUT_DIR is
+# nested deeper than the launcher's default layout.
+if [[ -n "${ANALYSIS_LOG_DIR:-}" ]]; then
+  ANALYSIS_DIR="${ANALYSIS_LOG_DIR}"
+else
+  ANALYSIS_DIR="results/analysis/position_bias/$(basename ${OUTPUT_DIR})"
+fi
 mkdir -p ${ANALYSIS_DIR}
 
 export HF_HOME=/scratch/project/neural_ir/hang/llm-rankers/.cache/hf

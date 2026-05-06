@@ -133,6 +133,16 @@ esac
 MODEL_BASE="${MODEL##*/}"
 MODEL_TAG="$(printf '%s' "$MODEL_BASE" | tr '[:upper:]' '[:lower:]')"
 
+# Resolve conda env from model family. Inherited by the experiments/ launchers
+# via sbatch's default --export=ALL. ranker_env is the IDEA_007 default
+# (Qwen3 family + pyserini); qwen35_env covers Qwen3.5 / Llama-3.1 / Ministral-3.
+case "$MODEL_BASE" in
+  Qwen3.5-*|Meta-Llama-3.1-*|Ministral-3-*)
+    export CONDA_ENV="/scratch/project/neural_ir/hang/llm-rankers/qwen35_env" ;;
+  *)
+    export CONDA_ENV="/scratch/project/neural_ir/hang/llm-rankers/ranker_env" ;;
+esac
+
 OUT_PREFIX="results/maxcontext_dualend/${TAG}"
 RUN_BASELINE="${OUT_PREFIX}/baseline/${MODEL_TAG}-${DATASET_TAG}"
 RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"

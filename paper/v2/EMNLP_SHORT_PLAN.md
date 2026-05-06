@@ -1,14 +1,15 @@
 # EMNLP_SHORT_PLAN.md — MaxContext short-paper plan (v2)
 
-> **Status:** v1 — addresses Codex round-1 NEEDS_MAJOR_REVISION findings (2026-05-02). Sole contribution = MaxContext family. Paper is a 4-page ACL/EMNLP short submission. All pre-idea:007 narrative is dropped.
+> **Status:** v3 — aligned to the canonical v8 EMNLP plan (2026-05-06). Sole contribution = MaxContext family. Paper is a 4-page ACL/EMNLP short submission. All pre-idea:007 narrative is dropped.
 > **Companion:** [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md)
+> **Canonical implementation plan:** [`../../EMNLP_EXPERIMENT_PLAN.md`](../../EMNLP_EXPERIMENT_PLAN.md), [`../../IDEA_008_IMPLEMENTATION_PLAN.md`](../../IDEA_008_IMPLEMENTATION_PLAN.md), [`../../IDEA_008_maxcontext_multi_family.md`](../../IDEA_008_maxcontext_multi_family.md). The paper's Tier-1 lineup is a subset of v8's required 9-model × 8-dataset × 7-method × 6-pool matrix; v8 produces the data, the paper selects the headline cells.
 > **Venue rules:** ACL Rolling Review short — 4 pages of content; references unlimited; Limitations required after Conclusion (no page cost, but cannot carry new results); Ethics optional (no page cost); appendices do not count toward limit but reviewers are not required to read them — every load-bearing claim must live in main text.
 
 ---
 
 ## 1. One-sentence contribution
 
-> *We introduce **MaxContext**, a zero-shot setwise reranker whose every LLM call prompts over the current whole rerank pool ($N \le 50$), and show that asking for the best **and** the worst document jointly per call (DualEnd) reranks any pool in $\lfloor N/2 \rfloor$ **LLM calls** — roughly **half** the **LLM-call** count of best-only or worst-only whole-pool selection — without losing nDCG@10 on TREC DL and BEIR.*
+> *We introduce **MaxContext**, a zero-shot setwise reranker whose every LLM call prompts over the current whole rerank pool ($N \le 100$), and show that asking for the best **and** the worst document jointly per call (DualEnd) reranks any pool in $\lfloor N/2 \rfloor$ **LLM calls** — roughly **half** the **LLM-call** count of best-only or worst-only whole-pool selection — without losing nDCG@10 on TREC DL and BEIR.*
 
 The half-cost framing is the headline, but it is framed strictly on the **LLM-call axis**. Concretely, at the matched operating point $W = k = N$:
 
@@ -18,7 +19,9 @@ The half-cost framing is the headline, but it is framed strictly on the **LLM-ca
 | **MaxContext-TopDown** | $N{-}2$ | 1 | $N{-}1$ | 1 |
 | **MaxContext-BottomUp** | $N{-}2$ | 1 | $N{-}1$ | 1 |
 
-For $N=10$: $5$ vs $8$ LLM calls (5/8 ≈ $0.625$); for $N=50$: $25$ vs $48$ LLM calls (25/48 ≈ $0.521$). The "half" descriptor is approximate at small $N$ and asymptotically tight at large $N$. **Avoid the unqualified phrase "half the dependent calls"** — TopDown / BottomUp emit one *deterministic* BM25 decision at the very end which is not an LLM call. The plan and paper consistently say "LLM calls".
+For $N=10$: $5$ vs $8$ LLM calls (5/8 ≈ $0.625$); for $N=50$: $25$ vs $48$ LLM calls (25/48 ≈ $0.521$); for $N=100$: $50$ vs $98$ LLM calls (50/98 ≈ $0.510$). The "half" descriptor is approximate at small $N$ and asymptotically tight at large $N$. **Avoid the unqualified phrase "half the dependent calls"** — TopDown / BottomUp emit one *deterministic* BM25 decision at the very end which is not an LLM call. The plan and paper consistently say "LLM calls".
+
+The pool-size ceiling rises from $N=50$ (paper plan v1/v2) to $N=100$ in v3 because v8 added pool=100 to the required matrix for the 3 large-context EMNLP families (Qwen3.5, Llama-3.1, Ministral-3 — all native ≥128K context). Tier-1 main-paper claims still anchor at $N=50$; the $N=100$ point is reported as an additional Pareto-curve data point and is gated on the BEIR pool=100 fit probe and Phase A smoke (per `EMNLP_EXPERIMENT_PLAN.md`).
 
 For odd $N$ (e.g. $N=11$), the DualEnd loop runs $\lfloor N/2 \rfloor$ times and a single unpaired document is placed without an additional LLM call — the formula stays $\lfloor N/2 \rfloor$, not $\lceil N/2 \rceil$.
 
@@ -29,9 +32,9 @@ The single-extreme variants (TopDown / BottomUp) are *controls* against which th
 Two RQs, both answerable from the same matrix.
 
 - **RQ1 (cost-quality, primary).** At $W = k = N$, is MaxContext-DualEnd's nDCG@10 *non-inferior* to MaxContext-TopDown and MaxContext-BottomUp under a predeclared margin (see §3), at the same hits and across the Tier-1 (model, dataset) cells? Symmetrically: is the LLM-call gap deterministic and as large as predicted?
-- **RQ2 (generalisation).** Does the half-cost gap with non-inferior quality hold across (a) Tier-1 four-checkpoint multi-family lineup spanning Qwen3.5, Llama-3.1, Mistral / Ministral, and (b) six datasets — TREC DL19, DL20, BEIR-{dbpedia, nfcorpus, scifact, trec-covid}?
+- **RQ2 (generalisation).** Does the half-cost gap with non-inferior quality hold across (a) Tier-1 four-checkpoint multi-family lineup spanning Qwen3.5, Llama-3.1, Ministral 3, and (b) six datasets — TREC DL19, DL20, BEIR-{dbpedia, nfcorpus, scifact, trec-covid}?
 
-Order-robustness, position-bias-at-scale, passage-length sweeps, and the Tier-2 size-sweep (smaller / larger Qwen3.5, additional Mistral checkpoints, BEIR-touche2020, BEIR-fiqa) are appendix-only.
+Order-robustness, position-bias-at-scale, passage-length sweeps, $N=100$ deep-pool extension, and the Tier-2 size-sweep (smaller / larger Qwen3.5 — 0.8B/2B/27B, additional Ministral 3 checkpoints — 3B/14B, BEIR-touche2020, BEIR-fiqa, optional Qwen3 family per v8 Phase D/E) are appendix-only.
 
 ## 3. Headline claims (preregistered, measurable)
 
@@ -42,7 +45,7 @@ Four claims, each preregistered with a margin and a statistical decision rule.
 | **H1** | At $W{=}k{=}N{=}50$, MaxContext-DualEnd's nDCG@10 is *non-inferior* to MaxContext-TopDown (and separately to MaxContext-BottomUp) on each Tier-1 (model, dataset) cell. Define $\Delta = \text{nDCG@10}(\text{DualEnd}) - \text{nDCG@10}(\text{baseline})$ and margin $\delta = 0.01$. Test $H_0: \Delta \le -\delta$ vs $H_1: \Delta > -\delta$ on per-query $\Delta$; reject $H_0$ at $\alpha{=}0.05$. Reported alongside paired-bootstrap 95% CI on $\Delta$. | one-sided paired permutation, 10K samples; per-cell verdict reported, multiplicity-corrected per H1$_\text{TD}$ and H1$_\text{BU}$ comparator families separately |
 | **H2** | MaxContext-DualEnd uses $\lfloor N/2 \rfloor$ mean LLM calls per query; MaxContext-TopDown and MaxContext-BottomUp use $N{-}2$ mean LLM calls plus one BM25 bypass. | exact, deterministic from algorithm — no test required. **Reported descriptively** in the cost-axes table. | n/a |
 | **H3** | The H1 verdict is positive on $\ge 80\%$ of Tier-1 cells (= $\ge 20$ out of 24 model-dataset pairs at $N{=}50$), separately for H1$_\text{TD}$ and H1$_\text{BU}$. | per-cell H1 verdict, BH-FDR adjusted within each comparator family of 24 cells (so two FDR runs total) | BH-FDR at $q{=}0.05$ |
-| **H4** | Across 10 independent re-runs on Qwen3-4B / DL19 with the **input-order seed** varying across runs, the **input-order stability** statistics for nDCG@10 satisfy: per-cell SD $\le 0.005$, max-min range $\le 0.015$, and worst-pair $|\Delta| \le 0.015$, at every $N \in \{10,20,30,40,50\}$. | per-cell SD, range, worst-pair $|\Delta|$ | empirical, no test |
+| **H4** | Across 10 independent re-runs on the **3 EMNLP-required families** at the 8B-class scale (Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512) on DL19, with the **input-order seed** varying across runs, the **input-order stability** statistics for nDCG@10 satisfy: per-cell SD $\le 0.005$, max-min range $\le 0.015$, and worst-pair $|\Delta| \le 0.015$, at every $N \in \{10,20,30,40,50,100\}$. (Paper-plan v1/v2 ran H4 on Qwen3-4B / DL19; v3 promotes H4 to the v8 cross-family stability matrix, which produces the data via `submit_emnlp_stability_jobs.sh`.) | per-cell SD, range, worst-pair $|\Delta|$ | empirical, no test |
 
 Notes on H1's hypothesis direction (Codex round-2 §4):
 
@@ -69,6 +72,7 @@ Seven branches, predeclared. The paper architecture survives all of them with un
 - **Branch E — H1 inconclusive (CIs too wide).** Title becomes a measured-tradeoff paper; abstract reports point estimates and CIs without a non-inferiority verdict; H3 reframed as "directional on $X / 24$ cells, with CIs that do not exclude either direction on $24-X$ cells".
 - **Branch F — One single-extreme variant beats DualEnd outright.** Headline becomes "Whole-Pool Single-Extreme Selection Outperforms Joint Elicitation at Long Context"; H1 contradicted as an empirical finding, half-cost claim retained as a separate property of the dominated method.
 - **Branch G — H4 fails (input-order stability outside thresholds).** Methodology limitation; main-paper numbers are reported as means over 5 runs with explicit SD / range bars, not as point estimates. Stability table moves to main paper.
+- **Branch H — pool=100 fit probe or Phase A pool=100 smoke fails for one or more EMNLP families.** Drop pool=100 for the offending family; re-anchor the headline at $N=50$ for that family's Tier-1 cells; report the $N=100$ result only for families that passed the gate. Limitation noted in §10.
 
 ## 5. Section plan — page budget (4 pages content)
 
@@ -91,7 +95,7 @@ The v0 plan over-allocated 4-page content; this version trims aggressively per C
 
 ## 6. Figure / table allocation
 
-- **Figure 1 (main, single column, two panels stacked).** Pareto plot, x-axis = mean LLM calls per query, y-axis = mean nDCG@10. Top panel: DL19+DL20 mean. Bottom panel: BEIR-mean (over the 4 Tier-1 BEIR domains). Three line series (DualEnd, TopDown, BottomUp). DL panel shows all $N \in \{10,20,30,40,50\}$; **BEIR panel shows only $N \in \{10, 30, 50\}$** to match the experiment-plan trim — the figure caption explicitly notes that the two panels use different $N$ point sets.
+- **Figure 1 (main, single column, two panels stacked).** Pareto plot, x-axis = mean LLM calls per query, y-axis = mean nDCG@10. Top panel: DL19+DL20 mean. Bottom panel: BEIR-mean (over the 4 Tier-1 BEIR domains). Three line series (DualEnd, TopDown, BottomUp). DL panel shows all $N \in \{10,20,30,40,50,100\}$ for families that pass the pool=100 fit gate; **BEIR panel shows only $N \in \{10, 30, 50, 100\}$** to match the experiment-plan trim — the figure caption explicitly notes that the two panels use different $N$ point sets and that the $N=100$ point is family-conditional on Phase A / BEIR-fit gate clearance.
 - **Table 1 (main, double column).** **Compressed form** (per Codex round-2 §1) — full 4×6×3 matrix moves to appendix. Rows = 4 Tier-1 models. Column blocks = {DL19, DL20, BEIR-mean, BEIR-min}. Per-block columns = $\Delta_\text{TD} = \text{DualEnd} - \text{TopDown}$ and $\Delta_\text{BU} = \text{DualEnd} - \text{BottomUp}$ at $N{=}50$. Cell entry = $\Delta$ as a signed nDCG@10 difference, with annotation ✓ / ▲ / ✗ for the H1 verdict on each $\Delta$. Reading the table: ✓ everywhere → DualEnd non-inferior, ✗ → significant gap. The full per-cell raw nDCG@10 + CIs lives in the appendix master table.
 - **Algorithm 1 (main, single column).** 5-line MaxContext-DualEnd pseudocode (port from `paper/v1/introduction.tex`).
 - **Appendix figures/tables.** Full 4×6×3 nDCG@10 table with CIs and verdicts; per-BEIR-domain breakdown; 10× stability per-query SD + range + worst-pair $|\Delta|$; order-robustness pilot; pl-sweep; Tier-2 size sweep; original Setwise vs MaxContext-TopDown smoke (per Codex round-1 §10); Bonferroni and Holm-Bonferroni adjusted $p$-value tables alongside BH-FDR.
@@ -131,7 +135,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
 
 - Any pre-idea:007 method as a result, not even as a baseline. The v2 paper's baseline is **MaxContext-TopDown** and **MaxContext-BottomUp**; not TD-Heap, TD-Bubble, DE-Cocktail, DE-Selection. Matched-hits comparisons against the small-window family belong to the long-paper version, not v2.
 - T5 / encoder-decoder backbones (likelihood-scoring path collapses joint elicitation to a best-only proxy).
-- Pools $> 50$.
+- Pools $> 100$. ($N{=}100$ is in scope for Qwen3.5 / Llama-3.1 / Ministral-3 only, gated on Phase A and BEIR pool=100 fit probe per `EMNLP_EXPERIMENT_PLAN.md`.)
 - Permutation self-consistency.
 - TourRank / BlitzRank as primary baselines (different budget knobs; appendix-only smoke).
 - Listwise (RankGPT-style) as primary baseline (different efficiency regime).
@@ -158,6 +162,14 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
   - §3 H4: renamed "run-to-run stability" → "input-order stability"; predeclared SD + max-min range + worst-pair $|\Delta|$ thresholds (Codex round-2 §5).
   - §6: Table 1 redesigned as a **compressed signed-$\Delta$ form** (4 models × {DL19, DL20, BEIR-mean, BEIR-min} × {$\Delta_\text{TD}$, $\Delta_\text{BU}$}) to fit 4-page budget; full 4×6×3 nDCG@10 + CI matrix moves to appendix.
   - §6 Figure 1: BEIR panel uses only $N \in \{10, 30, 50\}$ to match experiment-plan trim; caption explicitly flags the asymmetric $N$ sets.
+- v3 (2026-05-06) — aligns paper plan with the canonical v8 EMNLP plan (`EMNLP_EXPERIMENT_PLAN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md`, `IDEA_008_maxcontext_multi_family.md`). The paper's narrow MaxContext-DualEnd cost claim is unchanged; the surrounding experimental envelope now matches v8:
+  - §1: pool-size ceiling raised from $N{\le}50$ to $N{\le}100$ (v8 added pool=100 to required Qwen3.5 / Llama-3.1 / Ministral-3 cells; gated on Phase A smoke + BEIR pool=100 fit probe). LLM-call accounting table extended with $N=100$ row (DualEnd 50 vs single-extreme 98).
+  - §2 RQ2: Tier-2 list extended with v8's optional Phase D/E (Qwen3 family) + the 5 v8-required models that the paper relegates to appendix (Qwen3.5-{0.8B,2B,27B}, Ministral-3-{3B,14B}).
+  - §3 H1: implicitly extended to N=100 cells where the family/dataset passes the pool=100 gate; main-paper Table 1 still anchors at N=50 for clean cross-family comparison.
+  - §3 H4: stability scope migrated from Qwen3-4B/DL19 (paper plan v1/v2 protocol) to v8's 3-EMNLP-family scope (Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512) on DL19 with `submit_emnlp_stability_jobs.sh` as the launcher. Pool sweep includes $N=100$. The paper-plan $\le 0.005$ SD threshold etc. carries over.
+  - §4: new Branch H added for "pool=100 fit probe or Phase A pool=100 smoke fails for one or more families".
+  - §6 Figure 1: Pareto x-axis includes $N=100$ point; family-conditional caption.
+  - §10 out-of-scope: "Pools $>50$" → "Pools $>100$"; cross-references the v8 plan's pool=100 gate.
 
 ---
 

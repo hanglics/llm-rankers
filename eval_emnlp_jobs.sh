@@ -3,6 +3,16 @@
 
 set -euo pipefail
 
+# Activate pyserini environment. trec_eval lives in ranker_env per the
+# project's HPC configuration. Tolerate non-HPC environments where `module`
+# is unavailable — the user is expected to have ranker_env active manually.
+if command -v module >/dev/null 2>&1; then
+  module load anaconda3/2023.09-0
+  source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
+  module load cuda/12.2.0
+  conda activate /scratch/project/neural_ir/hang/llm-rankers/ranker_env
+fi
+
 METHOD=""
 MODEL=""
 DATASET=""

@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 # Submit one EMNLP main-matrix cell, optionally across all six pool sizes.
+#
+# Reuses experiments/run_*.sh as the SLURM job scripts so module loads, conda
+# env activation, and the cd into the project root all happen inside the job
+# exactly as they do for the IDEA_007 dispatcher (submit_max_context_jobs.sh).
+# Per-cell behavior is steered via three sbatch --export env vars:
+#
+#   CONDA_ENV          ranker_env (Qwen3 + pyserini) for Qwen3-* models;
+#                      qwen35_env for Qwen3.5 / Llama-3.1 / Ministral-3.
+#   ANALYSIS_LOG_DIR   directory for *_comparisons.jsonl, set to OUTPUT_DIR so
+#                      different (model, dataset, pool) cells don't collide on
+#                      the launcher's default basename-derived path.
 
 set -euo pipefail
 
@@ -11,6 +22,7 @@ TAG=""
 DRY_RUN=0
 MAX_JOBS=100
 OUTPUT_ROOT=""
+TIME_LIMIT="08:00:00"
 
 usage() {
   cat <<'USAGE'
@@ -21,14 +33,21 @@ Options:
                       bottomup_bubblesort, bottomup_heapsort,
                       maxcontext_topdown, maxcontext_bottomup,
                       maxcontext_dualend.
-  --model HF_ID       HuggingFace model id.
+  --model HF_ID       HuggingFace model id. Family-mapped to a conda env:
+                        Qwen/Qwen3-*                 -> ranker_env
+                        Qwen/Qwen3.5-*               -> qwen35_env
+                        meta-llama/Meta-Llama-3.1-*  -> qwen35_env
+                        mistralai/Ministral-3-*      -> qwen35_env
+                        anything else                -> ranker_env (fallback)
   --dataset DATASET   dl19, dl20, beir-dbpedia, beir-nfcorpus, beir-scifact,
                       beir-trec-covid, beir-touche2020, or beir-fiqa.
   --pool-size N|all   Pool size (default: 50). Use "all" for 10,20,30,40,50,100.
   --tag TAG           Main-matrix tag under results/emnlp/main/.
   --output-root DIR   Override output root; default is results/emnlp/main/TAG.
-  --max-jobs N        Refuse to submit if expanded job count exceeds N.
-  --dry-run           Print commands instead of submitting sbatch jobs.
+  --max-jobs N        Refuse to submit if expanded job count exceeds N
+                      (default: 100).
+  --time-limit HMS    SLURM --time directive override (default: 08:00:00).
+  --dry-run           Print sbatch commands instead of submitting.
   -h | --help         Show this help.
 USAGE
 }
@@ -42,6 +61,7 @@ while [[ $# -gt 0 ]]; do
     --tag) [[ $# -ge 2 ]] || { echo "Error: --tag requires a value" >&2; exit 2; }; TAG="$2"; shift 2 ;;
     --output-root) [[ $# -ge 2 ]] || { echo "Error: --output-root requires a value" >&2; exit 2; }; OUTPUT_ROOT="$2"; shift 2 ;;
     --max-jobs) [[ $# -ge 2 ]] || { echo "Error: --max-jobs requires a value" >&2; exit 2; }; MAX_JOBS="$2"; shift 2 ;;
+    --time-limit) [[ $# -ge 2 ]] || { echo "Error: --time-limit requires a value" >&2; exit 2; }; TIME_LIMIT="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Error: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
@@ -97,19 +117,32 @@ case "$DATASET" in
   *) echo "Error: unsupported --dataset '$DATASET'" >&2; exit 2 ;;
 esac
 
+# Map method -> launcher script + k policy.
+# K_MODE=="pool" : MaxContext direction. Launcher takes
+#                  (MODEL DS RUN_PATH OUTPUT_DIR DEVICE SCORING POOL_SIZE PASSAGE_LENGTH);
+#                  ranker overrides num_child to pool_size-1 internally.
+# K_MODE=="fixed": standard setwise. Launcher takes
+#                  (MODEL DS RUN_PATH OUTPUT_DIR DEVICE SCORING NUM_CHILD K HITS PASSAGE_LENGTH);
+#                  EMNLP standard methods use num_child=2 (Setwise WS=3), k=10, hits=pool_size.
 case "$METHOD" in
-  topdown_heapsort) METHOD_ARG="heapsort"; DIRECTION="topdown"; K_MODE="fixed"; ;;
-  topdown_bubblesort) METHOD_ARG="bubblesort"; DIRECTION="topdown"; K_MODE="fixed"; ;;
-  bottomup_heapsort) METHOD_ARG="heapsort"; DIRECTION="bottomup"; K_MODE="fixed"; ;;
-  bottomup_bubblesort) METHOD_ARG="bubblesort"; DIRECTION="bottomup"; K_MODE="fixed"; ;;
-  maxcontext_topdown) METHOD_ARG="selection"; DIRECTION="maxcontext_topdown"; K_MODE="pool"; ;;
-  maxcontext_bottomup) METHOD_ARG="selection"; DIRECTION="maxcontext_bottomup"; K_MODE="pool"; ;;
-  maxcontext_dualend) METHOD_ARG="selection"; DIRECTION="maxcontext_dualend"; K_MODE="pool"; ;;
+  topdown_heapsort)    LAUNCHER="experiments/run_topdown_heapsort.sh";    K_MODE="fixed" ;;
+  topdown_bubblesort)  LAUNCHER="experiments/run_topdown_bubblesort.sh";  K_MODE="fixed" ;;
+  bottomup_heapsort)   LAUNCHER="experiments/run_bottomup_heapsort.sh";   K_MODE="fixed" ;;
+  bottomup_bubblesort) LAUNCHER="experiments/run_bottomup_bubblesort.sh"; K_MODE="fixed" ;;
+  maxcontext_topdown)  LAUNCHER="experiments/run_maxcontext_topdown.sh";  K_MODE="pool"  ;;
+  maxcontext_bottomup) LAUNCHER="experiments/run_maxcontext_bottomup.sh"; K_MODE="pool"  ;;
+  maxcontext_dualend)  LAUNCHER="experiments/run_maxcontext_dualend.sh";  K_MODE="pool"  ;;
   *) echo "Error: unsupported --method '$METHOD'" >&2; exit 2 ;;
 esac
-# K_MODE=="pool" → MaxContext direction. The ranker overrides num_child to
-# pool_size-1 internally; we pass POOL_SIZE at the CLI for self-documentation.
-# K_MODE=="fixed" → standard setwise; num_child=2 is the actual operative value.
+
+# Resolve conda env from model family.
+MODEL_BASE="${MODEL##*/}"
+case "$MODEL_BASE" in
+  Qwen3.5-*|Meta-Llama-3.1-*|Ministral-3-*)
+    CONDA_ENV_PATH="/scratch/project/neural_ir/hang/llm-rankers/qwen35_env" ;;
+  *)
+    CONDA_ENV_PATH="/scratch/project/neural_ir/hang/llm-rankers/ranker_env" ;;
+esac
 
 if [[ "$POOL_SIZE" == "all" ]]; then
   POOL_SIZES=(10 20 30 40 50 100)
@@ -134,35 +167,33 @@ JOB_COUNT=0
 for N in "${POOL_SIZES[@]}"; do
   printf -v POOL_TAG "pool%02d" "$N"
   OUTPUT_DIR="${OUTPUT_ROOT}/${MODEL_TAG}/${DATASET_TAG}/${METHOD}/${POOL_TAG}"
-  SAVE_PATH="${OUTPUT_DIR}/${METHOD}.txt"
-  LOG_PATH="${OUTPUT_DIR}/${METHOD}.log"
-  COMPARISON_LOG="${OUTPUT_DIR}/${METHOD}_comparisons.jsonl"
+
   if [[ "$K_MODE" == "pool" ]]; then
-    K_VALUE="$N"
-    NUM_CHILD="$N"
+    LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation "$N" 512)
   else
-    K_VALUE=10
-    NUM_CHILD=2
+    # EMNLP standard methods: NUM_CHILD=2 (Setwise WS=3), K=10, HITS=N=pool_size, PL=512.
+    LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation 2 10 "$N" 512)
   fi
 
-  RUN_LINE="python3 run.py run --model_name_or_path ${MODEL} --tokenizer_name_or_path ${MODEL} --run_path ${BM25_RUN} --save_path ${SAVE_PATH} --ir_dataset_name ${DATASET_PATH} --hits ${N} --query_length 128 --passage_length 512 --device cuda --scoring generation --log_comparisons ${COMPARISON_LOG} setwise --num_child ${NUM_CHILD} --method ${METHOD_ARG} --k ${K_VALUE} --num_permutation 1 --direction ${DIRECTION}"
+  EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}"
 
   JOB_COUNT=$((JOB_COUNT + 1))
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "$RUN_LINE"
+    printf 'sbatch'
+    printf ' --job-name=emnlp-%s-%s' "$METHOD" "$N"
+    printf ' --time=%s' "$TIME_LIMIT"
+    printf ' --output=%s/slurm-%%j.out' "$OUTPUT_DIR"
+    printf ' --export=%s' "$EXPORT_VARS"
+    printf ' %s' "$LAUNCHER" "${LAUNCHER_ARGS[@]}"
+    printf '\n'
   else
     mkdir -p "$OUTPUT_DIR"
     sbatch \
       --job-name="emnlp-${METHOD}-${N}" \
-      --partition=gpu_cuda \
-      --qos=gpu \
-      --gres=gpu:h100:1 \
-      --cpus-per-task=4 \
-      --mem=512G \
-      --time=08:00:00 \
-      --account=a_ai_collab \
+      --time="$TIME_LIMIT" \
       --output="${OUTPUT_DIR}/slurm-%j.out" \
-      --wrap="cd $(pwd) && ${RUN_LINE} 2>&1 | tee ${LOG_PATH}"
+      --export="$EXPORT_VARS" \
+      "$LAUNCHER" "${LAUNCHER_ARGS[@]}"
   fi
 done
 
