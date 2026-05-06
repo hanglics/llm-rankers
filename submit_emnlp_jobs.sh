@@ -23,6 +23,8 @@ DRY_RUN=0
 MAX_JOBS=100
 OUTPUT_ROOT=""
 TIME_LIMIT="08:00:00"
+SHUFFLE=0
+REVERSE=0
 
 usage() {
   cat <<'USAGE'
@@ -47,6 +49,8 @@ Options:
   --max-jobs N        Refuse to submit if expanded job count exceeds N
                       (default: 100).
   --time-limit HMS    SLURM --time directive override (default: 08:00:00).
+  --shuffle           MaxContext-only: per-round shuffle of the remaining pool.
+  --reverse           MaxContext-only: per-round reverse of the remaining pool.
   --dry-run           Print sbatch commands instead of submitting.
   -h | --help         Show this help.
 USAGE
@@ -62,6 +66,8 @@ while [[ $# -gt 0 ]]; do
     --output-root) [[ $# -ge 2 ]] || { echo "Error: --output-root requires a value" >&2; exit 2; }; OUTPUT_ROOT="$2"; shift 2 ;;
     --max-jobs) [[ $# -ge 2 ]] || { echo "Error: --max-jobs requires a value" >&2; exit 2; }; MAX_JOBS="$2"; shift 2 ;;
     --time-limit) [[ $# -ge 2 ]] || { echo "Error: --time-limit requires a value" >&2; exit 2; }; TIME_LIMIT="$2"; shift 2 ;;
+    --shuffle) SHUFFLE=1; shift ;;
+    --reverse) REVERSE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Error: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
@@ -72,6 +78,11 @@ done
 [[ -n "$MODEL" ]] || { echo "Error: --model is required" >&2; usage >&2; exit 2; }
 [[ -n "$DATASET" ]] || { echo "Error: --dataset is required" >&2; usage >&2; exit 2; }
 [[ -n "$TAG" || -n "$OUTPUT_ROOT" ]] || { echo "Error: --tag is required unless --output-root is set" >&2; usage >&2; exit 2; }
+
+if [[ "$SHUFFLE" -eq 1 && "$REVERSE" -eq 1 ]]; then
+  echo "Error: --shuffle and --reverse are mutually exclusive" >&2
+  exit 2
+fi
 
 case "$DATASET" in
   dl19)
@@ -135,6 +146,11 @@ case "$METHOD" in
   *) echo "Error: unsupported --method '$METHOD'" >&2; exit 2 ;;
 esac
 
+if [[ "$K_MODE" != "pool" && ( "$SHUFFLE" -eq 1 || "$REVERSE" -eq 1 ) ]]; then
+  echo "Error: --shuffle/--reverse are supported only for MaxContext methods" >&2
+  exit 2
+fi
+
 # Resolve conda env from model family.
 MODEL_BASE="${MODEL##*/}"
 case "$MODEL_BASE" in
@@ -163,9 +179,20 @@ if [[ -z "$OUTPUT_ROOT" ]]; then
   OUTPUT_ROOT="results/emnlp/main/${TAG}"
 fi
 
+CONDITION_SUFFIX=""
+CONDITION_EXPORT=""
+if [[ "$SHUFFLE" -eq 1 ]]; then
+  CONDITION_SUFFIX="_shuffle"
+  CONDITION_EXPORT=",SHUFFLE=1"
+elif [[ "$REVERSE" -eq 1 ]]; then
+  CONDITION_SUFFIX="_reverse"
+  CONDITION_EXPORT=",REVERSE=1"
+fi
+
 JOB_COUNT=0
 for N in "${POOL_SIZES[@]}"; do
   printf -v POOL_TAG "pool%02d" "$N"
+  POOL_TAG="${POOL_TAG}${CONDITION_SUFFIX}"
   OUTPUT_DIR="${OUTPUT_ROOT}/${MODEL_TAG}/${DATASET_TAG}/${METHOD}/${POOL_TAG}"
 
   if [[ "$K_MODE" == "pool" ]]; then
@@ -175,7 +202,7 @@ for N in "${POOL_SIZES[@]}"; do
     LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation 2 10 "$N" 512 "$SETWISE_METHOD")
   fi
 
-  EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}"
+  EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}${CONDITION_EXPORT}"
 
   JOB_COUNT=$((JOB_COUNT + 1))
   if [[ "$DRY_RUN" -eq 1 ]]; then

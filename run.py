@@ -72,6 +72,18 @@ def main(args):
                 f"MaxContext requires a local Qwen3 / Qwen3.5 / Llama-3.1 / Ministral-3 model."
             )
 
+    if args.run.shuffle and args.run.reverse:
+        raise SystemExit("Error: --shuffle and --reverse are mutually exclusive.")
+
+    if args.run.shuffle or args.run.reverse:
+        setwise_args = getattr(args, "setwise", None)
+        direction = getattr(setwise_args, "direction", None) if setwise_args is not None else None
+        if direction not in MAXCONTEXT_DIRECTIONS:
+            raise SystemExit(
+                "Error: --shuffle / --reverse only supported for MaxContext setwise "
+                f"directions ({sorted(MAXCONTEXT_DIRECTIONS)}). Got direction={direction!r}."
+            )
+
     peek_config = None
 
     def validate_local_multimodal_config():
@@ -243,6 +255,8 @@ def main(args):
                 num_permutation=args.setwise.num_permutation,
                 k=args.setwise.k,
                 pool_size=args.setwise.k,
+                shuffle=args.run.shuffle,
+                reverse=args.run.reverse,
             )
         elif args.setwise.direction == 'maxcontext_topdown':
             if args.run.hits != args.setwise.k:
@@ -273,6 +287,8 @@ def main(args):
                 num_permutation=args.setwise.num_permutation,
                 k=args.setwise.k,
                 pool_size=args.setwise.k,
+                shuffle=args.run.shuffle,
+                reverse=args.run.reverse,
             )
         elif args.setwise.direction == 'maxcontext_bottomup':
             if args.run.hits != args.setwise.k:
@@ -303,6 +319,8 @@ def main(args):
                 num_permutation=args.setwise.num_permutation,
                 k=args.setwise.k,
                 pool_size=args.setwise.k,
+                shuffle=args.run.shuffle,
+                reverse=args.run.reverse,
             )
         else:
             raise ValueError(f'Unknown direction: {args.setwise.direction}')
@@ -479,6 +497,10 @@ if __name__ == '__main__':
     run_parser.add_argument('--openai_key', type=str, default=None)
     run_parser.add_argument('--scoring', type=str, default='generation', choices=['generation', 'likelihood'])
     run_parser.add_argument('--shuffle_ranking', type=str, default=None, choices=['inverse', 'random'])
+    run_parser.add_argument('--shuffle', action='store_true', default=False,
+                            help='Per-round shuffle of remaining pool for MaxContext methods (fixed seed 929).')
+    run_parser.add_argument('--reverse', action='store_true', default=False,
+                            help='Per-round reverse ordering of remaining pool for MaxContext methods.')
     run_parser.add_argument('--log_comparisons', type=str, default=None,
                             help='Path to write per-comparison JSONL log for position bias analysis')
 

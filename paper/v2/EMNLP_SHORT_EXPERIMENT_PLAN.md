@@ -129,11 +129,11 @@ Cost-reduction options to consider before launch:
 
 ### Phase 3 — Stability re-runs (v8 Phase C: 3 EMNLP families × DL19 × 10 reps)
 
-Per v8 Phase C: 10 independent re-runs on each of the 3 required EMNLP families (`Qwen3.5-9B`, `Meta-Llama-3.1-8B-Instruct`, `Ministral-3-8B-Instruct-2512`) on DL19, launched via `submit_emnlp_stability_jobs.sh` which wraps `submit_max_context_jobs.sh --include-standard-bottomup --pool-sizes "10 20 30 40 50 100"`.
+Per v8 Phase C: 10 independent re-runs on each of the 3 required EMNLP families (`Qwen3.5-9B`, `Meta-Llama-3.1-8B-Instruct`, `Ministral-3-8B-Instruct-2512`) on DL19, launched via `submit_emnlp_stability_jobs.sh` which wraps the default 11-block `submit_max_context_jobs.sh --pool-sizes "10 20 30 40 50 100"` layout.
 
 **Cell counts:**
 - Scientific Phase C cells (7 EMNLP methods × 3 models × dl19 × 6 pools × 10 reps) = **1260**.
-- Stability-layout submissions (9 method blocks including ws-3/ws-PS overhead × 6 pools × 10 reps × 3 models) = **1620**.
+- Stability-layout submissions (11 method blocks including ws-3/ws-PS TopDown and BottomUp overhead × 6 pools × 10 reps × 3 models) = **1980**.
 
 The H4 input-order-stability claim is **scoped to the 18 MaxContext (method × pool) cells per model = 54 cells across the 3 families**, not all 9 method blocks. The 4 ws-3/ws-PS standard-Setwise blocks per model are launched for IDEA_007 layout compatibility but are out of paper scope.
 
@@ -145,6 +145,15 @@ The H4 input-order-stability claim is **scoped to the 18 MaxContext (method × p
 **Pass criterion (claim H4 under either interpretation):** for each (family, method, pool-size) cell, the nDCG@10 across 10 runs satisfies all three of: SD $\le 0.005$, max−min range $\le 0.015$, worst-pair $|\Delta| \le 0.015$. Under the byte-equality interpretation these will trivially pass; under the input-order interpretation they're a real test.
 
 **Compute (v8 Phase C):** ~1620 stability-layout jobs across 3 families × 10 reps × 9 method blocks × 6 pools. Qwen3.5-9B / DL19 single-DualEnd-job wall-clock at $N=50$ is estimated at $\sim 27$ min (per `EMNLP_BUDGET.md` ballparks); $N=100$ doubles plus prefill overhead. Mean per-job ≈ $30$-$60$ min, so Phase C is roughly **800–1500 H100-hours** for required EMNLP families. Optional Phase E (Qwen3-8B / DL19 / 5 pools / 10 reps = 350 jobs) adds another ~150-300 H100-hours.
+
+### Phase F — Position-bias controls (MaxContext only)
+
+Phase F adds the evidence for the paper's position-bias discussion without changing the standard Heap/Bubble baselines. It compares Phase B forward outputs against two new MaxContext-only conditions:
+
+- `--reverse`: reverse the remaining BM25 pool before each LLM comparison.
+- `--shuffle`: shuffle the remaining pool before each LLM comparison with fixed seed 929.
+
+Required scope: 3 representative models (Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512) × 4 representative datasets (DL19, DL20, DBPedia, FiQA) × 3 MaxContext methods × 6 pools × 2 new conditions = **432 jobs**. The fixed seed means repeated Phase F stability runs measure system/model nondeterminism, not shuffle-seed variance. The analysis reports paired within-query nDCG@10 deltas for forward-vs-reverse and forward-vs-shuffle.
 
 ### Phase 4 — Tier 2 (appendix only)
 

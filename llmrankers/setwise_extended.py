@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from .rankers import LlmRanker, SearchResult
 from .setwise import SetwiseLlmRanker, QWEN_MODEL_TYPES, compute_max_fit_window
 import copy
+import hashlib
 import math
 import re
 import torch
@@ -18,6 +19,8 @@ import random
 from collections import Counter
 
 random.seed(929)
+
+MAXCONTEXT_SHUFFLE_SEED = 929
 
 MAXCONTEXT_ALLOWED_MODEL_TYPES = frozenset({
     "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5_moe",
@@ -59,6 +62,49 @@ def _resolve_maxcontext_label_index(
             )
         return min(idx, window_len - 1)
     return idx
+
+
+class _MaxContextOrderingMixin:
+    """MaxContext-only ordering controls for the LLM-presented pool."""
+
+    def _apply_pool_ordering(self, docs: list) -> list:
+        if not (getattr(self, "shuffle", False) or getattr(self, "reverse", False)):
+            return docs
+        if getattr(self, "reverse", False):
+            return list(reversed(docs))
+        seed = self._derive_shuffle_seed(len(docs))
+        rng = random.Random(seed)
+        out = list(docs)
+        rng.shuffle(out)
+        return out
+
+    def _derive_shuffle_seed(self, round_pool_size: int) -> int:
+        qid = str(getattr(self, "_current_qid", "") or "")
+        digest = hashlib.blake2b(
+            f"{MAXCONTEXT_SHUFFLE_SEED}\0{qid}\0{round_pool_size}".encode(),
+            digest_size=8,
+        ).digest()
+        return int.from_bytes(digest, "big", signed=False)
+
+    def _remap_label_to_original(
+        self,
+        label: str,
+        presented: list,
+        original_window: list,
+        default: int,
+    ) -> int:
+        presented_idx = _resolve_maxcontext_label_index(
+            self, label, len(presented), default
+        )
+        if presented is original_window:
+            return presented_idx
+        target_doc = presented[presented_idx]
+        for i, doc in enumerate(original_window):
+            if doc.docid == target_doc.docid:
+                return i
+        raise ValueError(
+            f"Doc {target_doc.docid!r} from presented window not found in original_window"
+        )
 
 
 def _assert_maxcontext_topdown_fits(ranker, query, docs) -> None:
@@ -1134,6 +1180,15 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
                 bottom_idx -= 1
             else:
                 # Tournament: compare in groups, find overall best and worst
+                if (
+                    getattr(self, "_maxcontext_pool_size", None) is not None
+                    and (getattr(self, "shuffle", False) or getattr(self, "reverse", False))
+                ):
+                    raise RuntimeError(
+                        "MaxContext shuffle/reverse requires the full-window "
+                        "DualEnd branch; tournament selection is unreachable "
+                        "under MaxContext invariants."
+                    )
                 group_bests = []  # (absolute_index, doc)
                 group_worsts = []  # (absolute_index, doc)
 
@@ -1242,18 +1297,22 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         return current_indices[0]
 
 
-class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
+class MaxContextDualEndSetwiseLlmRanker(_MaxContextOrderingMixin, DualEndSetwiseLlmRanker):
     _MAXCONTEXT_NAME_FRAGMENTS = frozenset({
         "qwen3", "qwen3.5", "qwen3_5",
         "llama-3.1", "llama_3_1", "llama3.1", "meta-llama-3.1",
         "ministral-3", "ministral_3", "ministral3",
     })
 
-    def __init__(self, *args, pool_size: int, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
         self._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
+        if shuffle and reverse:
+            raise ValueError("shuffle and reverse are mutually exclusive")
+        self.shuffle = shuffle
+        self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
 
@@ -1320,6 +1379,26 @@ class MaxContextDualEndSetwiseLlmRanker(DualEndSetwiseLlmRanker):
                 f"(max_input_tokens - reserved_output_tokens). "
                 "Reduce --passage_length or --k, or pick a Qwen3.5 variant with larger context."
             )
+
+    def _compare_both_window(
+        self,
+        query: str,
+        ranking: List[SearchResult],
+        start_ind: int,
+        end_ind: int,
+    ) -> Tuple[str, str]:
+        original_window = ranking[start_ind:end_ind]
+        presented = self._apply_pool_ordering(original_window)
+        best_label, worst_label = self.compare_both(query, presented)
+        if presented is original_window:
+            return best_label, worst_label
+        best_idx = self._remap_label_to_original(
+            best_label, presented, original_window, default=0
+        )
+        worst_idx = self._remap_label_to_original(
+            worst_label, presented, original_window, default=len(original_window) - 1
+        )
+        return self.CHARACTERS[best_idx], self.CHARACTERS[worst_idx]
 
 
 class SelectiveDualEndSetwiseLlmRanker(_DualEndRoutingMixin, DualEndSetwiseLlmRanker):
@@ -1851,16 +1930,20 @@ class BidirectionalEnsembleRanker(LlmRanker):
         return self.topdown_ranker.truncate(text, length)
 
 
-class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
+class MaxContextTopDownSetwiseLlmRanker(_MaxContextOrderingMixin, SetwiseLlmRanker):
     """MaxContext-style best-only selection over the full pool."""
 
     total_bm25_bypass: int = 0
 
-    def __init__(self, *args, pool_size: int, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
+        if shuffle and reverse:
+            raise ValueError("shuffle and reverse are mutually exclusive")
+        self.shuffle = shuffle
+        self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
 
@@ -1926,9 +2009,10 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
                     )
                 self.total_bm25_bypass += 1
             else:
-                best_label = self.compare(query, window)
-                best_window_pos = _resolve_maxcontext_label_index(
-                    self, best_label, window_len, default=0
+                presented = self._apply_pool_ordering(window)
+                best_label = self.compare(query, presented)
+                best_window_pos = self._remap_label_to_original(
+                    best_label, presented, window, default=0
                 )
             if best_window_pos != 0:
                 ranking[top_idx], ranking[top_idx + best_window_pos] = (
@@ -1952,16 +2036,20 @@ class MaxContextTopDownSetwiseLlmRanker(SetwiseLlmRanker):
         ]
 
 
-class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
+class MaxContextBottomUpSetwiseLlmRanker(_MaxContextOrderingMixin, BottomUpSetwiseLlmRanker):
     """MaxContext-style worst-only selection over the full pool."""
 
     total_bm25_bypass: int = 0
 
-    def __init__(self, *args, pool_size: int, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
         super().__init__(*args, **kwargs)
+        if shuffle and reverse:
+            raise ValueError("shuffle and reverse are mutually exclusive")
+        self.shuffle = shuffle
+        self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
 
@@ -2026,9 +2114,10 @@ class MaxContextBottomUpSetwiseLlmRanker(BottomUpSetwiseLlmRanker):
                     )
                 self.total_bm25_bypass += 1
             else:
-                worst_label = self.compare_worst(query, window)
-                worst_window_pos = _resolve_maxcontext_label_index(
-                    self, worst_label, window_len, default=window_len - 1
+                presented = self._apply_pool_ordering(window)
+                worst_label = self.compare_worst(query, presented)
+                worst_window_pos = self._remap_label_to_original(
+                    worst_label, presented, window, default=window_len - 1
                 )
             if worst_window_pos != bottom_idx:
                 ranking[bottom_idx], ranking[worst_window_pos] = (

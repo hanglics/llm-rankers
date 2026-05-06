@@ -2,6 +2,8 @@
 
 Append-only mutation timeline.
 
+- 2026-05-07 — **v4: MaxContext position-bias controls and Phase F.** Added MaxContext-only `--reverse` and fixed-seed-929 per-comparison `--shuffle` controls, suffixed output leaves (`poolNN_reverse`, `poolNN_shuffle`, `topNN_reverse`, `topNN_shuffle`), and Phase F representative position-bias design. Heap/Bubble launchers remain out of scope; default-off Qwen3 paths preserve the existing byte-equality gate.
+
 - 2026-05-06 — **v3: launcher consolidation and 11-block stability layout.** Standard TopDown/BottomUp EMNLP methods now dispatch through bigram launchers; `experiments/run_bottomup_bigram.sh` was added and both bigram launchers honor `ANALYSIS_LOG_DIR`. `submit_max_context_jobs.sh` defaults to 55 jobs with BottomUp ws-3/ws-ps blocks; Phase C stability submissions become 1980 while the scientific count stays 1260. Phase C′ preserves the 35-cell IDEA_007 byte-equality gate with `--idea007-only`.
 
 - 2026-05-05 — **v8: pool sweep extended to 6 pools for required EMNLP model families.** Phase A: 21 → 42 cells. Phase B: 2520 → 3024 cells. Phase C: 1050 → 1260 cells. Phase C′ unchanged at 35 (preserves IDEA_007 byte-equality). Required total: 3626 → 4361 (+735). Compute impact: estimated +840 GPU-hours for Phase B pool=100. Context-fit gated by Phase A pool=100 smoke. Code changes: `submit_max_context_jobs.sh` and `eval_max_context_jobs.sh` gain `--pool-sizes` override (default 5 pools, IDEA_007 path unchanged); `submit_emnlp_jobs.sh`, `eval_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `scripts/smoke_emnlp_models.sh` extend their default sweeps.

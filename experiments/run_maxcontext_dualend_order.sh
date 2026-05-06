@@ -76,6 +76,14 @@ if [[ "${ORDERING}" == "inverse" || "${ORDERING}" == "random" ]]; then
     SHUFFLE_ARGS=(--shuffle_ranking "${ORDERING}")
 fi
 
+CONDITION_ARGS=()
+if [[ -n "${SHUFFLE:-}" && "${SHUFFLE}" != "0" ]]; then
+    CONDITION_ARGS+=(--shuffle)
+fi
+if [[ -n "${REVERSE:-}" && "${REVERSE}" != "0" ]]; then
+    CONDITION_ARGS+=(--reverse)
+fi
+
 "${PYTHON}" run.py \
     run --model_name_or_path "${MODEL}" \
         --ir_dataset_name "${DATASET}" \
@@ -87,6 +95,7 @@ fi
         --query_length 128 \
         --passage_length "${PASSAGE_LENGTH}" \
         "${SHUFFLE_ARGS[@]}" \
+        "${CONDITION_ARGS[@]}" \
         --log_comparisons "${ANALYSIS_DIR}/maxcontext_dualend_${ORDERING}_comparisons.jsonl" \
     setwise --num_child "${POOL_SIZE}" \
             --method selection \

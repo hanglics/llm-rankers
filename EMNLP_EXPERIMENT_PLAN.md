@@ -346,6 +346,56 @@ done
 python3 analysis/cross_model_stability.py
 ```
 
+## Phase F — MaxContext Position-Bias Controls (432 required jobs)
+
+Phase F measures whether MaxContext decisions depend on the order in which the remaining BM25 pool is presented to the LLM. It reuses Phase B `poolNN/` forward outputs and adds two MaxContext-only conditions:
+
+- `--reverse`: reverse the remaining pool before each MaxContext comparison.
+- `--shuffle`: shuffle the remaining pool before each MaxContext comparison with fixed seed 929.
+
+This is distinct from legacy `--shuffle_ranking`, which permutes the full initial ranking once. Phase F does not touch Heap/Bubble methods.
+
+Required subset: 3 representative models × 4 representative datasets (`dl19`, `dl20`, `beir-dbpedia`, `beir-fiqa`) × 3 MaxContext methods × 6 pool sizes × 2 new conditions = 432 jobs. Claims should be phrased as representative evidence, not BEIR-wide coverage.
+
+```bash
+for MODEL in \
+  "Qwen/Qwen3.5-9B" \
+  "meta-llama/Meta-Llama-3.1-8B-Instruct" \
+  "mistralai/Ministral-3-8B-Instruct-2512"
+do
+  for DATASET in dl19 dl20 beir-dbpedia beir-fiqa; do
+    for METHOD in maxcontext_topdown maxcontext_bottomup maxcontext_dualend; do
+      for POOL_SIZE in "${REQUIRED_POOL_SIZES[@]}"; do
+        bash submit_emnlp_jobs.sh --reverse \
+          --method "$METHOD" --model "$MODEL" --dataset "$DATASET" \
+          --pool-size "$POOL_SIZE" --tag phase_f_reverse
+        bash submit_emnlp_jobs.sh --shuffle \
+          --method "$METHOD" --model "$MODEL" --dataset "$DATASET" \
+          --pool-size "$POOL_SIZE" --tag phase_f_shuffle
+      done
+    done
+  done
+done
+```
+
+Evaluation mirrors submission with the same condition flag and reads suffixed leaves (`pool50_reverse/`, `pool50_shuffle/`):
+
+```bash
+bash eval_emnlp_jobs.sh --reverse --method maxcontext_dualend \
+  --model "Qwen/Qwen3.5-9B" --dataset dl19 --pool-size 50 --tag phase_f_reverse
+bash eval_emnlp_jobs.sh --shuffle --method maxcontext_dualend \
+  --model "Qwen/Qwen3.5-9B" --dataset dl19 --pool-size 50 --tag phase_f_shuffle
+```
+
+Optional Phase F stability uses the same fixed shuffle seed, so 10 reps measure system/model nondeterminism, not shuffle-seed variance:
+
+```bash
+bash submit_emnlp_stability_jobs.sh --reverse --model "Qwen/Qwen3.5-9B" \
+  --dataset DL19 --tag-prefix emnlp_phase_f_reverse
+bash submit_emnlp_stability_jobs.sh --shuffle --model "Qwen/Qwen3.5-9B" \
+  --dataset DL19 --tag-prefix emnlp_phase_f_shuffle
+```
+
 ## Position Bias and Stability Analysis
 
 ```bash
@@ -355,6 +405,8 @@ python3 analysis/position_bias_emnlp.py \
 
 python3 analysis/cross_model_stability.py
 ```
+
+`analysis/position_bias_emnlp.py` parses `poolNN`, `poolNN_reverse`, and `poolNN_shuffle` leaves, writes condition-specific position-frequency summaries, and emits paired forward-vs-reverse / forward-vs-shuffle nDCG@10 deltas when matching `.eval` files are present.
 
 ## Dry-run validation
 

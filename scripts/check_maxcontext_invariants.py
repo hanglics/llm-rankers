@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import random
 import sys
 import tempfile
 from contextlib import redirect_stdout
@@ -91,6 +92,7 @@ from llmrankers.setwise_extended import (
     BiasAwareDualEndSetwiseLlmRanker,
     BottomUpSetwiseLlmRanker,
     DualEndSetwiseLlmRanker,
+    MAXCONTEXT_SHUFFLE_SEED,
     MAXCONTEXT_ALLOWED_MODEL_TYPES,
     MaxContextBottomUpSetwiseLlmRanker,
     MaxContextDualEndSetwiseLlmRanker,
@@ -293,6 +295,8 @@ def make_run_args(
             run_path="unused.txt",
             save_path="unused.txt",
             shuffle_ranking=None,
+            shuffle=False,
+            reverse=False,
         ),
         setwise=SimpleNamespace(
             direction=direction,
@@ -1622,6 +1626,48 @@ def test_default_false_flags_and_logging():
         assert set(entry.keys()) == {"qid", "type", "positions", "selected"}
 
 
+def test_position_bias_ordering_default_off_invariants():
+    ranker = object.__new__(MaxContextDualEndSetwiseLlmRanker)
+    ranker.shuffle = False
+    ranker.reverse = False
+    ranker._current_qid = "q1"
+    docs = make_docs(5)
+    before_state = random.getstate()
+    with mock.patch(
+        "llmrankers.setwise_extended.random.Random",
+        side_effect=AssertionError("default-off path must not instantiate RNG"),
+    ):
+        assert ranker._apply_pool_ordering(docs) is docs
+    assert random.getstate() == before_state
+    assert not hasattr(ranker, "_round_counter")
+    assert not hasattr(ranker, "_shuffle_seed")
+    assert MAXCONTEXT_SHUFFLE_SEED == 929
+
+
+def test_position_bias_ordering_enabled_paths_are_stateless():
+    docs = make_docs(6)
+
+    reverse_ranker = object.__new__(MaxContextTopDownSetwiseLlmRanker)
+    reverse_ranker.shuffle = False
+    reverse_ranker.reverse = True
+    assert [doc.docid for doc in reverse_ranker._apply_pool_ordering(docs)] == [
+        doc.docid for doc in reversed(docs)
+    ]
+    assert [doc.docid for doc in docs] == [f"d{i}" for i in range(1, 7)]
+
+    shuffle_ranker = object.__new__(MaxContextBottomUpSetwiseLlmRanker)
+    shuffle_ranker.shuffle = True
+    shuffle_ranker.reverse = False
+    shuffle_ranker._current_qid = "q42"
+    first = shuffle_ranker._apply_pool_ordering(docs)
+    second = shuffle_ranker._apply_pool_ordering(docs)
+    assert [doc.docid for doc in first] == [doc.docid for doc in second]
+    assert sorted(doc.docid for doc in first) == sorted(doc.docid for doc in docs)
+    assert first is not docs
+    assert not hasattr(shuffle_ranker, "_round_counter")
+    assert not hasattr(shuffle_ranker, "_shuffle_seed")
+
+
 def test_likelihood_substitute_and_fit_helper():
     ranker = build_dualend_stub(strict=False)
     ranker.scoring = "likelihood"
@@ -1752,6 +1798,8 @@ def main():
     test_compare_both_duplicate_rewrite_guard()
     test_tokenize_invariants()
     test_default_false_flags_and_logging()
+    test_position_bias_ordering_default_off_invariants()
+    test_position_bias_ordering_enabled_paths_are_stateless()
     test_likelihood_substitute_and_fit_helper()
     test_topdown_bigram_scheme_invariants()
     print("check_maxcontext_invariants.py: all checks passed")

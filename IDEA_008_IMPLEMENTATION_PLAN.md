@@ -78,6 +78,8 @@ Stability submission uses `submit_emnlp_stability_jobs.sh` (plan §B.6), which w
 
 Phase A smoke uses `scripts/smoke_emnlp_models.sh` (plan §B.7).
 
+Phase F adds MaxContext-only position-bias controls. `--reverse` and `--shuffle` are valid only for `maxcontext_topdown`, `maxcontext_bottomup`, and `maxcontext_dualend`; Heap/Bubble methods remain BM25-ordered. `--shuffle` uses fixed seed 929 and shuffles the remaining pool before each LLM comparison. This is distinct from legacy `--shuffle_ranking`, which permutes the initial ranking once.
+
 The v8 pool=100 extension adds `--pool-sizes` to the max-context submission/eval wrappers, extends EMNLP `--pool-size all` to `{10,20,30,40,50,100}`, and keeps omitted `--pool-size` at the existing single pool=50 default.
 
 ## 8. Ordering of Edits
@@ -187,6 +189,7 @@ Modified docs/wiki files:
 ## 12. Audit Trail
 
 - **v3 multimodal loader (2026-05-06):** Phase 3a adds the authoritative `MULTIMODAL_MODEL_TYPES={mistral3,qwen3_5,qwen3_5_moe}` dispatch, `ProcessorTokenizerAdapter`, and a text-only multimodal loader for Mistral 3 / Qwen 3.5 vision-language configs. `qwen3` / `qwen3_moe` remain on the existing causal path for IDEA_007 byte-equality; `qwen3_5_text` / `qwen3_5_moe_text` inner configs are explicitly unsupported.
+- **v4 position-bias controls (2026-05-07):** added MaxContext-only `--reverse` and fixed-seed-929 per-comparison `--shuffle` flags, suffixed output leaves (`poolNN_reverse`, `poolNN_shuffle`, `topNN_reverse`, `topNN_shuffle`), and Phase F representative position-bias experiments. Default-off Qwen3 paths and Heap/Bubble launchers remain unchanged.
 - **v3 (2026-05-06):** launcher consolidation applied: standard EMNLP TopDown/BottomUp methods use bigram launchers, `run_bottomup_bigram.sh` added, stability default layout expands to 1980 submissions, and Phase C′ remains 35 cells via `--idea007-only`.
 - **v2 (2026-05-06):** v8 pool=100 delta applied: Phase A 42, Phase B 3024, Phase C 1260 scientific / 1620 submitted, required total 4361; IDEA_007 65-cell prime gate unchanged.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit.

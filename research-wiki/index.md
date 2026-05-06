@@ -68,7 +68,7 @@ These are the entry-point documents for understanding the project. They were con
 - [idea:007 MaxContext family](ideas/idea_007_maxcontext_dualend.md) — active plan (Codex-audited 3 rounds, ready to execute; see `IDEA_007.md`)
 - [idea:008 MaxContext multi-family](ideas/idea_008_maxcontext_multi_family.md) — active EMNLP 2026 short-paper extension (Qwen3.5 + Llama-3.1 + Ministral-3)
 
-## Experiments (40)
+## Experiments (41)
 
 ### Main sweeps (9 models × 2 datasets = 18 runs each)
 
@@ -128,6 +128,7 @@ These are the entry-point documents for understanding the project. They were con
 - [exp:emnlp_phase_c_prime_constraint_recheck](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C′ byte-equality recheck, 35 cells via `--idea007-only`
 - [exp:emnlp_phase_d_qwen3_optional](experiments/emnlp_phase_d_qwen3_optional.md) — Phase D optional Qwen3 main matrix, 1680 cells
 - [exp:emnlp_phase_e_qwen3_stability_optional](experiments/emnlp_phase_e_qwen3_stability_optional.md) — Phase E optional Qwen3-8B stability, 350 cells
+- [exp:emnlp_phase_f_position_bias](experiments/emnlp_phase_f_position_bias.md) — Phase F MaxContext position-bias controls, 432 required jobs
 - Required EMNLP total: 4361 cells; with optional Qwen3 phases: 6391 cells.
 - [exp:cross_model_stability](experiments/cross_model_stability.md) — cross-family stability analysis
 - [paper:dubey2024_llama3](papers/llama3_1_paper.md), [paper:mistral3_2025](papers/mistral3_paper.md), [paper:yang2025_qwen3](papers/qwen3_paper.md), [paper:qwen3_5_model_card](papers/qwen3_5_paper.md) — model-family references

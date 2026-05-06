@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -79,7 +81,8 @@ def parse_log_path(main_root: Path, log_path: Path) -> dict[str, str | int]:
     tag, model_tag, dataset_tag, method, pool_tag, _ = rel.parts
     if not method.startswith("maxcontext_"):
         raise ValueError(f"Non-MaxContext log passed to EMNLP position-bias analysis: {log_path}")
-    if not pool_tag.startswith("pool"):
+    match = re.fullmatch(r"pool(\d+)(?:_(reverse|shuffle))?", pool_tag)
+    if not match:
         raise ValueError(f"Unexpected pool tag in {log_path}")
     return {
         "tag": tag,
@@ -87,7 +90,8 @@ def parse_log_path(main_root: Path, log_path: Path) -> dict[str, str | int]:
         "model_family": model_family_from_tag(model_tag),
         "dataset_tag": dataset_tag,
         "method": method,
-        "pool_size": int(pool_tag.removeprefix("pool")),
+        "pool_size": int(match.group(1)),
+        "condition": match.group(2) or "forward",
     }
 
 
@@ -121,14 +125,103 @@ def write_plot(path: Path, rows: list[dict[str, object]], title: str) -> bool:
     return True
 
 
+def read_eval_metric(eval_path: Path, metric: str = "ndcg_cut_10") -> dict[str, float]:
+    values: dict[str, float] = {}
+    if not eval_path.exists():
+        return values
+    with eval_path.open() as handle:
+        for line in handle:
+            parts = line.strip().split()
+            if len(parts) == 3 and parts[0] == metric:
+                values[parts[1]] = float(parts[2])
+    return values
+
+
+def sign_test_p_value(positive: int, negative: int) -> float | None:
+    n = positive + negative
+    if n == 0:
+        return None
+    k = min(positive, negative)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / (2 ** n)
+    return min(1.0, 2.0 * tail)
+
+
+def build_condition_delta_rows(main_root: Path, logs: list[Path]) -> list[dict[str, object]]:
+    evals_by_cell: dict[
+        tuple[str, str, str, int, str],
+        tuple[dict[str, str | int], dict[str, float]],
+    ] = {}
+    for log_path in logs:
+        meta = parse_log_path(main_root, log_path)
+        metrics = read_eval_metric(log_path.parent / f"{meta['method']}.eval")
+        if not metrics:
+            continue
+        key = (
+            str(meta["model_tag"]),
+            str(meta["dataset_tag"]),
+            str(meta["method"]),
+            int(meta["pool_size"]),
+            str(meta["condition"]),
+        )
+        evals_by_cell.setdefault(key, (meta, metrics))
+
+    by_cell: dict[
+        tuple[str, str, str, int],
+        dict[str, tuple[dict[str, str | int], dict[str, float]]],
+    ] = defaultdict(dict)
+    for key, value in evals_by_cell.items():
+        model_tag, dataset_tag, method, pool_size, condition = key
+        by_cell[(model_tag, dataset_tag, method, pool_size)][condition] = value
+
+    rows: list[dict[str, object]] = []
+    for cell_key, condition_map in sorted(by_cell.items()):
+        if "forward" not in condition_map:
+            continue
+        _, forward_values = condition_map["forward"]
+        for condition in ("reverse", "shuffle"):
+            if condition not in condition_map:
+                continue
+            meta, condition_values = condition_map[condition]
+            qids = sorted(
+                qid for qid in set(forward_values) & set(condition_values) if qid != "all"
+            )
+            deltas = [condition_values[qid] - forward_values[qid] for qid in qids]
+            positives = sum(delta > 0 for delta in deltas)
+            negatives = sum(delta < 0 for delta in deltas)
+            all_delta = None
+            if "all" in forward_values and "all" in condition_values:
+                all_delta = condition_values["all"] - forward_values["all"]
+            rows.append(
+                {
+                    "model_tag": cell_key[0],
+                    "model_family": model_family_from_tag(cell_key[0]),
+                    "dataset_tag": cell_key[1],
+                    "method": cell_key[2],
+                    "pool_size": cell_key[3],
+                    "condition": condition,
+                    "forward_tag": condition_map["forward"][0]["tag"],
+                    "condition_tag": meta["tag"],
+                    "metric": "ndcg_cut_10",
+                    "aggregate_delta": all_delta,
+                    "paired_qids": len(qids),
+                    "mean_query_delta": sum(deltas) / len(deltas) if deltas else None,
+                    "positive_qids": positives,
+                    "negative_qids": negatives,
+                    "tied_qids": len(deltas) - positives - negatives,
+                    "sign_test_p": sign_test_p_value(positives, negatives),
+                }
+            )
+    return rows
+
+
 def main() -> None:
     args = parse_args()
     logs = discover_logs(args.main_root, args.tag)
     if not logs:
         raise SystemExit(f"No MaxContext comparison logs found under {args.main_root}")
 
-    grouped: dict[tuple[str, str, str, int, str], list[dict[str, object]]] = defaultdict(list)
-    source_counts: dict[tuple[str, str, str, int, str], int] = defaultdict(int)
+    grouped: dict[tuple[str, str, str, int, str, str], list[dict[str, object]]] = defaultdict(list)
+    source_counts: dict[tuple[str, str, str, int, str, str], int] = defaultdict(int)
     for log_path in logs:
         meta = parse_log_path(args.main_root, log_path)
         entries = load_comparison_entries([log_path])
@@ -141,6 +234,7 @@ def main() -> None:
                 str(meta["dataset_tag"]),
                 str(meta["method"]),
                 int(meta["pool_size"]),
+                str(meta["condition"]),
                 comparison_type,
             )
             grouped[key].extend(type_entries)
@@ -148,7 +242,7 @@ def main() -> None:
 
     index_rows = []
     for key, entries in sorted(grouped.items()):
-        family, dataset_tag, method, pool_size, comparison_type = key
+        family, dataset_tag, method, pool_size, condition, comparison_type = key
         summary = summarize_position_bias(entries)
         if summary is None:
             continue
@@ -159,6 +253,7 @@ def main() -> None:
             / dataset_tag
             / method
             / f"pool{pool_size}"
+            / condition
             / comparison_type
         )
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -171,6 +266,7 @@ def main() -> None:
             "dataset_tag": dataset_tag,
             "method": method,
             "pool_size": pool_size,
+            "condition": condition,
             "comparison_type": comparison_type,
         }
         selection_rows = [{**metadata, **row} for row in type_summary["selection_rows"]]
@@ -182,6 +278,7 @@ def main() -> None:
                 "dataset_tag",
                 "method",
                 "pool_size",
+                "condition",
                 "comparison_type",
                 "position_index",
                 "label",
@@ -201,6 +298,7 @@ def main() -> None:
                 "dataset_tag",
                 "method",
                 "pool_size",
+                "condition",
                 "comparison_type",
                 "position_index",
                 "label",
@@ -227,6 +325,7 @@ def main() -> None:
                 "dataset_tag",
                 "method",
                 "pool_size",
+                "condition",
                 "comparison_type",
                 "n_comparisons",
                 "valid_selections",
@@ -239,7 +338,7 @@ def main() -> None:
         plotted = write_plot(
             out_dir / "position_bias.png",
             type_summary["selection_rows"],
-            f"{family} {dataset_tag} {method} pool{pool_size} {comparison_type}",
+            f"{family} {dataset_tag} {method} pool{pool_size} {condition} {comparison_type}",
         )
         if not plotted:
             (out_dir / "PLOT_SKIPPED.txt").write_text("matplotlib is not available or no rows were present.\n")
@@ -262,6 +361,7 @@ def main() -> None:
             "dataset_tag",
             "method",
             "pool_size",
+            "condition",
             "comparison_type",
             "n_comparisons",
             "valid_selections",
@@ -269,6 +369,54 @@ def main() -> None:
             "output_dir",
         ],
     )
+    delta_rows = build_condition_delta_rows(args.main_root, logs)
+    write_csv(
+        args.output_root / "condition_deltas.csv",
+        delta_rows,
+        [
+            "model_tag",
+            "model_family",
+            "dataset_tag",
+            "method",
+            "pool_size",
+            "condition",
+            "forward_tag",
+            "condition_tag",
+            "metric",
+            "aggregate_delta",
+            "paired_qids",
+            "mean_query_delta",
+            "positive_qids",
+            "negative_qids",
+            "tied_qids",
+            "sign_test_p",
+        ],
+    )
+    if delta_rows:
+        lines = [
+            "# Phase F Position-Bias Deltas",
+            "",
+            "| Model | Dataset | Method | Pool | Condition | Agg Delta nDCG@10 | Mean Query Delta | qids | sign p |",
+            "|---|---|---|---:|---|---:|---:|---:|---:|",
+        ]
+        for row in delta_rows:
+            aggregate_delta = row["aggregate_delta"]
+            mean_query_delta = row["mean_query_delta"]
+            sign_p = row["sign_test_p"]
+            lines.append(
+                "| {model} | {dataset} | {method} | {pool} | {condition} | {agg} | {mean_delta} | {qids} | {p} |".format(
+                    model=row["model_tag"],
+                    dataset=row["dataset_tag"],
+                    method=row["method"],
+                    pool=row["pool_size"],
+                    condition=row["condition"],
+                    agg="" if aggregate_delta is None else f"{float(aggregate_delta):.6f}",
+                    mean_delta="" if mean_query_delta is None else f"{float(mean_query_delta):.6f}",
+                    qids=row["paired_qids"],
+                    p="" if sign_p is None else f"{float(sign_p):.6f}",
+                )
+            )
+        (args.output_root / "condition_deltas.md").write_text("\n".join(lines) + "\n")
     print(f"Wrote {len(index_rows)} grouped position-bias outputs to {args.output_root}")
 
 

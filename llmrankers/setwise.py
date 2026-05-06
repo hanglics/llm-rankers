@@ -87,6 +87,14 @@ QWEN_MODEL_TYPES = frozenset({"qwen2", "qwen3", "qwen3_moe", "qwen3_5", "qwen3_5
 TRUST_REMOTE_CODE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
 THINKING_DISABLE_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
 THINKING_BUDGET_MODEL_TYPES = frozenset(QWEN_MODEL_TYPES)
+# Verbose chat-tuned text-only models that produce more output than the
+# 32/64 default budget can hold. Llama-3.x Instruct variants are known to
+# emit chain-of-thought-style preludes before the actual answer, so the
+# default budget truncates the response (e.g. mid-passage echo, missing
+# `Worst:` portion). 256/512 is the same tier as Qwen-thinking and
+# multimodal models. NOT applied to text-only `mistral` (Mistral 7B) or
+# `ministral` (Ministral 8B) since those have no current EMNLP baseline.
+VERBOSE_CHAT_MODEL_TYPES = frozenset({"llama"})
 
 
 def _is_multimodal_config(config) -> bool:
@@ -324,6 +332,8 @@ class SetwiseLlmRanker(LlmRanker):
         if self.config.model_type in THINKING_BUDGET_MODEL_TYPES:
             return 256 if mode == "single" else 512
         if self.config.model_type in MULTIMODAL_MODEL_TYPES:
+            return 256 if mode == "single" else 512
+        if self.config.model_type in VERBOSE_CHAT_MODEL_TYPES:
             return 256 if mode == "single" else 512
         return 32 if mode == "single" else 64
 
@@ -722,6 +732,34 @@ class SetwiseLlmRanker(LlmRanker):
         if is_numeric_scheme:
             strict = getattr(self, "strict_no_parse_fallback", False)
             if self._is_numeric_refusal_output(output):
+                # Soft-refusal recovery: if the output contains both a
+                # refusal phrase AND a clear choice indicator, try to extract
+                # the actual chosen number from the trailing portion before
+                # falling back to passage-1. Verbose chat models (Llama-3.1
+                # Instruct, Mistral-3) often hedge with "None of the provided
+                # passages directly address..." but then provide an answer
+                # with "...if forced to choose: 16" — the strict patterns
+                # above don't catch this format, but the model IS picking.
+                # Qwen 3 byte-equality preserved: Qwen 3 outputs are clean
+                # and don't enter this branch.
+                choice_indicator_re = re.compile(
+                    r"\b(choose|pick|select|forced\s+to|i\s+would|"
+                    r"my\s+(?:answer|choice|pick)|the\s+answer\s+is|"
+                    r"closest\s+is|would\s+be|is\s+the\s+(?:most|least)|"
+                    r"final\s+answer|going\s+with)\b",
+                    flags=re.IGNORECASE,
+                )
+                if choice_indicator_re.search(cleaned):
+                    trailing = list(re.finditer(r"\b(\d+)\b", cleaned))
+                    for match in reversed(trailing):
+                        try:
+                            idx = int(match.group(1)) - 1
+                        except ValueError:
+                            continue
+                        if 0 <= idx < len(valid_chars):
+                            return valid_chars[idx]
+                # No choice indicator OR no valid trailing number — original
+                # refusal handling.
                 if strict:
                     return None
                 return valid_chars[0]

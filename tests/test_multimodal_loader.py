@@ -255,6 +255,8 @@ def test_run_py_likelihood_guard_rejects_before_ranker_construction():
             run_path="unused",
             save_path="unused",
             shuffle_ranking=None,
+            shuffle=False,
+            reverse=False,
         ),
         setwise=SimpleNamespace(
             direction="topdown",

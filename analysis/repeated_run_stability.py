@@ -157,7 +157,14 @@ def infer_metadata(path: Path, results_root: Path) -> dict[str, str]:
     parts = rel.parts
     run_id = parts[0]
 
-    topk = next((part for part in parts if re.fullmatch(r"top\d+", part)), "unknown")
+    topk = "unknown"
+    condition = "forward"
+    for part in parts:
+        match = re.fullmatch(r"(top\d+)(?:_(reverse|shuffle))?", part)
+        if match:
+            topk = match.group(1)
+            condition = match.group(2) or "forward"
+            break
     model = next((part for part in parts if re.fullmatch(r".+-dl\d+", part)), "unknown")
     stem = path.stem
 
@@ -194,6 +201,7 @@ def infer_metadata(path: Path, results_root: Path) -> dict[str, str]:
         "run_id": run_id,
         "model": model,
         "topk": topk,
+        "condition": condition,
         "method": method,
         "method_family": method_family,
         "source_path": str(path),
@@ -337,9 +345,9 @@ def write_csv(path: Path, rows: list[dict[str, object]], fieldnames: list[str]) 
 def collect_eval_values(
     eval_paths: Iterable[Path],
     results_root: Path,
-) -> tuple[dict[tuple[str, str, str, str, str], dict[str, float]], dict[tuple[str, str, str, str, str, str], dict[str, float]]]:
-    aggregate_groups: dict[tuple[str, str, str, str, str], dict[str, float]] = defaultdict(dict)
-    per_query_groups: dict[tuple[str, str, str, str, str, str], dict[str, float]] = defaultdict(dict)
+) -> tuple[dict[tuple[str, str, str, str, str, str], dict[str, float]], dict[tuple[str, str, str, str, str, str, str], dict[str, float]]]:
+    aggregate_groups: dict[tuple[str, str, str, str, str, str], dict[str, float]] = defaultdict(dict)
+    per_query_groups: dict[tuple[str, str, str, str, str, str, str], dict[str, float]] = defaultdict(dict)
 
     for path in eval_paths:
         metadata = infer_metadata(path, results_root)
@@ -353,6 +361,7 @@ def collect_eval_values(
                 metadata["method_family"],
                 metadata["method"],
                 metadata["topk"],
+                metadata["condition"],
                 metric,
             )
             query_key = aggregate_key + (qid,)
@@ -368,8 +377,8 @@ def collect_eval_values(
 def collect_log_values(
     log_paths: Iterable[Path],
     results_root: Path,
-) -> dict[tuple[str, str, str, str, str], dict[str, float]]:
-    log_groups: dict[tuple[str, str, str, str, str], dict[str, float]] = defaultdict(dict)
+) -> dict[tuple[str, str, str, str, str, str], dict[str, float]]:
+    log_groups: dict[tuple[str, str, str, str, str, str], dict[str, float]] = defaultdict(dict)
     for path in log_paths:
         metadata = infer_metadata(path, results_root)
         for metric, value in parse_log_file(path).items():
@@ -378,6 +387,7 @@ def collect_log_values(
                 metadata["method_family"],
                 metadata["method"],
                 metadata["topk"],
+                metadata["condition"],
                 metric,
             )
             log_groups[key][metadata["run_id"]] = value
@@ -416,13 +426,14 @@ def row_sort_key(key: tuple[str, ...]) -> tuple[object, ...]:
 def build_per_query_summary(
     per_query_rows: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-    grouped: dict[tuple[str, str, str, str, str], list[dict[str, object]]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str, str, str], list[dict[str, object]]] = defaultdict(list)
     for row in per_query_rows:
         key = (
             str(row["model"]),
             str(row["method_family"]),
             str(row["method"]),
             str(row["topk"]),
+            str(row["condition"]),
             str(row["metric"]),
         )
         grouped[key].append(row)
@@ -433,7 +444,7 @@ def build_per_query_summary(
         ranges = [float(row["range"]) for row in rows if row.get("range") not in {None, ""}]
         if not stds:
             continue
-        summary = dict(zip(["model", "method_family", "method", "topk", "metric"], key))
+        summary = dict(zip(["model", "method_family", "method", "topk", "condition", "metric"], key))
         summary.update({
             "n_queries": len(stds),
             "mean_query_std": mean(stds),
@@ -469,22 +480,22 @@ def build_primary_metric_table(
     primary_metric: str,
 ) -> list[str]:
     primary_rows = [row for row in aggregate_rows if row["metric"] == primary_metric]
-    methods = sorted({str(row["method"]) for row in primary_rows})
+    methods = sorted({(str(row["method"]), str(row.get("condition", "forward"))) for row in primary_rows})
     topks = sorted({str(row["topk"]) for row in primary_rows}, key=topk_sort_key)
     by_key = {
-        (str(row["method"]), str(row["topk"])): row
+        (str(row["method"]), str(row.get("condition", "forward")), str(row["topk"])): row
         for row in primary_rows
     }
 
     lines = [
         f"## Primary Metric: {primary_metric}",
         "",
-        "| Method | " + " | ".join(topks) + " |",
-        "|---" + "|---:" * len(topks) + "|",
+        "| Method | Condition | " + " | ".join(topks) + " |",
+        "|---|---" + "|---:" * len(topks) + "|",
     ]
-    for method in methods:
-        cells = [format_report_value(by_key.get((method, topk), {})) for topk in topks]
-        lines.append(f"| `{method}` | " + " | ".join(cells) + " |")
+    for method, condition in methods:
+        cells = [format_report_value(by_key.get((method, condition, topk), {})) for topk in topks]
+        lines.append(f"| `{method}` | {condition} | " + " | ".join(cells) + " |")
     return lines
 
 
@@ -497,19 +508,25 @@ def build_most_stable_table(
         row for row in aggregate_rows
         if row["metric"] == primary_metric and isinstance(row.get("sample_std"), float)
     ]
-    primary_rows.sort(key=lambda row: (float(row["sample_std"]), str(row["method"]), str(row["topk"])))
+    primary_rows.sort(key=lambda row: (
+        float(row["sample_std"]),
+        str(row["method"]),
+        str(row.get("condition", "forward")),
+        str(row["topk"]),
+    ))
 
     lines = [
         f"## Lowest Run-to-Run Std: {primary_metric}",
         "",
-        "| Method | TopK | Mean | Sample Std | CV | Range |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| Method | Condition | TopK | Mean | Sample Std | CV | Range |",
+        "|---|---|---:|---:|---:|---:|---:|",
     ]
     for row in primary_rows[:limit]:
         cv = row.get("coefficient_of_variation")
         lines.append(
-            "| `{method}` | {topk} | {mean:.4f} | {std:.6f} | {cv} | {range_value:.6f} |".format(
+            "| `{method}` | {condition} | {topk} | {mean:.4f} | {std:.6f} | {cv} | {range_value:.6f} |".format(
                 method=row["method"],
+                condition=row.get("condition", "forward"),
                 topk=str(row["topk"]).replace("top", ""),
                 mean=float(row["mean"]),
                 std=float(row["sample_std"]),
@@ -553,19 +570,21 @@ def build_report(
         ]
         rows.sort(key=lambda row: (
             str(row["method"]),
+            str(row.get("condition", "forward")),
             topk_sort_key(str(row["topk"])),
         ))
         lines.extend([
             "",
             f"## Query-Level Stability Summary: {primary_metric}",
             "",
-            "| Method | TopK | Mean Query Std | P90 Query Std | Max Query Std | Queries Std > 0.01 |",
-            "|---|---:|---:|---:|---:|---:|",
+            "| Method | Condition | TopK | Mean Query Std | P90 Query Std | Max Query Std | Queries Std > 0.01 |",
+            "|---|---|---:|---:|---:|---:|---:|",
         ])
         for row in rows:
             lines.append(
-                "| `{method}` | {topk} | {mean_std:.6f} | {p90_std:.6f} | {max_std:.6f} | {gt} |".format(
+                "| `{method}` | {condition} | {topk} | {mean_std:.6f} | {p90_std:.6f} | {max_std:.6f} | {gt} |".format(
                     method=row["method"],
+                    condition=row.get("condition", "forward"),
                     topk=str(row["topk"]).replace("top", ""),
                     mean_std=float(row["mean_query_std"]),
                     p90_std=float(row["p90_query_std"]),
@@ -647,7 +666,7 @@ def run_stability_analysis(
     aggregate_groups, per_query_groups = collect_eval_values(eval_paths, results_root)
     log_groups = collect_log_values(log_paths, results_root)
 
-    aggregate_key_fields = ["model", "method_family", "method", "topk", "metric"]
+    aggregate_key_fields = ["model", "method_family", "method", "topk", "condition", "metric"]
     per_query_key_fields = aggregate_key_fields + ["qid"]
     common_stat_fields = [
         "n_runs",
@@ -755,6 +774,7 @@ def main() -> None:
                 "method_family",
                 "method",
                 "topk",
+                "condition",
                 "metric",
                 "n_queries",
                 "mean_query_std",

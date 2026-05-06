@@ -11,6 +11,7 @@
 #   ./submit_max_context_jobs.sh [--tag TAG] [--model MODEL]
 #                                [--dataset DL19|DL20]
 #                                [--idea007-only]
+#                                [--shuffle|--reverse]
 #                                [--pool-sizes "10 20 30 40 50"]
 #                                [--dry-run] [-h|--help]
 #
@@ -32,6 +33,8 @@ DATASET="DL19"
 DRY_RUN=0
 IDEA007_ONLY=0
 POOL_SIZES_OVERRIDE=""
+SHUFFLE_FLAG=0
+REVERSE_FLAG=0
 
 usage() {
   cat <<'USAGE'
@@ -52,6 +55,10 @@ Options:
   --idea007-only     Submit only the historical 7-block IDEA_007 layout
                      (35 jobs with the default 5-pool sweep). Use this for
                      Phase C' byte-equality rechecks.
+  --shuffle          MaxContext-only: per-round shuffle of the remaining pool
+                     with fixed seed 929. Submits Blocks 5-7 only.
+  --reverse          MaxContext-only: per-round reverse of the remaining pool.
+                     Submits Blocks 5-7 only.
   --pool-sizes LIST  Override the default pool sizes with a whitespace-separated
                      positive-integer list, e.g. "10 20 30 40 50 100".
                      Omit this flag to preserve the canonical 5-pool layout.
@@ -93,6 +100,10 @@ while [[ $# -gt 0 ]]; do
       DRY_RUN=1; shift ;;
     --idea007-only)
       IDEA007_ONLY=1; shift ;;
+    --shuffle)
+      SHUFFLE_FLAG=1; shift ;;
+    --reverse)
+      REVERSE_FLAG=1; shift ;;
     --pool-sizes)
       [[ $# -ge 2 ]] || { echo "Error: --pool-sizes requires a value" >&2; exit 2; }
       POOL_SIZES_OVERRIDE="$2"; shift 2 ;;
@@ -104,6 +115,11 @@ while [[ $# -gt 0 ]]; do
       exit 2 ;;
   esac
 done
+
+if [[ "$SHUFFLE_FLAG" -eq 1 && "$REVERSE_FLAG" -eq 1 ]]; then
+  echo "Error: --shuffle and --reverse are mutually exclusive" >&2
+  exit 2
+fi
 
 # -----------------------------------------------------------------------------
 # Resolve dataset shortcut -> dataset path, BM25 run path, dataset tag
@@ -147,6 +163,19 @@ esac
 OUT_PREFIX="results/maxcontext_dualend/${TAG}"
 RUN_BASELINE="${OUT_PREFIX}/baseline/${MODEL_TAG}-${DATASET_TAG}"
 RUN_PHASE1="${OUT_PREFIX}/phase1/${MODEL_TAG}-${DATASET_TAG}"
+
+CONDITION_ACTIVE=0
+CONDITION_SUFFIX=""
+unset SHUFFLE REVERSE
+if [[ "$SHUFFLE_FLAG" -eq 1 ]]; then
+  CONDITION_ACTIVE=1
+  CONDITION_SUFFIX="_shuffle"
+  export SHUFFLE=1
+elif [[ "$REVERSE_FLAG" -eq 1 ]]; then
+  CONDITION_ACTIVE=1
+  CONDITION_SUFFIX="_reverse"
+  export REVERSE=1
+fi
 
 POOL_SIZES=(10 20 30 40 50)
 if [[ -n "${POOL_SIZES_OVERRIDE}" ]]; then
@@ -197,53 +226,55 @@ cat <<INFO >&2
     mode        : $([[ $DRY_RUN -eq 1 ]] && echo "DRY-RUN (no sbatch)" || echo "submitting")
 INFO
 
-# =============================================================================
-# Block 1 - Original TopDown-Heap (WS=3)   [num_child = 2]
-# =============================================================================
-for N in "${POOL_SIZES[@]}"; do
-  submit experiments/run_topdown_bigram.sh \
-    "$MODEL" \
-    "$DATASET_PATH" \
-    "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-3/top${N}" \
-    cuda generation 2 "$N" "$N" 512 heapsort
-done
+if [[ "$CONDITION_ACTIVE" -eq 0 ]]; then
+  # =============================================================================
+  # Block 1 - Original TopDown-Heap (WS=3)   [num_child = 2]
+  # =============================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_topdown_bigram.sh \
+      "$MODEL" \
+      "$DATASET_PATH" \
+      "$BM25_RUN" \
+      "${RUN_BASELINE}/original/ws-3/top${N}" \
+      cuda generation 2 "$N" "$N" 512 heapsort
+  done
 
-# =============================================================================
-# Block 2 - Original TopDown-Bubble (WS=3)  [num_child = 2]
-# =============================================================================
-for N in "${POOL_SIZES[@]}"; do
-  submit experiments/run_topdown_bigram.sh \
-    "$MODEL" \
-    "$DATASET_PATH" \
-    "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-3/top${N}" \
-    cuda generation 2 "$N" "$N" 512 bubblesort
-done
+  # =============================================================================
+  # Block 2 - Original TopDown-Bubble (WS=3)  [num_child = 2]
+  # =============================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_topdown_bigram.sh \
+      "$MODEL" \
+      "$DATASET_PATH" \
+      "$BM25_RUN" \
+      "${RUN_BASELINE}/original/ws-3/top${N}" \
+      cuda generation 2 "$N" "$N" 512 bubblesort
+  done
 
-# =============================================================================
-# Block 3 - Original TopDown-Heap (WS=PS)  [num_child = pool_size - 1]
-# =============================================================================
-for N in "${POOL_SIZES[@]}"; do
-  submit experiments/run_topdown_bigram.sh \
-    "$MODEL" \
-    "$DATASET_PATH" \
-    "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-ps/top${N}" \
-    cuda generation $((N - 1)) "$N" "$N" 512 heapsort
-done
+  # =============================================================================
+  # Block 3 - Original TopDown-Heap (WS=PS)  [num_child = pool_size - 1]
+  # =============================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_topdown_bigram.sh \
+      "$MODEL" \
+      "$DATASET_PATH" \
+      "$BM25_RUN" \
+      "${RUN_BASELINE}/original/ws-ps/top${N}" \
+      cuda generation $((N - 1)) "$N" "$N" 512 heapsort
+  done
 
-# =============================================================================
-# Block 4 - Original TopDown-Bubble (WS=PS)  [num_child = pool_size - 1]
-# =============================================================================
-for N in "${POOL_SIZES[@]}"; do
-  submit experiments/run_topdown_bigram.sh \
-    "$MODEL" \
-    "$DATASET_PATH" \
-    "$BM25_RUN" \
-    "${RUN_BASELINE}/original/ws-ps/top${N}" \
-    cuda generation $((N - 1)) "$N" "$N" 512 bubblesort
-done
+  # =============================================================================
+  # Block 4 - Original TopDown-Bubble (WS=PS)  [num_child = pool_size - 1]
+  # =============================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_topdown_bigram.sh \
+      "$MODEL" \
+      "$DATASET_PATH" \
+      "$BM25_RUN" \
+      "${RUN_BASELINE}/original/ws-ps/top${N}" \
+      cuda generation $((N - 1)) "$N" "$N" 512 bubblesort
+  done
+fi
 
 # =============================================================================
 # Block 5 - MaxContext-TopDown
@@ -253,7 +284,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$MODEL" \
     "$DATASET_PATH" \
     "$BM25_RUN" \
-    "${RUN_BASELINE}/max-context/topdown/top${N}" \
+    "${RUN_BASELINE}/max-context/topdown/top${N}${CONDITION_SUFFIX}" \
     cuda generation "$N" 512
 done
 
@@ -265,7 +296,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$MODEL" \
     "$DATASET_PATH" \
     "$BM25_RUN" \
-    "${RUN_PHASE1}/top${N}" \
+    "${RUN_PHASE1}/top${N}${CONDITION_SUFFIX}" \
     cuda generation "$N" 512
 done
 
@@ -277,7 +308,7 @@ for N in "${POOL_SIZES[@]}"; do
     "$MODEL" \
     "$DATASET_PATH" \
     "$BM25_RUN" \
-    "${RUN_BASELINE}/max-context/bottomup/top${N}" \
+    "${RUN_BASELINE}/max-context/bottomup/top${N}${CONDITION_SUFFIX}" \
     cuda generation "$N" 512
 done
 
@@ -285,7 +316,7 @@ done
 # ===========================================================================
 # Block 8 - Original BottomUp-Heap (WS=3) [num_child = 2]
 # ===========================================================================
-if [[ "$IDEA007_ONLY" -eq 0 ]]; then
+if [[ "$IDEA007_ONLY" -eq 0 && "$CONDITION_ACTIVE" -eq 0 ]]; then
   for N in "${POOL_SIZES[@]}"; do
     submit experiments/run_bottomup_bigram.sh \
       "$MODEL" "$DATASET_PATH" "$BM25_RUN" \

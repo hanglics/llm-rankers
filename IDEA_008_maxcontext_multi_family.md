@@ -59,6 +59,7 @@ Required phases:
 - Phase B: 3024 main-matrix cells (`pool_size ∈ {10,20,30,40,50,100}`).
 - Phase C: 1260 required stability cells on the scientific seven-method axis; 1980 stability-layout submissions using the default 11-block layout.
 - Phase C′: 35 IDEA_007 byte-equality recheck cells via `submit_max_context_jobs.sh --idea007-only`.
+- Phase F: 432 MaxContext-only position-bias cells on the representative triplet, using per-comparison `--reverse` and fixed-seed-929 `--shuffle` controls. Forward cells are reused from Phase B.
 
 Optional phases:
 
@@ -68,6 +69,7 @@ Optional phases:
 ## 6. Risks
 
 - Model-specific position bias may change which MaxContext variant is useful by family.
+- Phase F isolates position bias from BM25 content quality by comparing forward / reverse / shuffle conditions on the same MaxContext cells.
 - Family-specific parser drift may surface numeric-output patterns absent from Qwen logs.
 - Mistral/Ministral attention quirks may reduce effective context or require loader-specific handling.
 - Refusal pattern variance may affect the strict parser and single-extreme fallback telemetry.
@@ -90,6 +92,7 @@ Optional phases:
 ## 8. Audit Trail
 
 - **v4 (2026-05-06):** multimodal loader refactor applied for Mistral 3 and Qwen 3.5 vision-language configs. The ranker uses text-only prompts through `AutoProcessor` / `AutoModelForImageTextToText`; Qwen3 / Qwen3-MoE remain on the existing causal path for byte-equality.
+- **v5 (2026-05-07):** Phase F position-bias controls added for MaxContext only: `--reverse` and fixed-seed-929 per-comparison `--shuffle`, with suffixed result leaves and paired condition-delta analysis.
 - **v2 (2026-05-06):** v8 extends required EMNLP Phase A/B/C to include pool=100 for Qwen3.5 / Llama-3.1 / Ministral-3; Phase C′ and optional Qwen3 phases remain at the v7 five-pool sweep.
 - **v3 (2026-05-06):** standard TopDown/BottomUp launcher consolidation applied; Phase C stability submissions use the default 11-block layout, while Phase C′ keeps the 35-cell gate through `--idea007-only`.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit on the EMNLP plan.

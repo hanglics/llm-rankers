@@ -11,6 +11,8 @@ TAG=""
 OUTPUT_ROOT=""
 DRY_RUN=0
 FORCE=0
+SHUFFLE=0
+REVERSE=0
 
 usage() {
   cat <<'USAGE'
@@ -23,6 +25,8 @@ Options mirror submit_emnlp_jobs.sh:
   --pool-size N|all   Pool size (default: 50). Use "all" for 10,20,30,40,50,100.
   --tag TAG           Main-matrix tag under results/emnlp/main/.
   --output-root DIR   Override output root; default is results/emnlp/main/TAG.
+  --shuffle           Evaluate MaxContext per-round shuffle outputs.
+  --reverse           Evaluate MaxContext per-round reverse outputs.
   --force             Re-evaluate existing .eval files.
   --dry-run           Print eval commands without invoking pyserini.
   -h | --help         Show this help.
@@ -39,6 +43,8 @@ while [[ $# -gt 0 ]]; do
     --pool-size) [[ $# -ge 2 ]] || { echo "Error: --pool-size requires a value" >&2; exit 2; }; POOL_SIZE="$2"; shift 2 ;;
     --tag) [[ $# -ge 2 ]] || { echo "Error: --tag requires a value" >&2; exit 2; }; TAG="$2"; shift 2 ;;
     --output-root) [[ $# -ge 2 ]] || { echo "Error: --output-root requires a value" >&2; exit 2; }; OUTPUT_ROOT="$2"; shift 2 ;;
+    --shuffle) SHUFFLE=1; shift ;;
+    --reverse) REVERSE=1; shift ;;
     --force) FORCE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -50,6 +56,11 @@ done
 [[ -n "$MODEL" ]] || { echo "Error: --model is required" >&2; usage >&2; exit 2; }
 [[ -n "$DATASET" ]] || { echo "Error: --dataset is required" >&2; usage >&2; exit 2; }
 [[ -n "$TAG" || -n "$OUTPUT_ROOT" ]] || { echo "Error: --tag is required unless --output-root is set" >&2; usage >&2; exit 2; }
+
+if [[ "$SHUFFLE" -eq 1 && "$REVERSE" -eq 1 ]]; then
+  echo "Error: --shuffle and --reverse are mutually exclusive" >&2
+  exit 2
+fi
 
 case "$DATASET" in
   dl19) DATASET_TAG="dl19"; QRELS="dl19-passage"; LEVEL=2 ;;
@@ -68,6 +79,11 @@ case "$METHOD" in
   *) echo "Error: unsupported --method '$METHOD'" >&2; exit 2 ;;
 esac
 
+if [[ "$METHOD" != maxcontext_* ]] && [[ "$SHUFFLE" -eq 1 || "$REVERSE" -eq 1 ]]; then
+  echo "Error: --shuffle/--reverse are supported only for MaxContext methods" >&2
+  exit 2
+fi
+
 if [[ "$POOL_SIZE" == "all" ]]; then
   POOL_SIZES=(10 20 30 40 50 100)
 elif [[ "$POOL_SIZE" =~ ^[0-9]+$ ]]; then
@@ -82,6 +98,13 @@ if [[ -z "$OUTPUT_ROOT" ]]; then
   OUTPUT_ROOT="results/emnlp/main/${TAG}"
 fi
 
+CONDITION_SUFFIX=""
+if [[ "$SHUFFLE" -eq 1 ]]; then
+  CONDITION_SUFFIX="_shuffle"
+elif [[ "$REVERSE" -eq 1 ]]; then
+  CONDITION_SUFFIX="_reverse"
+fi
+
 OK=0
 FAIL=0
 SKIP=0
@@ -90,6 +113,7 @@ PLANNED=0
 
 for N in "${POOL_SIZES[@]}"; do
   printf -v POOL_TAG "pool%02d" "$N"
+  POOL_TAG="${POOL_TAG}${CONDITION_SUFFIX}"
   OUTPUT_DIR="${OUTPUT_ROOT}/${MODEL_TAG}/${DATASET_TAG}/${METHOD}/${POOL_TAG}"
   RESULT="${OUTPUT_DIR}/${METHOD}.txt"
   EVAL_FILE="${OUTPUT_DIR}/${METHOD}.eval"
