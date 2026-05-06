@@ -31,6 +31,51 @@ except ImportError as err:
     LoRARequest = None
     VLLM_IMPORT_ERROR = err
 
+
+import logging as _stdlib_logging
+
+
+class _MaxLengthWarningFilter(_stdlib_logging.Filter):
+    """Suppress the cosmetic `max_new_tokens vs max_length` warning emitted
+    by transformers' generation pipeline.
+
+    When a model's `generation_config` ships an explicit `max_length` (e.g.
+    Mistral 3 = 262144, Qwen 3.5 multimodal also explicit), HF emits a
+    warning whenever the user passes `max_new_tokens` — even though
+    `max_new_tokens` correctly takes precedence and behavior is unchanged.
+    The warning fires regardless of whether we pass our own
+    `generation_config` or use kwargs-only, because HF deep-copies the
+    model's pristine config and merges our kwargs into it before validating.
+
+    The warning is emitted via `logger.warning` (Python logging), not
+    `warnings.warn`, so `warnings.filterwarnings` does not catch it.
+
+    This filter is a no-op for models whose config does not trigger the
+    warning (e.g. Qwen 3, Llama 3.1 — `max_length=20` sentinel), so
+    Qwen 3 byte-equality is preserved.
+    """
+
+    def filter(self, record: _stdlib_logging.LogRecord) -> bool:  # type: ignore[override]
+        msg = record.getMessage()
+        return not (
+            "max_new_tokens" in msg
+            and "max_length" in msg
+            and "seem to have been set" in msg
+        )
+
+
+# Defensive coverage across transformers versions that have moved the warning
+# emission site between submodules. Idempotent (addFilter on the same instance
+# is safe across re-imports).
+_MAX_LENGTH_WARNING_FILTER = _MaxLengthWarningFilter()
+for _logger_name in (
+    "transformers.generation.utils",
+    "transformers.generation",
+    "transformers",
+):
+    _stdlib_logging.getLogger(_logger_name).addFilter(_MAX_LENGTH_WARNING_FILTER)
+
+
 random.seed(929)
 
 CAUSAL_MODEL_TYPES = frozenset({

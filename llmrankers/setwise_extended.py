@@ -529,12 +529,26 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             return self.CHARACTERS[0], self.CHARACTERS[0]
 
         passages = self._format_passages(docs)
-        input_text = (
+        base_prompt = (
             f'Given a query "{query}", which of the following passages is the most relevant '
             f'and which is the least relevant to the query?\n\n'
-            + passages +
-            '\n\nOutput only in the format: Best: [label], Worst: [label]'
+            + passages
         )
+        # Multimodal chat models (Mistral 3, Qwen 3.5) tend to copy the `[label]`
+        # placeholder literally and emit "Best: [None]" as a refusal token.
+        # Override the format line for multimodal+numeric to give an unambiguous
+        # numeric instruction analogous to `_build_best_prompt`. Gated on
+        # multimodal — Qwen 3 / Llama / etc. retain the original wording for
+        # byte-equality preservation.
+        if self._is_multimodal_model() and is_numeric:
+            input_text = base_prompt + (
+                f"\n\nReply with exactly two distinct passage numbers between 1 and {len(docs)}. "
+                f"Do not output 0, 'None', or any number outside the range. "
+                f"Pick the closest passages even if none are clearly relevant. "
+                f"Strict format on one line: Best: <number>, Worst: <number>"
+            )
+        else:
+            input_text = base_prompt + '\n\nOutput only in the format: Best: [label], Worst: [label]'
 
         best = None
         worst = None
