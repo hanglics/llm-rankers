@@ -11,8 +11,11 @@
 #SBATCH --account=a_ai_collab
 #SBATCH --exclude=bun116,bun073
 
+set -eo pipefail
+
 module load anaconda3/2023.09-0
-source $EBROOTANACONDA3/etc/profile.d/conda.sh
+: "${EBROOTANACONDA3:?EBROOTANACONDA3 is not set after module load anaconda3/2023.09-0}"
+source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
 module load cuda/12.2.0
 # CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
 # / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
@@ -20,6 +23,17 @@ module load cuda/12.2.0
 # Llama-3.1, and Ministral-3 model families.
 CONDA_ENV="${CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
 conda activate "$CONDA_ENV"
+PYTHON="${CONDA_PREFIX:-$CONDA_ENV}/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "Error: selected CONDA_ENV python is not executable: $PYTHON" >&2
+  echo "CONDA_ENV=$CONDA_ENV" >&2
+  echo "CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+  exit 2
+fi
+echo "[launcher] CONDA_ENV=$CONDA_ENV" >&2
+echo "[launcher] CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+echo "[launcher] PYTHON=$PYTHON" >&2
+"$PYTHON" -c 'import sys, ir_datasets; print("[launcher] sys.executable=" + sys.executable); print("[launcher] ir_datasets=" + ir_datasets.__file__)' >&2
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"Qwen/Qwen3-4B"}
@@ -53,7 +67,7 @@ if [ "${NUM_CHILD}" -ge 23 ]; then
     CHARACTER_SCHEME_ARGS=(--character_scheme bigrams_aa_zz)
 fi
 
-python run.py \
+"${PYTHON}" run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \

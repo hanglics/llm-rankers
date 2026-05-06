@@ -17,14 +17,28 @@
 #   # or run directly:
 #   bash experiments/slurm_phase4bce_posthoc.sh
 
+set -eo pipefail
+
 module load anaconda3/2023.09-0
-source $EBROOTANACONDA3/etc/profile.d/conda.sh
+: "${EBROOTANACONDA3:?EBROOTANACONDA3 is not set after module load anaconda3/2023.09-0}"
+source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
 # CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
 # / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
 # ranker_env (Qwen3 family + pyserini); qwen35_env is used for Qwen3.5,
 # Llama-3.1, and Ministral-3 model families.
 CONDA_ENV="${CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
 conda activate "$CONDA_ENV"
+PYTHON="${CONDA_PREFIX:-$CONDA_ENV}/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "Error: selected CONDA_ENV python is not executable: $PYTHON" >&2
+  echo "CONDA_ENV=$CONDA_ENV" >&2
+  echo "CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+  exit 2
+fi
+echo "[launcher] CONDA_ENV=$CONDA_ENV" >&2
+echo "[launcher] CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+echo "[launcher] PYTHON=$PYTHON" >&2
+"$PYTHON" -c 'import sys, ir_datasets; print("[launcher] sys.executable=" + sys.executable); print("[launcher] ir_datasets=" + ir_datasets.__file__)' >&2
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 export PYSERINI_CACHE=/scratch/project/neural_ir/hang/llm-rankers/.cache/pyserini
@@ -52,7 +66,7 @@ for RESULTS_DIR in results/*-dl19; do
     DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${PYTHON} analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
         CMD="${CMD} --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl19.txt --qrels dl19-passage"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         echo "    ${MODEL_NAME} (DL19)"
@@ -69,7 +83,7 @@ for RESULTS_DIR in results/*-dl20; do
     DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${PYTHON} analysis/query_difficulty.py --topdown ${TD} --bottomup ${BU}"
         CMD="${CMD} --bm25_run runs/bm25/run.msmarco-v1-passage.bm25-default.dl20.txt --qrels dl20-passage"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         echo "    ${MODEL_NAME} (DL20)"
@@ -97,7 +111,7 @@ for RESULTS_DIR in results/*-dl19; do
     DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${PYTHON} analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         echo "    ${MODEL_NAME}: pairwise agreement (DL19)"
         eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl19.txt" 2>&1
@@ -113,7 +127,7 @@ for RESULTS_DIR in results/*-dl20; do
     DE="${RESULTS_DIR}/dualend_bubblesort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
+        CMD="${PYTHON} analysis/ranking_agreement.py --topdown ${TD} --bottomup ${BU}"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         echo "    ${MODEL_NAME}: pairwise agreement (DL20)"
         eval ${CMD} > "${AGREE_DIR}/${MODEL_NAME}_dl20.txt" 2>&1
@@ -142,7 +156,7 @@ for RESULTS_DIR in results/*-dl19; do
     PV="${RESULTS_DIR}/permvote_p2_heapsort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl19-passage"
+        CMD="${PYTHON} analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl19-passage"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         [ -f "${BIDIR}" ] && CMD="${CMD} --bidir_rrf ${BIDIR}"
         [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"
@@ -162,7 +176,7 @@ for RESULTS_DIR in results/*-dl20; do
     PV="${RESULTS_DIR}/permvote_p2_heapsort.txt"
 
     if [ -f "${TD}" ] && [ -f "${BU}" ]; then
-        CMD="python analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl20-passage"
+        CMD="${PYTHON} analysis/per_query_analysis.py --topdown ${TD} --bottomup ${BU} --qrels dl20-passage"
         [ -f "${DE}" ] && CMD="${CMD} --dualend ${DE}"
         [ -f "${BIDIR}" ] && CMD="${CMD} --bidir_rrf ${BIDIR}"
         [ -f "${PV}" ] && CMD="${CMD} --permvote ${PV}"

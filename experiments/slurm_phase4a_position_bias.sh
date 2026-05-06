@@ -25,8 +25,11 @@
 #   sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3-14B 512
 #   sbatch experiments/slurm_phase4a_position_bias.sh Qwen/Qwen3.5-4B 512
 
+set -eo pipefail
+
 module load anaconda3/2023.09-0
-source $EBROOTANACONDA3/etc/profile.d/conda.sh
+: "${EBROOTANACONDA3:?EBROOTANACONDA3 is not set after module load anaconda3/2023.09-0}"
+source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
 module load cuda/12.2.0
 # CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
 # / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
@@ -34,6 +37,17 @@ module load cuda/12.2.0
 # Llama-3.1, and Ministral-3 model families.
 CONDA_ENV="${CONDA_ENV:-/scratch/project/neural_ir/hang/llm-rankers/ranker_env}"
 conda activate "$CONDA_ENV"
+PYTHON="${CONDA_PREFIX:-$CONDA_ENV}/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "Error: selected CONDA_ENV python is not executable: $PYTHON" >&2
+  echo "CONDA_ENV=$CONDA_ENV" >&2
+  echo "CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+  exit 2
+fi
+echo "[launcher] CONDA_ENV=$CONDA_ENV" >&2
+echo "[launcher] CONDA_PREFIX=${CONDA_PREFIX:-}" >&2
+echo "[launcher] PYTHON=$PYTHON" >&2
+"$PYTHON" -c 'import sys, ir_datasets; print("[launcher] sys.executable=" + sys.executable); print("[launcher] ir_datasets=" + ir_datasets.__file__)' >&2
 cd /scratch/project/neural_ir/hang/llm-rankers
 
 MODEL=${1:-"google/flan-t5-xl"}
@@ -63,7 +77,7 @@ echo "=============================================="
 # [1/3] TopDown Heapsort
 echo ""
 echo ">>> [1/3] TopDown Heapsort (with comparison logging)"
-python run.py \
+"${PYTHON}" run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
@@ -76,7 +90,7 @@ python run.py \
 # [2/3] BottomUp Heapsort
 echo ""
 echo ">>> [2/3] BottomUp Heapsort (with comparison logging)"
-python run.py \
+"${PYTHON}" run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
@@ -89,7 +103,7 @@ python run.py \
 # [3/3] DualEnd Cocktail
 echo ""
 echo ">>> [3/3] DualEnd Cocktail (with comparison logging)"
-python run.py \
+"${PYTHON}" run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
@@ -102,7 +116,7 @@ python run.py \
 # Analyze position bias (runs on CPU, quick)
 echo ""
 echo ">>> Analyzing position bias..."
-python analysis/position_bias.py \
+"${PYTHON}" analysis/position_bias.py \
     --log ${ANALYSIS_DIR}/*_comparisons.jsonl \
     --output ${ANALYSIS_DIR}/position_bias_results.txt
 
