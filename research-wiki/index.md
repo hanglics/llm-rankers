@@ -124,8 +124,8 @@ These are the entry-point documents for understanding the project. They were con
 - [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — short-paper section sketch and canonical seven methods
 - [exp:emnlp_phase_a_smoke](experiments/emnlp_phase_a_smoke.md) — Phase A smoke gate, 42 cells
 - [exp:emnlp_phase_b_main_matrix](experiments/emnlp_phase_b_main_matrix.md) — Phase B required main matrix, 3024 cells
-- [exp:emnlp_phase_c_stability](experiments/emnlp_phase_c_stability.md) — Phase C required stability, 1260 scientific cells / 1620 stability-layout submissions
-- [exp:emnlp_phase_c_prime_constraint_recheck](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C′ byte-equality recheck, 35 cells
+- [exp:emnlp_phase_c_stability](experiments/emnlp_phase_c_stability.md) — Phase C required stability, 1260 scientific cells / 1980 stability-layout submissions
+- [exp:emnlp_phase_c_prime_constraint_recheck](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C′ byte-equality recheck, 35 cells via `--idea007-only`
 - [exp:emnlp_phase_d_qwen3_optional](experiments/emnlp_phase_d_qwen3_optional.md) — Phase D optional Qwen3 main matrix, 1680 cells
 - [exp:emnlp_phase_e_qwen3_stability_optional](experiments/emnlp_phase_e_qwen3_stability_optional.md) — Phase E optional Qwen3-8B stability, 350 cells
 - Required EMNLP total: 4361 cells; with optional Qwen3 phases: 6391 cells.

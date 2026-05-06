@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # submit_max_context_jobs.sh
 #
-# Submit all 35 sbatch jobs from Need_to_Run_Max_Context.txt with one command,
+# Submit the MaxContext stability-layout sbatch jobs with one command,
 # parameterised by run tag, model, and dataset (DL19 / DL20). Everything else
 # (BM25 run path, passage length, scoring mode, sort algorithms, output
 # directory layout) stays fixed. Pool sizes default to {10,20,30,40,50}; use
@@ -10,7 +10,7 @@
 # Usage:
 #   ./submit_max_context_jobs.sh [--tag TAG] [--model MODEL]
 #                                [--dataset DL19|DL20]
-#                                [--include-standard-bottomup]
+#                                [--idea007-only]
 #                                [--pool-sizes "10 20 30 40 50"]
 #                                [--dry-run] [-h|--help]
 #
@@ -23,9 +23,6 @@
 
 set -euo pipefail
 
-# IDEA_007 default behavior preserved: --include-standard-bottomup off => 35 cells.
-# EMNLP opt-in: flag on => 45 cells.
-
 # -----------------------------------------------------------------------------
 # Defaults (match the original Need_to_Run_Max_Context.txt baseline)
 # -----------------------------------------------------------------------------
@@ -33,7 +30,7 @@ TAG="test_run_v1"
 MODEL="Qwen/Qwen3-4B"
 DATASET="DL19"
 DRY_RUN=0
-INCLUDE_STANDARD_BOTTOMUP=0
+IDEA007_ONLY=0
 POOL_SIZES_OVERRIDE=""
 
 usage() {
@@ -52,25 +49,29 @@ Options:
                        DL20 -> msmarco-passage/trec-dl-2020/judged
                      and the corresponding BM25 run path under runs/bm25/.
   --dry-run          Print sbatch commands instead of submitting them.
-  --include-standard-bottomup
-                     Add standard BottomUp heap/bubble blocks under
-                     original/bottomup/ (EMNLP opt-in; default off).
+  --idea007-only     Submit only the historical 7-block IDEA_007 layout
+                     (35 jobs with the default 5-pool sweep). Use this for
+                     Phase C' byte-equality rechecks.
   --pool-sizes LIST  Override the default pool sizes with a whitespace-separated
                      positive-integer list, e.g. "10 20 30 40 50 100".
                      Omit this flag to preserve the canonical 5-pool layout.
   -h | --help        Show this help and exit.
 
-Submits 35 sbatch jobs (7 method blocks x 5 pool sizes {10,20,30,40,50}):
-  - Original TopDown-Heap   (WS=4)
-  - Original TopDown-Bubble (WS=4)
+By default, submits 55 sbatch jobs (11 method blocks x 5 pools):
+  - Original TopDown-Heap   (WS=3)
+  - Original TopDown-Bubble (WS=3)
   - Original TopDown-Heap   (WS=PS)
   - Original TopDown-Bubble (WS=PS)
   - MaxContext-TopDown
   - MaxContext-DualEnd     (writes to phase1/, all others write to baseline/)
   - MaxContext-BottomUp
+  - Original BottomUp-Heap   (WS=3)
+  - Original BottomUp-Bubble (WS=3)
+  - Original BottomUp-Heap   (WS=PS)
+  - Original BottomUp-Bubble (WS=PS)
 
-With --include-standard-bottomup, also submits BottomUp heap+bubble blocks
-under original/bottomup/ for 45 total jobs.
+With --idea007-only, suppresses the four BottomUp blocks and submits the
+historical 35-job IDEA_007 layout.
 USAGE
 }
 
@@ -90,8 +91,8 @@ while [[ $# -gt 0 ]]; do
       DATASET="$2"; shift 2 ;;
     --dry-run)
       DRY_RUN=1; shift ;;
-    --include-standard-bottomup)
-      INCLUDE_STANDARD_BOTTOMUP=1; shift ;;
+    --idea007-only)
+      IDEA007_ONLY=1; shift ;;
     --pool-sizes)
       [[ $# -ge 2 ]] || { echo "Error: --pool-sizes requires a value" >&2; exit 2; }
       POOL_SIZES_OVERRIDE="$2"; shift 2 ;;
@@ -280,25 +281,46 @@ for N in "${POOL_SIZES[@]}"; do
     cuda generation "$N" 512
 done
 
-if [[ "$INCLUDE_STANDARD_BOTTOMUP" -eq 1 ]]; then
-  # ===========================================================================
-  # Block 8 - Standard BottomUp-Heap (WS=3) [num_child=2, k=10]
-  # ===========================================================================
+
+# ===========================================================================
+# Block 8 - Original BottomUp-Heap (WS=3) [num_child = 2]
+# ===========================================================================
+if [[ "$IDEA007_ONLY" -eq 0 ]]; then
   for N in "${POOL_SIZES[@]}"; do
-    submit experiments/run_bottomup_heapsort.sh \
+    submit experiments/run_bottomup_bigram.sh \
       "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
-      "${RUN_BASELINE}/original/bottomup/top${N}" \
-      cuda generation 2 10 "$N" 512
+      "${RUN_BASELINE}/original/bottomup/ws-3/top${N}" \
+      cuda generation 2 "$N" "$N" 512 heapsort
   done
 
   # ===========================================================================
-  # Block 9 - Standard BottomUp-Bubble (WS=3) [num_child=2, k=10]
+  # Block 9 - Original BottomUp-Bubble (WS=3) [num_child = 2]
   # ===========================================================================
   for N in "${POOL_SIZES[@]}"; do
-    submit experiments/run_bottomup_bubblesort.sh \
+    submit experiments/run_bottomup_bigram.sh \
       "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
-      "${RUN_BASELINE}/original/bottomup/top${N}" \
-      cuda generation 2 10 "$N" 512
+      "${RUN_BASELINE}/original/bottomup/ws-3/top${N}" \
+      cuda generation 2 "$N" "$N" 512 bubblesort
+  done
+
+  # ===========================================================================
+  # Block 10 - Original BottomUp-Heap (WS=PS) [num_child = pool_size - 1]
+  # ===========================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_bottomup_bigram.sh \
+      "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
+      "${RUN_BASELINE}/original/bottomup/ws-ps/top${N}" \
+      cuda generation $((N - 1)) "$N" "$N" 512 heapsort
+  done
+
+  # ===========================================================================
+  # Block 11 - Original BottomUp-Bubble (WS=PS) [num_child = pool_size - 1]
+  # ===========================================================================
+  for N in "${POOL_SIZES[@]}"; do
+    submit experiments/run_bottomup_bigram.sh \
+      "$MODEL" "$DATASET_PATH" "$BM25_RUN" \
+      "${RUN_BASELINE}/original/bottomup/ws-ps/top${N}" \
+      cuda generation $((N - 1)) "$N" "$N" 512 bubblesort
   done
 fi
 

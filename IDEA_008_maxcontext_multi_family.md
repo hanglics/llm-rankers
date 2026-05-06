@@ -57,8 +57,8 @@ Required phases:
 
 - Phase A: 42 smoke cells (`pool_size ∈ {50,100}`).
 - Phase B: 3024 main-matrix cells (`pool_size ∈ {10,20,30,40,50,100}`).
-- Phase C: 1260 required stability cells on the scientific seven-method axis; 1620 stability-layout submissions including the retained ws-3/ws-PS overhead.
-- Phase C′: 35 IDEA_007 byte-equality recheck cells.
+- Phase C: 1260 required stability cells on the scientific seven-method axis; 1980 stability-layout submissions using the default 11-block layout.
+- Phase C′: 35 IDEA_007 byte-equality recheck cells via `submit_max_context_jobs.sh --idea007-only`.
 
 Optional phases:
 
@@ -90,4 +90,5 @@ Optional phases:
 ## 8. Audit Trail
 
 - **v2 (2026-05-06):** v8 extends required EMNLP Phase A/B/C to include pool=100 for Qwen3.5 / Llama-3.1 / Ministral-3; Phase C′ and optional Qwen3 phases remain at the v7 five-pool sweep.
+- **v3 (2026-05-06):** standard TopDown/BottomUp launcher consolidation applied; Phase C stability submissions use the default 11-block layout, while Phase C′ keeps the 35-cell gate through `--idea007-only`.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit on the EMNLP plan.

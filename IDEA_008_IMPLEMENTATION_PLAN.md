@@ -42,8 +42,8 @@ The authoritative line-level audit is the v7 plan §A. This implementation plan 
 - `run.py` — plan §A.3: update the MaxContext local-model `--openai_key` rejection message.
 - `scripts/check_maxcontext_invariants.py` — plan §A.4: add family-admission, trust, thinking-kwargs, generation-budget, and early-reject tests.
 - `experiments/eval_all.sh` — plan §A.5: add BEIR qrels mapping and `LEVEL` handling.
-- Existing launcher scripts — plan §A.6: no edits to `experiments/run_*.sh`.
-- `submit_max_context_jobs.sh`, `eval_max_context_jobs.sh`, `analysis/repeated_run_stability.py` — plan §A.7 / §B.6 / §B.8: default-off standard-BottomUp stability opt-in and parser metadata support.
+- Existing launcher scripts — plan §A.6 plus launcher-consolidation v3: `run_topdown_bigram.sh` gains `ANALYSIS_LOG_DIR`; `run_bottomup_bigram.sh` is added.
+- `submit_max_context_jobs.sh`, `eval_max_context_jobs.sh`, `analysis/repeated_run_stability.py` — plan §A.7 / §B.6 / §B.8 plus launcher-consolidation v3: default 11-block stability layout, `--idea007-only` 35-cell gate, and BottomUp ws-3/ws-ps metadata support.
 - `submit_emnlp_jobs.sh`, `eval_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `scripts/smoke_emnlp_models.sh` — plan §B.4-§B.7: new EMNLP operators.
 - `analysis/cross_model_stability.py`, `analysis/position_bias_emnlp.py`, `analysis/position_bias.py` — plan §B.8 / §E.12: cross-family stability and MaxContext-only position-bias analysis.
 
@@ -74,7 +74,7 @@ For IDEA_008 v8, Phase A additionally records each required model's `config.mode
 
 Main-matrix submission and evaluation use `submit_emnlp_jobs.sh` and `eval_emnlp_jobs.sh` (plan §B.4-§B.5). These scripts invoke `python3 run.py` directly and write comparison JSONL next to the `.txt`, `.eval`, and `.log` outputs.
 
-Stability submission uses `submit_emnlp_stability_jobs.sh` (plan §B.6), which wraps `submit_max_context_jobs.sh --include-standard-bottomup` to preserve the IDEA_007 stability layout while adding the two standard BottomUp blocks required by the seven-method EMNLP axis.
+Stability submission uses `submit_emnlp_stability_jobs.sh` (plan §B.6), which wraps the default 11-block `submit_max_context_jobs.sh` layout. Phase C reports 1260 scientific seven-method cells and submits 1980 stability-layout jobs. Phase C′ passes `--idea007-only` directly to `submit_max_context_jobs.sh` to preserve the 35-cell IDEA_007 byte-equality gate.
 
 Phase A smoke uses `scripts/smoke_emnlp_models.sh` (plan §B.7).
 
@@ -106,8 +106,8 @@ v8 matrix counts:
 |----------------------------|------:|-------------------------------------------------------------------------------------------------------------------|
 | Phase A smoke              |    42 | 3 models × 7 methods × dl19 × pools {50,100}.                                                                     |
 | Phase B required main      |  3024 | 7 methods × 9 models × 8 datasets × 6 pools.                                                                      |
-| Phase C required stability |  1260 | Scientific seven-method count; wrapper submits 1620 stability-layout jobs including retained ws-3/ws-PS overhead. |
-| Phase C′ prime recheck     |    35 | Unchanged five-pool Qwen3-4B byte-equality control.                                                               |
+| Phase C required stability |  1260 | Scientific seven-method count; wrapper submits 1980 stability-layout jobs with default 11-block layout.             |
+| Phase C′ prime recheck     |    35 | Unchanged five-pool Qwen3-4B byte-equality control via `--idea007-only`.                                            |
 | Required total             |  4361 | A + B + C + C′.                                                                                                   |
 
 The smoke gate is method-aware: all seven methods require full `.txt` coverage, top-10 permutation validity, positive NDCG@10, and clean logs; only the three MaxContext methods require zero parse-fallback and numeric out-of-range counters.
@@ -126,6 +126,7 @@ New operator and analysis files:
 - `eval_emnlp_jobs.sh`
 - `submit_emnlp_stability_jobs.sh`
 - `scripts/smoke_emnlp_models.sh`
+- `experiments/run_bottomup_bigram.sh`
 - `analysis/cross_model_stability.py`
 - `analysis/position_bias_emnlp.py`
 - `scripts/probe_beir_pool100_fit.py`
@@ -184,5 +185,6 @@ Modified docs/wiki files:
 
 ## 12. Audit Trail
 
+- **v3 (2026-05-06):** launcher consolidation applied: standard EMNLP TopDown/BottomUp methods use bigram launchers, `run_bottomup_bigram.sh` added, stability default layout expands to 1980 submissions, and Phase C′ remains 35 cells via `--idea007-only`.
 - **v2 (2026-05-06):** v8 pool=100 delta applied: Phase A 42, Phase B 3024, Phase C 1260 scientific / 1620 submitted, required total 4361; IDEA_007 65-cell prime gate unchanged.
 - **v1 (2026-05-05):** READY_TO_EXECUTE post 6-round Codex audit.

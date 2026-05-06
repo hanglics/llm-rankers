@@ -121,14 +121,14 @@ esac
 # K_MODE=="pool" : MaxContext direction. Launcher takes
 #                  (MODEL DS RUN_PATH OUTPUT_DIR DEVICE SCORING POOL_SIZE PASSAGE_LENGTH);
 #                  ranker overrides num_child to pool_size-1 internally.
-# K_MODE=="fixed": standard setwise. Launcher takes
-#                  (MODEL DS RUN_PATH OUTPUT_DIR DEVICE SCORING NUM_CHILD K HITS PASSAGE_LENGTH);
+# K_MODE=="fixed": standard setwise. Bigram launcher takes
+#                  (MODEL DS RUN_PATH OUTPUT_DIR DEVICE SCORING NUM_CHILD K HITS PASSAGE_LENGTH METHOD);
 #                  EMNLP standard methods use num_child=2 (Setwise WS=3), k=10, hits=pool_size.
 case "$METHOD" in
-  topdown_heapsort)    LAUNCHER="experiments/run_topdown_heapsort.sh";    K_MODE="fixed" ;;
-  topdown_bubblesort)  LAUNCHER="experiments/run_topdown_bubblesort.sh";  K_MODE="fixed" ;;
-  bottomup_heapsort)   LAUNCHER="experiments/run_bottomup_heapsort.sh";   K_MODE="fixed" ;;
-  bottomup_bubblesort) LAUNCHER="experiments/run_bottomup_bubblesort.sh"; K_MODE="fixed" ;;
+  topdown_heapsort)    LAUNCHER="experiments/run_topdown_bigram.sh";    K_MODE="fixed"; SETWISE_METHOD="heapsort"   ;;
+  topdown_bubblesort)  LAUNCHER="experiments/run_topdown_bigram.sh";    K_MODE="fixed"; SETWISE_METHOD="bubblesort" ;;
+  bottomup_heapsort)   LAUNCHER="experiments/run_bottomup_bigram.sh";   K_MODE="fixed"; SETWISE_METHOD="heapsort"   ;;
+  bottomup_bubblesort) LAUNCHER="experiments/run_bottomup_bigram.sh";   K_MODE="fixed"; SETWISE_METHOD="bubblesort" ;;
   maxcontext_topdown)  LAUNCHER="experiments/run_maxcontext_topdown.sh";  K_MODE="pool"  ;;
   maxcontext_bottomup) LAUNCHER="experiments/run_maxcontext_bottomup.sh"; K_MODE="pool"  ;;
   maxcontext_dualend)  LAUNCHER="experiments/run_maxcontext_dualend.sh";  K_MODE="pool"  ;;
@@ -171,8 +171,8 @@ for N in "${POOL_SIZES[@]}"; do
   if [[ "$K_MODE" == "pool" ]]; then
     LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation "$N" 512)
   else
-    # EMNLP standard methods: NUM_CHILD=2 (Setwise WS=3), K=10, HITS=N=pool_size, PL=512.
-    LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation 2 10 "$N" 512)
+    # EMNLP standard methods: NUM_CHILD=2 (Setwise WS=3), K=10, HITS=N=pool_size, PL=512, METHOD=heap/bubble.
+    LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation 2 10 "$N" 512 "$SETWISE_METHOD")
   fi
 
   EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}"

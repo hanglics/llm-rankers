@@ -171,6 +171,12 @@ def infer_metadata(path: Path, results_root: Path) -> dict[str, str]:
     elif "/max-context/bottomup/" in f"/{rel_text}/":
         method = "maxctx_bottomup"
         method_family = "max-context"
+    elif "/original/bottomup/ws-3/" in f"/{rel_text}/":
+        method = f"orig_bu_ws3_{stem.replace('bottomup_', '')}"
+        method_family = "original_bottomup_ws3"
+    elif "/original/bottomup/ws-ps/" in f"/{rel_text}/":
+        method = f"orig_bu_wsps_{stem.replace('bottomup_', '')}"
+        method_family = "original_bottomup_wsps"
     elif "/original/bottomup/" in f"/{rel_text}/":
         method = f"orig_bu_{stem.replace('bottomup_', '')}"
         method_family = "original_bottomup"

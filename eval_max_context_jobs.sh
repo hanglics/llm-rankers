@@ -15,7 +15,7 @@
 # Usage:
 #   ./eval_max_context_jobs.sh [--tag TAG] [--model MODEL]
 #                              [--dataset DL19|DL20]
-#                              [--include-standard-bottomup]
+#                              [--idea007-only]
 #                              [--pool-sizes "10 20 30 40 50"]
 #                              [--force] [--dry-run] [-h|--help]
 #
@@ -35,7 +35,7 @@ MODEL="Qwen/Qwen3-4B"
 DATASET="DL19"
 DRY_RUN=0
 FORCE=0
-INCLUDE_STANDARD_BOTTOMUP=0
+IDEA007_ONLY=0
 POOL_SIZES_OVERRIDE=""
 
 usage() {
@@ -52,9 +52,9 @@ Options:
                        DL19 -> dl19-passage
                        DL20 -> dl20-passage
   --force            Re-evaluate even if a .eval file already exists.
-  --include-standard-bottomup
-                     Add standard BottomUp heap/bubble targets under
-                     original/bottomup/ (EMNLP opt-in; default off).
+  --idea007-only     Evaluate only the historical 7-block IDEA_007 layout
+                     (35 targets with the default 5-pool sweep). Use this for
+                     Phase C' byte-equality rechecks.
   --pool-sizes LIST  Override the default pool sizes with a whitespace-separated
                      positive-integer list, e.g. "10 20 30 40 50 100".
                      Omit this flag to preserve the canonical 5-pool layout.
@@ -62,8 +62,8 @@ Options:
                      actually invoking pyserini.eval.trec_eval.
   -h | --help        Show this help and exit.
 
-For each of the 35 result files produced by submit_max_context_jobs.sh under
-the given (tag, model, dataset), this script runs:
+For each expected result file produced by submit_max_context_jobs.sh under the
+given (tag, model, dataset), this script runs:
 
     python -m pyserini.eval.trec_eval -q -l 2 \
         -m ndcg_cut.3,5,10,20,30,40,50 <qrels> <result>.txt
@@ -90,7 +90,7 @@ while [[ $# -gt 0 ]]; do
     --dataset)
       [[ $# -ge 2 ]] || { echo "Error: --dataset requires a value" >&2; exit 2; }
       DATASET="$2"; shift 2 ;;
-    --include-standard-bottomup) INCLUDE_STANDARD_BOTTOMUP=1; shift ;;
+    --idea007-only) IDEA007_ONLY=1; shift ;;
     --pool-sizes)
       [[ $# -ge 2 ]] || { echo "Error: --pool-sizes requires a value" >&2; exit 2; }
       POOL_SIZES_OVERRIDE="$2"; shift 2 ;;
@@ -148,7 +148,7 @@ cat <<INFO >&2
 INFO
 
 # -----------------------------------------------------------------------------
-# Build the list of expected result files. Mirrors the 7 blocks of
+# Build the list of expected result files. Mirrors the blocks of
 # submit_max_context_jobs.sh in order.
 # -----------------------------------------------------------------------------
 EXPECTED=()
@@ -182,10 +182,12 @@ for N in "${POOL_SIZES[@]}"; do
   EXPECTED+=("${RUN_BASELINE}/max-context/bottomup/top${N}/maxcontext_bottomup.txt")
 done
 
-if [[ "$INCLUDE_STANDARD_BOTTOMUP" -eq 1 ]]; then
+if [[ "$IDEA007_ONLY" -eq 0 ]]; then
   for N in "${POOL_SIZES[@]}"; do
-    EXPECTED+=("${RUN_BASELINE}/original/bottomup/top${N}/bottomup_heapsort.txt")
-    EXPECTED+=("${RUN_BASELINE}/original/bottomup/top${N}/bottomup_bubblesort.txt")
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/ws-3/top${N}/bottomup_heapsort.txt")
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/ws-3/top${N}/bottomup_bubblesort.txt")
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/ws-ps/top${N}/bottomup_heapsort.txt")
+    EXPECTED+=("${RUN_BASELINE}/original/bottomup/ws-ps/top${N}/bottomup_bubblesort.txt")
   done
 fi
 

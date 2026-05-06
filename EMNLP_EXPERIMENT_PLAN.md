@@ -198,9 +198,9 @@ for MODEL in "${MODELS[@]}"; do
 done
 ```
 
-## Phase C — Required Stability (1260 scientific cells / 1620 submissions)
+## Phase C — Required Stability (1260 scientific cells / 1980 submissions)
 
-7 methods × 3 models × dl19 × 6 pool sizes × 10 reps = 1260 scientific cells. The wrapper submits 1620 stability-layout jobs because it preserves the IDEA_007 ws-3/ws-PS TopDown overhead while opting into standard BottomUp through `submit_max_context_jobs.sh --include-standard-bottomup --pool-sizes "10 20 30 40 50 100"`.
+7 methods × 3 models × dl19 × 6 pool sizes × 10 reps = 1260 scientific cells. The wrapper submits 1980 stability-layout jobs because `submit_max_context_jobs.sh` now emits the 11-block default layout: the IDEA_007 ws-3/ws-PS TopDown overhead plus default-on standard BottomUp ws-3/ws-PS blocks under `original/bottomup/{ws-3,ws-ps}/`.
 
 ```bash
 for MODEL in \
@@ -224,7 +224,6 @@ do
   STABILITY_MODEL_TAG="$(basename "$MODEL" | tr '[:upper:]' '[:lower:]')"
   for V in {1..10}; do
     bash eval_max_context_jobs.sh \
-      --include-standard-bottomup \
       --pool-sizes "10 20 30 40 50 100" \
       --tag "emnlp_phase_c_required/${STABILITY_MODEL_TAG}-dl19/stability-test-runs/test_run_v${V}" \
       --model "$MODEL" \
@@ -237,16 +236,18 @@ python3 analysis/cross_model_stability.py
 
 ## Phase C′ — Prime-Constraint Recheck (35 jobs)
 
-Run the default-off IDEA_007 layout. Do not pass `--include-standard-bottomup` here.
+Run the IDEA_007-only 35-cell layout for the byte-equality control. The default `submit_max_context_jobs.sh` layout now emits 55 jobs; Phase C′ must pass `--idea007-only`.
 
 ```bash
 bash submit_max_context_jobs.sh \
+  --idea007-only \
   --tag emnlp_phase_c_prime \
   --model Qwen/Qwen3-4B \
   --dataset DL19 \
   --dry-run
 
 bash submit_max_context_jobs.sh \
+  --idea007-only \
   --tag emnlp_phase_c_prime \
   --model Qwen/Qwen3-4B \
   --dataset DL19
@@ -256,6 +257,7 @@ Evaluation and byte-equality diff:
 
 ```bash
 bash eval_max_context_jobs.sh \
+  --idea007-only \
   --tag emnlp_phase_c_prime \
   --model Qwen/Qwen3-4B \
   --dataset DL19
@@ -308,9 +310,9 @@ for MODEL in "${OPTIONAL_QWEN3_MODELS[@]}"; do
 done
 ```
 
-## Phase E — Optional Qwen3-8B Stability (350 jobs)
+## Phase E — Optional Qwen3-8B Stability (350 scientific cells / 550 submissions)
 
-7 methods × Qwen3-8B × dl19 × 5 pool sizes × 10 reps.
+7 methods × Qwen3-8B × dl19 × 5 pool sizes × 10 reps = 350 scientific cells. The stability-layout wrapper emits 550 submissions with the default 11-block layout.
 
 ```bash
 bash submit_emnlp_stability_jobs.sh \
@@ -334,7 +336,6 @@ MODEL="Qwen/Qwen3-8B"
 STABILITY_MODEL_TAG="$(basename "$MODEL" | tr '[:upper:]' '[:lower:]')"
 for V in {1..10}; do
   bash eval_max_context_jobs.sh \
-    --include-standard-bottomup \
     --tag "emnlp_phase_e_qwen3_optional/${STABILITY_MODEL_TAG}-dl19/stability-test-runs/test_run_v${V}" \
     --model "$MODEL" \
     --dataset DL19
@@ -393,7 +394,7 @@ Expected after the dry-run:
 1. `type model_tag`, `type dataset_path`, `type bm25_run`, and `type qrels_label` all resolve in the child bash.
 2. Every `STUB sbatch` line contains no local-machine path and uses fully resolved positional arguments after the script name.
 3. Nothing actually submits; `squeue -u "$USER"` stays empty.
-4. Phase A shows 42 submissions, Phase B one submission per explicit `(model, dataset, method, pool)` cell, Phase C 1260 scientific cells / 1620 stability-layout submissions across wrappers, and Phase C′ 35 submissions on the default-off path.
+4. Phase A shows 42 submissions, Phase B one submission per explicit `(model, dataset, method, pool)` cell, Phase C 1260 scientific cells / 1980 stability-layout submissions across wrappers, and Phase C′ 35 submissions via `--idea007-only`.
 
 ## Go/No-Go Signal for `EMNLP_BUDGET.md`
 

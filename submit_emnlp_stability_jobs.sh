@@ -64,7 +64,6 @@ fi
 
 for ((v = 1; v <= REPS; v++)); do
   bash submit_max_context_jobs.sh \
-    --include-standard-bottomup \
     --pool-sizes "$POOL_SIZES" \
     --tag "${TAG_PREFIX}/${STABILITY_MODEL_TAG}-${DATASET_TAG}/stability-test-runs/test_run_v${v}" \
     --model "$MODEL" \

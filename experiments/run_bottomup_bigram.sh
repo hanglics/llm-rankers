@@ -3,7 +3,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=512G
-#SBATCH --job-name=tdbg
+#SBATCH --job-name=bubg
 #SBATCH --partition=gpu_cuda
 #SBATCH --qos=gpu
 #SBATCH --gres=gpu:h100:1
@@ -57,15 +57,15 @@ python run.py \
     run --model_name_or_path ${MODEL} \
         --ir_dataset_name ${DATASET} \
         --run_path ${RUN_PATH} \
-        --save_path ${OUTPUT_DIR}/topdown_${METHOD}.txt \
+        --save_path ${OUTPUT_DIR}/bottomup_${METHOD}.txt \
         --device ${DEVICE} \
         --scoring ${SCORING} \
         --hits ${HITS} \
         --passage_length ${PASSAGE_LENGTH} \
-        --log_comparisons ${ANALYSIS_DIR}/topdown_${METHOD}_comparisons.jsonl \
+        --log_comparisons ${ANALYSIS_DIR}/bottomup_${METHOD}_comparisons.jsonl \
     setwise --num_child ${NUM_CHILD} \
             --method ${METHOD} \
             --k ${K} \
-            --direction topdown \
+            --direction bottomup \
             "${CHARACTER_SCHEME_ARGS[@]}" \
-    2>&1 | tee ${OUTPUT_DIR}/topdown_${METHOD}.log
+    2>&1 | tee ${OUTPUT_DIR}/bottomup_${METHOD}.log
