@@ -1,164 +1,45 @@
-# Research Wiki Index
+# Research Wiki — EMNLP 2026 Short Paper
 
-<!-- AUTO-GENERATED. Regenerate after mutations. -->
-<!-- Last regenerated: 2026-04-30T19:30:00+10:00 (consolidation: research_pipeline_setwise/ absorbed into wiki) -->
+This wiki tracks the active research thread for the **EMNLP 2026 short paper**
+on the MaxContext multi-family extension. Legacy content (IDEA_007, Phase 4
+position bias, ablations, claims notes) was archived to
+`Extra-Experiments/research-wiki/` during the 2026-05-07 isolation
+restructure.
 
-## Top-level documents (project-wide narratives + statistical archives)
+## Top-level
 
-These are the entry-point documents for understanding the project. They were consolidated from `research_pipeline_setwise/` on 2026-04-30 and are now the canonical home for project-wide narratives.
+- [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — paper plan
+- [log.md](log.md) — running log of EMNLP-scope work
 
-- [RESEARCH_BRIEF.md](RESEARCH_BRIEF.md) — high-level problem statement, constraints, target venue, domain knowledge
-- [LITERATURE.md](LITERATURE.md) — comprehensive survey of LLM-based ranking literature (12 sections, 32 references) with §11.5 connection-to-this-project
-- [NARRATIVE.md](NARRATIVE.md) — central narrative integrating all 10 claims, 8 experiments, position-bias findings, paper framing
-- [IDEA_REPORT.md](IDEA_REPORT.md) — Stage-1 outcomes (idea:001/002/003), novelty check + closest-prior mapping, Stage-2+ refinement appendix (idea:004/005/006/007)
-- [PAPER_PLAN.md](PAPER_PLAN.md) — section-by-section paper outline, claims-evidence matrix (C1–C10), figure plan, key references
-- [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — EMNLP 2026 MaxContext multi-family short-paper outline and canonical seven-method axis
-- [FINDINGS.md](FINDINGS.md) — research + engineering findings log (parser fixes, position-bias quantification, when-DualEnd-helps tables)
-- [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) — code state, recent fixes timeline, current caveats, MaxContext invariants
-- [RESULTS_REVIEW.md](RESULTS_REVIEW.md) — critical review of results, venue strategy, refinement priorities, suggested reframe
-- [SIGNIFICANCE_TESTS.md](SIGNIFICANCE_TESTS.md) + [SIGNIFICANCE_TESTS.json](SIGNIFICANCE_TESTS.json) — family-level paired-AR + Bonferroni tables (54 comparisons)
-- [SIGNIFICANCE_TESTS_PAIRWISE.md](SIGNIFICANCE_TESTS_PAIRWISE.md) + [SIGNIFICANCE_TESTS_PAIRWISE.json](SIGNIFICANCE_TESTS_PAIRWISE.json) — pairwise same-sort tables (12 grouping/dataset families)
+## Idea
 
-## Papers (24)
+- [ideas/idea_008_maxcontext_multi_family.md](ideas/idea_008_maxcontext_multi_family.md) —
+  MaxContext multi-family extension (the EMNLP paper's contribution)
 
-### Core (foundational to this project)
+## Experiment pages
 
-- [zhuang2024_setwise](papers/zhuang2024_setwise.md) — Setwise prompting for LLM reranking (SIGIR 2024)
+- [experiments/emnlp_phase_a_smoke.md](experiments/emnlp_phase_a_smoke.md) — Phase A smoke (42 cells)
+- [experiments/emnlp_phase_b_main_matrix.md](experiments/emnlp_phase_b_main_matrix.md) — Phase B main matrix (3024)
+- [experiments/emnlp_phase_c_stability.md](experiments/emnlp_phase_c_stability.md) — Phase C stability (1260 / 1980)
+- [experiments/emnlp_phase_c_prime_constraint_recheck.md](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C' byte-equality (35)
+- [experiments/emnlp_phase_d_qwen3_optional.md](experiments/emnlp_phase_d_qwen3_optional.md) — Phase D Qwen3 optional
+- [experiments/emnlp_phase_e_qwen3_stability_optional.md](experiments/emnlp_phase_e_qwen3_stability_optional.md) — Phase E Qwen3 stability optional
+- [experiments/emnlp_phase_f_position_bias.md](experiments/emnlp_phase_f_position_bias.md) — Phase F position bias (432)
+- [experiments/cross_model_stability.md](experiments/cross_model_stability.md) — cross-model stability
 
-### Related (directly informs this project)
+## Paper notes (model families in scope)
 
-- [sun2023_rankgpt](papers/sun2023_rankgpt.md) — RankGPT listwise reranking (EMNLP 2023)
-- [qin2024_prp](papers/qin2024_prp.md) — Pairwise Ranking Prompting (NAACL 2024 Findings)
-- [tang2024_found_in_middle](papers/tang2024_found_in_middle.md) — Permutation self-consistency (NAACL 2024)
-- [liu2024_lost_in_middle](papers/liu2024_lost_in_middle.md) — Lost-in-the-middle position bias (TACL 2024)
-- [zeng2024_llm_rankfusion](papers/zeng2024_llm_rankfusion.md) — LLM-RankFusion / intrinsic inconsistency (NeurIPS WS 2024)
-- [sato2026_sorting_survey](papers/sato2026_sorting_survey.md) — Sorting with LLMs survey (DPC-TR-2026-001)
-- [podolak2025_setwise_insertion](papers/podolak2025_setwise_insertion.md) — Setwise insertion-sort efficiency (SIGIR 2025)
-- [zhuang2025_rank_r1](papers/zhuang2025_rank_r1.md) — Rank-R1 reasoning reranker
-- [hutter2025_positional_rag](papers/hutter2025_positional_rag.md) — Model-family-dependent RAG bias (ECIR 2025)
-- [peng2025_flops_reranking](papers/peng2025_flops_reranking.md) — FLOPs-based reranker efficiency (EMNLP Industry 2025)
-- [chen2025_tour_rank](papers/chen2025_tour_rank.md) — Tournament-bracket setwise (WWW 2025)
-- [blitzrank2026](papers/blitzrank2026.md) — Principled tournament graphs (arXiv 2026)
-- [ren2025_self_calibrated_listwise](papers/ren2025_self_calibrated_listwise.md) — Self-calibrated listwise (WWW 2025)
-- [zhang2025_rank_without_gpt](papers/zhang2025_rank_without_gpt.md) — GPT-independent listwise (ECIR 2025)
+- [papers/qwen3_paper.md](papers/qwen3_paper.md)
+- [papers/qwen3_5_paper.md](papers/qwen3_5_paper.md)
+- [papers/llama3_1_paper.md](papers/llama3_1_paper.md)
+- [papers/mistral3_paper.md](papers/mistral3_paper.md)
 
-### Peripheral (pipeline baselines, alternative axes)
+## Operator references (repo root)
 
-- [nogueira2020_monot5](papers/nogueira2020_monot5.md) — MonoT5 supervised pointwise (EMNLP 2020 Findings)
-- [pradeep2021_expando_mono_duo](papers/pradeep2021_expando_mono_duo.md) — Supervised staged pipeline (arXiv 2021)
-- [rank1_2025](papers/rank1_2025.md) — Test-time compute reranker (COLM 2025)
-- [chen2025_icr_attention](papers/chen2025_icr_attention.md) — Attention-based rerankers (ICLR 2025)
-- [ma2023_zero_shot_listwise](papers/ma2023_zero_shot_listwise.md) — Zero-shot listwise on open LLMs
+- [`EMNLP_EXPERIMENT_PLAN.md`](../EMNLP_EXPERIMENT_PLAN.md) — command sheet
+- [`EMNLP_PAPER_DESIGN.md`](../EMNLP_PAPER_DESIGN.md) — design / scientific framing
+- [`EMNLP_IMPLEMENTATION_PLAN.md`](../EMNLP_IMPLEMENTATION_PLAN.md) — implementation plan / regression gates
 
-### Model family references (EMNLP 2026)
+## Legacy archive
 
-- [llama3_1_paper](papers/llama3_1_paper.md) — Llama 3.1 / Llama 3 Herd report
-- [mistral3_paper](papers/mistral3_paper.md) — Ministral 3 model family report
-- [qwen3_paper](papers/qwen3_paper.md) — Qwen3 Technical Report
-- [qwen3_5_paper](papers/qwen3_5_paper.md) — Qwen3.5 series model-card reference
-
-## Ideas (8)
-
-- [idea:001 BottomUp](ideas/idea_001_bottomup.md) — failed (reverse-selection alone)
-- [idea:002 DualEnd](ideas/idea_002_dualend.md) — succeeded partial (joint best+worst; only Qwen-generation path exercises true joint elicitation)
-- [idea:003 BiDir ensemble](ideas/idea_003_bidir.md) — failed (independent TD+BU fusion)
-- [idea:004 Selective DualEnd](ideas/idea_004_selective_dualend.md) — active (flan-t5-xl partial)
-- [idea:005 Bias-Aware DualEnd](ideas/idea_005_bias_aware_dualend.md) — proposed (all pending)
-- [idea:006 Same-Call Regularized](ideas/idea_006_samecall_regularized.md) — proposed (all pending)
-- [idea:007 MaxContext family](ideas/idea_007_maxcontext_dualend.md) — active plan (Codex-audited 3 rounds, ready to execute; see `IDEA_007.md`)
-- [idea:008 MaxContext multi-family](ideas/idea_008_maxcontext_multi_family.md) — active EMNLP 2026 short-paper extension (Qwen3.5 + Llama-3.1 + Ministral-3)
-
-## Experiments (41)
-
-### Main sweeps (9 models × 2 datasets = 18 runs each)
-
-- [exp:main_td_heap](experiments/main_td_heap.md) — baseline
-- [exp:main_td_bubble](experiments/main_td_bubble.md) — strongest TopDown on 4/6 T5 configs
-- [exp:main_bu_heap](experiments/main_bu_heap.md) — never wins
-- [exp:main_bu_bubble](experiments/main_bu_bubble.md) — never wins
-- [exp:main_de_cocktail](experiments/main_de_cocktail.md) — 11/18 overall wins
-- [exp:main_de_selection](experiments/main_de_selection.md) — holds the only Bonferroni-sig DualEnd win
-- [exp:main_bidir_rrf](experiments/main_bidir_rrf.md) — never beats TD
-- [exp:main_bidir_wt](experiments/main_bidir_wt.md) — best at α=0.9
-
-### Ablations
-
-- [exp:ablation_num_child](experiments/ablation_num_child.md)
-- [exp:ablation_alpha](experiments/ablation_alpha.md)
-- [exp:ablation_passage_length](experiments/ablation_passage_length.md)
-
-### Analyses
-
-- [exp:analysis_position_bias](experiments/analysis_position_bias.md) — source of claim:C5
-- [exp:analysis_significance_tests](experiments/analysis_significance_tests.md)
-- [exp:analysis_per_query_wins](experiments/analysis_per_query_wins.md)
-- [exp:analysis_ranking_agreement](experiments/analysis_ranking_agreement.md)
-- [exp:analysis_pareto](experiments/analysis_pareto.md) — source of claim:C9
-- [exp:dualend_parse_success](experiments/dualend_parse_success.md) — diagnostic (DualEnd joint-parse rate)
-- [exp:query_difficulty_stratification](experiments/query_difficulty_stratification.md)
-- [exp:generalization_weakness](experiments/generalization_weakness.md) — BEIR coverage risk
-
-### Pending / partial
-
-- [exp:selective_dualend_flan_t5_xl](experiments/selective_dualend_flan_t5_xl.md) — 6/12 done
-- [exp:selective_dualend_qwen_pending](experiments/selective_dualend_qwen_pending.md) — 24 runs pending
-- [exp:bias_aware_dualend_pending](experiments/bias_aware_dualend_pending.md) — 12 runs pending
-- [exp:samecall_regularized_pending](experiments/samecall_regularized_pending.md) — 12 runs pending
-- [exp:beir_generalization](experiments/beir_generalization.md) — flan-t5-xl done, Qwen3-8B 5/6, Qwen3.5-9B pending
-- [exp:likelihood_scoring_pending](experiments/likelihood_scoring_pending.md) — 6 runs pending
-- [exp:same_method_tables_pending](experiments/same_method_tables_pending.md) — **completed 2026-04-21**; 12 pairwise tables + SIGNIFICANCE_TESTS_PAIRWISE.{md,json}
-- [exp:maxdoc_dualend_pending](experiments/maxdoc_dualend_pending.md) — superseded by idea:007
-
-### idea:007 MaxContext family matrix (plan at `IDEA_007.md`)
-
-- [exp:maxcontext_dualend_pool_sweep](experiments/maxcontext_dualend_pool_sweep.md) — Study A: pool-size sweep, 60 runs
-- [exp:maxcontext_dualend_pl_sweep](experiments/maxcontext_dualend_pl_sweep.md) — Study B: pl sweep + dualend-nc3 control arm, 96 runs
-- [exp:maxcontext_dualend_order_pilot](experiments/maxcontext_dualend_order_pilot.md) — Study C: order-robustness launch gate, 12 runs
-- [exp:maxcontext_dualend_baselines](experiments/maxcontext_dualend_baselines.md) — matched-`hits` predeclared baselines at {10, 30, 50}, 144 runs
-- [exp:maxcontext_topdown_pool_sweep](experiments/maxcontext_topdown_pool_sweep.md) — whole-pool best-only sweep
-- [exp:maxcontext_bottomup_pool_sweep](experiments/maxcontext_bottomup_pool_sweep.md) — whole-pool worst-only sweep
-
-### EMNLP 2026 short-paper extension
-
-- [idea:008 MaxContext multi-family](ideas/idea_008_maxcontext_multi_family.md) — EMNLP 2026 extension spec
-- [EMNLP_PAPER_PLAN.md](EMNLP_PAPER_PLAN.md) — short-paper section sketch and canonical seven methods
-- [exp:emnlp_phase_a_smoke](experiments/emnlp_phase_a_smoke.md) — Phase A smoke gate, 42 cells
-- [exp:emnlp_phase_b_main_matrix](experiments/emnlp_phase_b_main_matrix.md) — Phase B required main matrix, 3024 cells
-- [exp:emnlp_phase_c_stability](experiments/emnlp_phase_c_stability.md) — Phase C required stability, 1260 scientific cells / 1980 stability-layout submissions
-- [exp:emnlp_phase_c_prime_constraint_recheck](experiments/emnlp_phase_c_prime_constraint_recheck.md) — Phase C′ byte-equality recheck, 35 cells via `--idea007-only`
-- [exp:emnlp_phase_d_qwen3_optional](experiments/emnlp_phase_d_qwen3_optional.md) — Phase D optional Qwen3 main matrix, 1680 cells
-- [exp:emnlp_phase_e_qwen3_stability_optional](experiments/emnlp_phase_e_qwen3_stability_optional.md) — Phase E optional Qwen3-8B stability, 350 cells
-- [exp:emnlp_phase_f_position_bias](experiments/emnlp_phase_f_position_bias.md) — Phase F MaxContext position-bias controls, 432 required jobs
-- Required EMNLP total: 4361 cells; with optional Qwen3 phases: 6391 cells.
-- [exp:cross_model_stability](experiments/cross_model_stability.md) — cross-family stability analysis
-- [paper:dubey2024_llama3](papers/llama3_1_paper.md), [paper:mistral3_2025](papers/mistral3_paper.md), [paper:yang2025_qwen3](papers/qwen3_paper.md), [paper:qwen3_5_model_card](papers/qwen3_5_paper.md) — model-family references
-
-## Claims (10)
-
-- [claim:C1](claims/C1_directional_asymmetry.md) — directional asymmetry (supported)
-- [claim:C2](claims/C2_dualend_strongest.md) — DualEnd strongest overall (supported, statistically fragile per C6)
-- [claim:C3](claims/C3_bottomup_weaker.md) — BottomUp consistently weaker (strongly supported)
-- [claim:C4](claims/C4_bidir_fails.md) — BiDir fails because BU is biased (strongly supported)
-- [claim:C5](claims/C5_joint_changes_bias.md) — joint prompting changes bias; novel dual_worst primacy reversal (strongly supported)
-- [claim:C6](claims/C6_statistical_fragility.md) — TREC DL statistical fragility (strongly supported)
-- [claim:C7](claims/C7_window_size_model_family.md) — window size × model family interaction (supported, limited)
-- [claim:C8](claims/C8_joint_elicitation_is_contribution.md) — joint elicitation, not sort novelty, is contribution (supported)
-- [claim:C9](claims/C9_pareto_frontier.md) — Pareto frontier has empty gap between TD-Bubble and DE-Cocktail (supported)
-- [claim:C10](claims/C10_framing_ictir_conservative.md) — ICTIR-first, conservative framing (reported / policy)
-
-## Gaps (see [gap_map.md](gap_map.md))
-
-- gap:G1 — information extraction per setwise call
-- gap:G2 — position bias under joint prompts
-- gap:G3 — asymmetric best-vs-worst competence
-- gap:G4 — setwise efficiency-effectiveness frontier
-- gap:G5 — model-family-dependent performance
-
-## Derived artifacts
-
-- [query_pack.md](query_pack.md) — compressed context pack for `/idea-creator` and cross-skill retrieval (regenerated on each mutation)
-
-## Graph
-
-- [graph/edges.jsonl](graph/edges.jsonl) — 163 edges across `extends`, `inspired_by`, `addresses_gap`, `tested_by`, `supports`, `invalidates`, `refines`
-- [IDEA_007.md](/Users/hangli/projects/llm-rankers/IDEA_007.md) — full idea:007 plan (Codex-audited, ready to execute)
+Pre-EMNLP research lives at `<repo-root>/Extra-Experiments/research-wiki/`.

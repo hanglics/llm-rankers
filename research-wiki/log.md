@@ -1,82 +1,32 @@
-# Research Wiki Log
+# Research Log — EMNLP 2026 Short Paper
 
-Append-only mutation timeline.
+Active log scoped to the EMNLP work. Legacy log entries (IDEA_007, Phase 4,
+ablations) live at `Extra-Experiments/research-wiki/log.md`.
 
-- 2026-05-07 — **v4: MaxContext position-bias controls and Phase F.** Added MaxContext-only `--reverse` and fixed-seed-929 per-comparison `--shuffle` controls, suffixed output leaves (`poolNN_reverse`, `poolNN_shuffle`, `topNN_reverse`, `topNN_shuffle`), and Phase F representative position-bias design. Heap/Bubble launchers remain out of scope; default-off Qwen3 paths preserve the existing byte-equality gate.
+## 2026-05-07
+- **Project restructure**: isolated EMNLP active scope. Moved legacy
+  experiments / analysis / results / wiki content / planning docs to
+  `Extra-Experiments/`. Renamed `IDEA_008_maxcontext_multi_family.md` →
+  `EMNLP_PAPER_DESIGN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md` →
+  `EMNLP_IMPLEMENTATION_PLAN.md`, `paper/v2/` → `paper/v1/`. See
+  `pre-emnlp-restructure` git tag for rollback point.
+- **Phase F position-bias controls** (--shuffle, --reverse) implemented
+  for MaxContext methods only; Heap/Bubble untouched. Fixed seed 929
+  via `hashlib.blake2b`; per-comparison ordering with label remapping
+  to original window indices.
 
-- 2026-05-06 — **v3: launcher consolidation and 11-block stability layout.** Standard TopDown/BottomUp EMNLP methods now dispatch through bigram launchers; `experiments/run_bottomup_bigram.sh` was added and both bigram launchers honor `ANALYSIS_LOG_DIR`. `submit_max_context_jobs.sh` defaults to 55 jobs with BottomUp ws-3/ws-ps blocks; Phase C stability submissions become 1980 while the scientific count stays 1260. Phase C′ preserves the 35-cell IDEA_007 byte-equality gate with `--idea007-only`.
+## 2026-05-06
+- **Multimodal loader refactor (Phase 3a)** for Mistral 3 + Qwen 3.5
+  vision-language configs (`AutoProcessor` + `AutoModelForImageTextToText`).
+  `qwen3` / `qwen3_moe` remain on causal path (byte-equal preserved).
+- Logging filter for `max_new_tokens vs max_length` warning at
+  `setwise.py` module top (transformers emits via `logger.warning`,
+  not `warnings.warn`).
+- Soft-refusal recovery in `_parse_single_label` for verbose chat
+  models (Llama-3.1, Mistral-3): if output has refusal phrase AND
+  choice indicator, extract trailing numeric answer instead of
+  defaulting to passage 1.
 
-- 2026-05-05 — **v8: pool sweep extended to 6 pools for required EMNLP model families.** Phase A: 21 → 42 cells. Phase B: 2520 → 3024 cells. Phase C: 1050 → 1260 cells. Phase C′ unchanged at 35 (preserves IDEA_007 byte-equality). Required total: 3626 → 4361 (+735). Compute impact: estimated +840 GPU-hours for Phase B pool=100. Context-fit gated by Phase A pool=100 smoke. Code changes: `submit_max_context_jobs.sh` and `eval_max_context_jobs.sh` gain `--pool-sizes` override (default 5 pools, IDEA_007 path unchanged); `submit_emnlp_jobs.sh`, `eval_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `scripts/smoke_emnlp_models.sh` extend their default sweeps.
-
-- 2026-05-05 — **EMNLP 2026 multi-family expansion plan landed.** New nodes: `idea:008`, `EMNLP_PAPER_PLAN.md`, 7 experiment pages, 4 paper pages (13 new files total). Required matrix: 3626 runs (A+B+C+C′). Optional Qwen3 extension: +2030 runs (D+E). `MAXCONTEXT_ALLOWED_MODEL_TYPES` widened from 3 to 5+ model types (with `mistral`, `mistral3`, `ministral` contingencies); new prime-constraint gate is **65 byte-equality cells** (9 IDEA_007 goldens + 35 Phase C′ Qwen3-4B re-runs + 21 Phase A smoke-as-golden).
-
-- 2026-04-30T20:10:00+10:00 — Refreshed wiki records to match the post-consolidation current state.
-  - `query_pack.md`: refreshed timestamp/context, added idea:007 to G1/G4, recorded same-method/same-sort tables as completed, and replaced the stale same-sort open question with the MaxContext matched-baseline question.
-  - `gap_map.md`: reconciled the view with `graph/edges.jsonl` so idea:007 appears as an addressor for gap:G1 and gap:G4.
-  - `claims/C10_framing_ictir_conservative.md`: replaced stale pre-consolidation narrative/review references, closed the same-sort-table decision point, and added MaxContext evidence as the active open decision point.
-  - `experiments/analysis_ranking_agreement.md` and `experiments/query_difficulty_stratification.md`: replaced outdated missing-summary language with the current consolidated summary tables while keeping final-paper regeneration caveats.
-
-- 2026-04-30T19:30:00+10:00 — **Consolidated `research_pipeline_setwise/` into the wiki.** The wiki is now the single source of truth for project-wide narratives, literature, statistical archives, and the paper plan; `research_pipeline_setwise/` is safe to delete.
-  - **Files copied into `research-wiki/` root:** `NARRATIVE.md` (← `NARRATIVE_REPORT.md`), `LITERATURE.md` (← `LITERATURE_REVIEW.md`), `PAPER_PLAN.md`, `RESEARCH_BRIEF.md`, `FINDINGS.md`, `IDEA_REPORT.md`, `IMPLEMENTATION_STATUS.md`, `RESULTS_REVIEW.md` (← `RESULTS_REVIEW_V1.md`), `SIGNIFICANCE_TESTS.{md,json}`, `SIGNIFICANCE_TESTS_PAIRWISE.{md,json}` — 12 files total.
-  - **Three subdirectories were not moved** (out of consolidation scope per user request): `EMNLP/`, `ICTIR/` (paper-build LaTeX trees), `templates/` (workflow templates).
-  - **Cross-refs rewritten in copied files:** all internal links from `research_pipeline_setwise/X` and `research-wiki/X` rewritten to relative wiki paths. Renames (`NARRATIVE_REPORT.md → NARRATIVE.md`, `LITERATURE_REVIEW.md → LITERATURE.md`, `RESULTS_REVIEW_V1.md → RESULTS_REVIEW.md`) propagated through inbound links.
-  - **Cross-refs rewritten in existing wiki files:** `claims/C9_pareto_frontier.md`, `claims/C10_framing_ictir_conservative.md`, `experiments/analysis_pareto.md`, `experiments/main_td_bubble.md`, `experiments/query_difficulty_stratification.md`, `experiments/dualend_parse_success.md`, `experiments/generalization_weakness.md`, `experiments/analysis_significance_tests.md`, `experiments/same_method_tables_pending.md` — all `research_pipeline_setwise/` paths replaced with relative wiki paths.
-  - **`index.md`:** new "Top-level documents" section added listing the 10 consolidated narratives + 2 JSON archives.
-  - **Historical log entries left untouched** — earlier entries that mention `research_pipeline_setwise/` as a source describe past actions and remain accurate as history.
-
-- 2026-04-27T23:48:07+10:00 — Audited and corrected TopDown Bubblesort `Avg comparisons` documentation after the narrow code fix:
-  - **Discovery:** pre-fix `TD-Bubble` under `hits=k=num_child=10` reported `Avg comparisons: 6.977` instead of the intuitive 9 because the local outer clamp interacted with the upstream `last_start` tail-jump and the one-document skip. The metric was honest, but the pre-fix value was not a valid current efficiency claim.
-  - **Fix captured:** `llmrankers/setwise.py:SetwiseLlmRanker.rerank()` now disables only the outer clamp when `len(ranking) == k == num_child` or `num_child >= len(ranking)`, while keeping the upstream `last_start` optimization and the one-document skip. Focused verification gives 9 comparisons for `n=10,num_child=10,k=10`.
-  - **Docs updated:** corrected `research_pipeline_setwise/FINDINGS.md`, `experiments/main_td_bubble.md`, `experiments/analysis_pareto.md`, `claims/C9_pareto_frontier.md`, `EXPERIMENT_PLAN.md`, and `IDEA_007.md` so they no longer claim the whole-pool short-circuit is active after the fix. Standard `TD-Bubble` `num_child=3` frontier numbers (300 comparisons / ~110.9s) remain unaffected. For the canonical MaxContext best-only baseline, still use `MaxContext-TopDown` because its prompt/parser path and two-document BM25 bypass semantics differ from standard `TD-Bubble`.
-
-- 2026-04-20T10:30:00+10:00 — Wiki initialized (empty scaffold only).
-- 2026-04-20T10:35:00+10:00 — Manual backfill from project artifacts:
-  - 13 papers ingested from `RESEARCH_BRIEF.md` / `LITERATURE_REVIEW.md`.
-  - 6 ideas, 21 experiment pages, 9 claims (C1–C9), 5 gaps.
-  - 86 edges added to `graph/edges.jsonl`.
-  - Sources: `research_pipeline_setwise/{RESEARCH_BRIEF,LITERATURE_REVIEW,IDEA_REPORT,PAPER_PLAN,FINDINGS,NARRATIVE_REPORT,IMPLEMENTATION_STATUS,RESULTS_REVIEW_V1,SIGNIFICANCE_TESTS}.md`, `Need_to_Run.txt`, `EXPERIMENT_PLAN.md`, `README.md`.
-- 2026-04-20T10:38:00+10:00 — Codex audit round 1 (gpt-5.4, xhigh reasoning, read-only). Found 3 critical, 7 high, 5 medium, 3 low issues. Verdict: NEEDS_MAJOR_REWRITE.
-- 2026-04-20T10:45:00+10:00 — Applied round 1 fixes:
-  - **Critical:** rewrote `gap_map.md` to be a pure view of `addresses_gap` edges (no claim references); corrected `idea:002` likelihood-path description to match `setwise_extended.py:476-491` (explicit best-only-proxy shortcut for T5 and all `--scoring likelihood` paths; only Qwen-generation does true joint elicitation); regenerated `graph/edges.jsonl` with missing `tested_by` / `addresses_gap` / `supports` edges.
-  - **High:** created `query_pack.md` (8000-char deterministic context pack); ingested 7 additional papers (nogueira2020_monot5, pradeep2021_expando_mono_duo, chen2025_tour_rank, blitzrank2026, ren2025_self_calibrated_listwise, zhang2025_rank_without_gpt, rank1_2025) — paper count 13 → 20; added claim:C10 capturing ICTIR-first conservative framing; added pending-work nodes for Need_to_Run priorities (`same_method_tables_pending`, `maxdoc_dualend_pending`) and missing analyses (`dualend_parse_success`, `query_difficulty_stratification`, `generalization_weakness`) — experiment count 21 → 27.
-  - **Medium:** fixed `qin2024_prp` author list (added Le Yan) and venue string; fixed `sato2026_sorting_survey` venue (DPC-TR-2026-001, removed arXiv implication); annotated `analysis_ranking_agreement` numbers as representative-model; split `likelihood_scoring_pending` T5 vs causal paths.
-  - **Low:** fixed `main_td_heap` `results_dir` placeholder; removed `idea:002 (as reference)` string-in-list from `tests:` field; added path to `WHEN_DUALEND_HELPS_SUMMARY.md` in `analysis_per_query_wins`; updated `analysis_significance_tests` `tests:` list to include C1 and C10.
-  - Current counts: 20 papers, 6 ideas, 27 experiments, 10 claims, 5 gaps, 130 edges.
-- 2026-04-20T10:48:00+10:00 — Applied Codex round 2 fixes:
-  - **Critical (graph reconciliation):** reconciled every remaining `tests:` frontmatter entry against the graph; added edges for `claim:C4 -> exp:analysis_significance_tests`, all 6 previously-orphan nodes (generalization_weakness, query_difficulty_stratification, maxdoc_dualend_pending, same_method_tables_pending, ablation_passage_length, chen2025_icr_attention), plus C9 -> maxdoc_dualend_pending, C10 -> generalization_weakness, C8 -> dualend_parse_success, C2 -> all newly-linked analyses.
-  - **High (overclaim):** scoped `claim:C2` statement to "On TREC DL19/DL20" with explicit reminder that out-of-domain claim is provisional until `exp:beir_generalization` and `exp:generalization_weakness` land.
-  - **High (factual):** rewrote `exp:dualend_parse_success` to accurately reflect FINDINGS.md:164-171 (near-perfect parse rates; <1% worst case on Qwen3-14B DL20; no "dual parse failures"; cascading parser always produces a result). Distinguishes parse-reliability (not a confound) from code-path divergence (the actual confound — disclosed on idea:002 and claim:C10).
-  - **High (connection):** added `tests:` to `same_method_tables_pending`, `ablation_passage_length`; updated `beir_generalization` to include C10.
-  - **Medium (semantics):** removed the semantically-invalid `paper:nogueira2020_monot5 -> paper:sun2023_rankgpt contradicts` edge. Index no longer advertises `contradicts` as part of vocabulary.
-  - **Low:** updated `query_pack.md` timestamp; index edge-count now 132.
-  - Current counts: 20 papers, 6 ideas, 27 experiments, 10 claims, 5 gaps, 142 edges.
-- 2026-04-20T10:50:00+10:00 — Codex audit round 3: found 4 residual `tests:` ↔ `tested_by` mismatches (main_bidir_rrf, main_bu_heap, main_de_cocktail each missing claim:C8 in tests; main_bidir_wt held an invalid experiment-to-experiment reference). Verdict: NEEDS_FIXES.
-- 2026-04-20T10:51:00+10:00 — Applied round 3 fixes:
-  - Added `claim:C8` to tests in main_bidir_rrf, main_bu_heap, main_de_cocktail.
-  - Added `claim:C1` to main_de_cocktail tests (also missing vs graph).
-  - Removed invalid `exp:ablation_alpha` string from main_bidir_wt tests.
-- 2026-04-20T10:52:00+10:00 — Codex audit round 4 verdict: **READY_TO_MERGE**. Full bijection check: TEST_MISMATCHES 0 across all 27 experiment pages; BROKEN_ENDPOINTS 0; DUPLICATES 0; SELF_LOOPS 0; EDGE_COUNT 142. No factual regressions. Wiki is mechanically reconciled and factually stable.
-- 2026-04-20T10:55:00+10:00 — Added **idea:007 MaxContext DualEnd** (one-prompt double-ended selection over ≤50-doc Qwen pools). Full plan at `/Users/hangli/projects/llm-rankers/IDEA_007.md` (Codex-audited, gpt-5.4 xhigh, 3 rounds: v1 MAJOR_REDESIGN → v2 NEEDS_REVISION → v3 READY_TO_EXECUTE). Wiki additions:
-  - 1 new idea page: `idea_007_maxcontext_dualend.md` (stage=active, outcome=pending, refines idea:002, addresses gaps G1 + G4).
-  - 4 new experiment pages: `maxcontext_dualend_pool_sweep.md` (Study A, 60 runs), `maxcontext_dualend_pl_sweep.md` (Study B + dualend-nc3 control arm, 96 runs), `maxcontext_dualend_order_pilot.md` (Study C launch gate, 12 runs), `maxcontext_dualend_baselines.md` (matched-`hits` predeclared baselines at {10, 30, 50}, 144 runs). Total new run budget: 312 staged across 5 phases with gates.
-  - 1 experiment page marked superseded: `maxdoc_dualend_pending.md` → retained for traceability, not for launch.
-  - 17 new edges added to `graph/edges.jsonl` (refines, inspired_by ×3, addresses_gap ×2, tested_by ×11).
-  - Updated `index.md` counts: 7 ideas, 31 experiments, 159 edges. Added idea:007 and 4 new exp entries; added "IDEA_007.md" to derived artifacts.
-  - Current counts: 20 papers, 7 ideas, 31 experiments, 10 claims, 5 gaps, 159 edges.
-- 2026-04-21T19:50:00+10:00 — Closed `exp:same_method_tables_pending` (Need_to_Run priority #1). Produced 12 pairwise same-sort comparison tables (6 groupings × DL19/DL20) with paired-AR + Bonferroni per (grouping, dataset). Artifacts:
-  - `analysis/significance_tests_pairwise.py` (new driver; reuses `significance_tests.py` helpers).
-  - `SIGNIFICANCE_TESTS_PAIRWISE.md` + `.json` (originally under `research_pipeline_setwise/`; canonical copies now live in the wiki root after the 2026-04-30 consolidation).
-  - `results-display/_pairwise_tables_fragment.html` (regenerable) → inlined into `results-display/index.html` under `section id="pairwise-tables"` with intro copy.
-  - CSS touched: added `.results-table td .muted` style for the `(baseline)` annotation in baseline rows.
-  - Updated `exp:same_method_tables_pending` status `not_submitted` → `completed`, added artifact paths and headline findings.
-  - Headline: cleanest positive finding is DualEnd (DE-Cocktail + DE-Selection) vs TD-Bubble on DL19 — 2 Bonferroni-sig wins on Qwen3-8B. All BU and BiDir groupings confirm the existing directional-asymmetry pattern with multiple Bonferroni-sig losses.
-- 2026-04-25 — Added MaxContext TopDown and BottomUp variants to idea:007. Documentation refreshed.
-- 2026-04-25 — MaxContext TopDown / BottomUp parser hardening landed with an `n_docs=2 deterministic BM25 endgame`. Updated docs and experiment notes to reflect `N-2` LLM calls + 1 BM25 bypass for the single-extreme variants; DualEnd unchanged.
-- 2026-04-26 — Second-round MaxContext TopDown / BottomUp parser hardening. Cluster sweeps at pool ∈ {30,40} (TopDown) and pool ∈ {30,40,50} (BottomUp) crashed on five reproducible Qwen3 output patterns the round-1 strict-mode parser couldn't handle: leading-digit-then-explanation (`"3 Passage 3 is about… not relevant…"`), pure refusal (`"None of the passages are relevant…"`), and soft-refusal-then-decision (`"None directly… The most relevant passage is Passage 1…"`). Codex (`gpt-5.5`, xhigh) two-round investigation + audit-loop produced the locked plan; Codex then implemented it. Changes:
-  - **Parser** (`llmrankers/setwise.py:_parse_single_label`): added 3 new numeric-scheme extractors (leading-digit `^\s*(\d+)(?:\s|[.,;:!?]|$)`; qualifier-then-passage `(?:MOST|LEAST|BEST|WORST|CLOSEST)[^.\n]{0,40}?PASSAGE\s+(\d+)`; passage-then-qualifier). Introduced a SEPARATE `NUMERIC_REFUSAL_REGEX` constant + `_is_numeric_refusal_output(raw)` helper; the legacy shared refusal regex is unchanged so non-numeric callers stay byte-identical. `ANSWER` deliberately excluded from the qualifier-then-passage pattern to avoid `"the answer is not Passage 3"` false positives.
-  - **Call sites** (`setwise.py compare()` causal branch + `setwise_extended.py BottomUpSetwiseLlmRanker.compare_worst()` causal branch): replaced strict-raise with refusal-only deterministic no-op. TopDown returns `CHARACTERS[0]` (head wins → no swap); BottomUp returns `CHARACTERS[len(docs)-1]` (tail stays worst → no swap). Out-of-window parsed labels (e.g. `"31"` in a 30-doc window) still raise via `_resolve_maxcontext_label_index`.
-  - **Prompt** (`_build_best_prompt` / `_build_worst_prompt`): when `label_scheme == "numeric_1_based"`, append a window-size-aware instruction (`"Reply with exactly one passage number from 1 to {len(docs)}. Do not explain. If none of the passages are clearly relevant, still pick the single closest one."`). Other schemes unchanged.
-  - **Telemetry**: new `total_parse_fallback` counter on each MaxContext ranker; `run.py:optional_stat_labels` prints `Avg parse fallbacks:` when non-zero.
-  - **Tests**: 13-fixture parser regression + 4-case call-site regression added to `scripts/check_maxcontext_invariants.py`. `python scripts/check_maxcontext_invariants.py` exits 0.
-  - **Architecture lesson**: round-1's `strict_no_parse_fallback=True` was the right safety net but the wrong default. MaxContext single-extreme variants need to *not lose the run* on refusal — a deterministic no-op preserves BM25 order at that step, telemetry exposes the rate, and aggregate effect on NDCG@10 stays bounded. DualEnd remains untouched (uses `compare_both()` / `_parse_dual_output()`); the "exactly one LLM call" invariant is preserved.
-  - Diff stats: +166 / -8 across `setwise.py`, `setwise_extended.py`, `run.py`, `scripts/check_maxcontext_invariants.py`. Files dirty, not committed pending cluster-smoke verification on the previously-crashing pool=30/40/50 jobs.
+## Earlier (legacy archive)
+See `<repo-root>/Extra-Experiments/research-wiki/log.md` for the IDEA_007
+and pre-EMNLP log history.
