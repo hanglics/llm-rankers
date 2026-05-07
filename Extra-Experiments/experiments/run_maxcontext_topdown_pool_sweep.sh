@@ -6,6 +6,7 @@
 #       [device] [scoring] [passage_length]
 
 set -e
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 MODEL=${1:-"Qwen/Qwen3-4B"}
 DATASET=${2:-"msmarco-passage/trec-dl-2019/judged"}
