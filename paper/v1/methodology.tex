@@ -1,21 +1,59 @@
-\section{Methodology}
+\section{MaxContext}
 \label{sec:methodology}
 
-% TODO: To be drafted in next iteration. This section will cover:
-% - Problem formulation: zero-shot setwise reranking with LLMs
-% - Background: setwise prompting (Zhuang et al., 2024); DualEnd joint elicitation
-% - The MaxContext family algorithm: whole-pool single-prompt selection
-%   - MaxContext-DualEnd: best+worst per call, pool shrinks by 2
-%   - MaxContext-TopDown: best-only, pool shrinks by 1, deterministic n_docs=2 BM25 endgame
-%   - MaxContext-BottomUp: worst-only, pool shrinks by 1, deterministic n_docs=2 BM25 endgame
-% - Numeric labelling 1..N (replacing letter labels)
-% - Strict no-truncation invariant; abort-on-bad-parse policy
-% - Top-m Setwise Selection with Dualend Refinement (third proposed method per
-%   COMPLEXITY_TRADEOFF_REPORT §3) as a complementary efficiency-effectiveness operating point
-% - Complexity analysis: LLM calls, candidate exposures, sequential depth, parallel time
+\paragraph{Setup.} Given a query $q$ and a BM25 top-$N$ pool, MaxContext
+produces a top-$k$ ranking with $k = N$ — the matched operating point
+$W = k = N$ that this paper studies — under the constraint that the pool
+fits in one prompt at passage length $\ell$ (we use $\ell = 512$).
 
-\textit{[To be drafted in a subsequent revision once Phase 4 results land. This
-section will formalize the MaxContext family --- whole-pool single-prompt joint
-best-worst elicitation, plus its single-extreme variants --- alongside a
-complementary Top-$m$ Setwise+Dualend operating point that targets the same
-empty Pareto-frontier region from a different mechanistic angle.]}
+\paragraph{Common skeleton.} A live pool $L$ is initialised to the BM25
+top-$N$ list. Each LLM call sends \emph{all} of $L$ in one prompt with
+passages numerically labelled $1\dots|L|$ (replacing the legacy
+single-letter alphabet $\texttt{A}$--$\texttt{W}$ so $|L| > 23$ is
+addressable). The model returns one or two integer labels, strictly
+validated against $[1, |L|]$; out-of-range, duplicate, or refusal-like
+parses abort the run. Selected documents are placed at the next free
+\texttt{top} (head) and/or \texttt{bot} (tail) rank \emph{and removed
+from} $L$, so each subsequent call sees a strictly smaller pool.
+
+\paragraph{Three variants.} \textsc{MaxContext-DualEnd} asks for the best
+\emph{and} worst document and shrinks $L$ by two; \textsc{MaxContext-TopDown}
+asks for the best only and shrinks by one; \textsc{MaxContext-BottomUp}
+asks for the worst only and shrinks by one. The two single-extreme
+variants close out the final $|L|=2$ residual with a deterministic
+two-document BM25 endgame (higher-BM25 wins for TopDown, lower-BM25 loses
+for BottomUp). Algorithm~\ref{alg:dualend} formalises DualEnd; the
+single-extreme variants drop one of the two placements per iteration.
+
+\begin{algorithm}[t]
+\small
+\caption{MaxContext-DualEnd}
+\label{alg:dualend}
+\begin{algorithmic}[1]
+\State \textbf{Input:} query $q$, BM25 top-$N$ pool $P$
+\State $L \gets P$; \ \ $R \gets$ array of length $N$
+\State $\texttt{top} \gets 1$; \ $\texttt{bot} \gets N$
+\While{$|L| \ge 2$}
+  \State $(b, w_{\bot}) \gets \textsc{LLM}(q, L)$ \Comment{distinct labels in $[1,|L|]$}
+  \State $R[\texttt{top}] \gets L[b]$; \ $R[\texttt{bot}] \gets L[w_{\bot}]$
+  \State $\texttt{top}\mathrel{+}=1$; \ $\texttt{bot}\mathrel{-}=1$
+  \State delete $L[\max(b,w_{\bot})]$ then $L[\min(b,w_{\bot})]$
+\EndWhile
+\If{$|L| = 1$} $R[\texttt{top}] \gets L[1]$ \EndIf
+\State \textbf{return} $R$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{LLM-call counts.} At $W = k = N$,
+\textsc{MaxContext-DualEnd} uses $\lfloor N/2 \rfloor$ LLM calls;
+\textsc{MaxContext-TopDown} and \textsc{MaxContext-BottomUp} use $N{-}2$
+LLM calls plus one BM25 bypass. At $N{=}50$ that is $25$ vs $48$ LLM
+calls ($25/48 \approx 0.521$), approaching $\tfrac{1}{2}$ from above as
+$N \to \infty$. The BM25 bypass is a deterministic two-document tiebreak,
+not an LLM call, so the comparison is apples-to-apples on the cost axis
+that determines wall-clock under fixed per-call latency.
+
+\paragraph{Hard invariants.} The construction enforces $W = k = N$, no
+permutation self-consistency, generation-only scoring on Qwen3.5 / Llama /
+Mistral (T5 likelihood-scoring is excluded because it collapses joint
+elicitation to a best-only proxy), no truncation, and abort-on-bad-parse.

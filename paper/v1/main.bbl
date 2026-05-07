@@ -1,38 +1,19 @@
-\begin{thebibliography}{29}
+\begin{thebibliography}{22}
 \providecommand{\natexlab}[1]{#1}
 
-\bibitem[{{BlitzRank Authors}(2026)}]{blitzrank2026}
-{BlitzRank Authors}. 2026.
-\newblock {BlitzRank}: Principled tournament graphs for zero-shot {LLM}
-  reranking.
+\bibitem[{Agrawal et~al.(2026)Agrawal, Nguyen, and Kiela}]{blitzrank2026}
+Sheshansh Agrawal, Thien~Hang Nguyen, and Douwe Kiela. 2026.
+\newblock \href {https://arxiv.org/abs/2602.05448} {{BLITZRANK}: Principled
+  zero-shot ranking agents with tournament graphs}.
 \newblock \emph{arXiv preprint arXiv:2602.05448}.
 
-\bibitem[{Chen et~al.(2025{\natexlab{a}})Chen, Gutierrez, and Su}]{chen2025icr}
-Shijie Chen, Bernal~Jimenez Gutierrez, and Yu~Su. 2025{\natexlab{a}}.
-\newblock \href {https://arxiv.org/abs/2410.02642} {Attention in large language
-  models yields efficient zero-shot re-rankers}.
-\newblock In \emph{Proceedings of the 13th International Conference on Learning
-  Representations}.
-
-\bibitem[{Chen et~al.(2025{\natexlab{b}})Chen, Liu, Zhang, Sun, Ma, Yang, Shi,
-  Mao, and Yin}]{chen2025tourrank}
+\bibitem[{Chen et~al.(2025)Chen, Liu, Zhang, Sun, Ma, Yang, Shi, Mao, and
+  Yin}]{chen2025tourrank}
 Yiqun Chen, Qi~Liu, Yi~Zhang, Weiwei Sun, Xueguang Ma, Wei Yang, Daiting Shi,
-  Jiaxin Mao, and Dawei Yin. 2025{\natexlab{b}}.
+  Jiaxin Mao, and Dawei Yin. 2025.
 \newblock \href {https://arxiv.org/abs/2406.11678} {{TourRank}: Utilizing large
   language models for documents ranking with a tournament-inspired strategy}.
 \newblock In \emph{Proceedings of the {ACM} Web Conference 2025}.
-
-\bibitem[{Chung et~al.(2024)Chung, Hou, Longpre, Zoph, Tay, Fedus, Li, Wang,
-  Dehghani, Brahma, Webson, Gu, Dai, Suzgun, Chen, Chowdhery, Castro-Ros,
-  Pellat, Robinson, Valter, Narang, Mishra, Yu, Zhao, Huang, Dai, Yu, Petrov,
-  Chi, Dean, Devlin, Roberts, Zhou, Le, and Wei}]{chung2024flant5}
-Hyung~Won Chung, Le~Hou, Shayne Longpre, Barret Zoph, Yi~Tay, William Fedus,
-  Yunxuan Li, Xuezhi Wang, Mostafa Dehghani, Siddhartha Brahma, Albert Webson,
-  Shixiang~Shane Gu, Zhuyun Dai, Mirac Suzgun, Xinyun Chen, Aakanksha
-  Chowdhery, Alex Castro-Ros, Marie Pellat, Kevin Robinson, and 16 others.
-  2024.
-\newblock Scaling instruction-finetuned language models.
-\newblock \emph{Journal of Machine Learning Research}, 25(70):1--53.
 
 \bibitem[{Craswell et~al.(2021)Craswell, Mitra, Yilmaz, and
   Campos}]{craswell2021dl20}
@@ -48,21 +29,6 @@ Nick Craswell, Bhaskar Mitra, Emine Yilmaz, Daniel Campos, and Ellen~M.
 \newblock Overview of the {TREC} 2019 deep learning track.
 \newblock In \emph{Proceedings of the Twenty-Eighth Text REtrieval Conference
   (TREC 2019)}.
-
-\bibitem[{Gupta et~al.(2025)Gupta, You, Bhojanapalli, Kumar, Dhillon, and
-  Yu}]{gupta2025blockrank}
-Nirmit Gupta, Cong You, Srinadh Bhojanapalli, Sanjiv Kumar, Inderjit Dhillon,
-  and Felix Yu. 2025.
-\newblock Scalable in-context ranking with generative models.
-\newblock In \emph{Advances in Neural Information Processing Systems}.
-
-\bibitem[{Hutter et~al.(2025)Hutter, Rau, Marx, and
-  Kamps}]{hutter2025positionalrag}
-Jens Hutter, David Rau, Maarten Marx, and Jaap Kamps. 2025.
-\newblock Lost but not only in the middle: Positional bias in retrieval
-  augmented generation.
-\newblock In \emph{Proceedings of the 47th European Conference on Information
-  Retrieval}, pages 247--261.
 
 \bibitem[{Lin et~al.(2021)Lin, Ma, Lin, Yang, Pradeep, and
   Nogueira}]{lin2021pyserini}
@@ -86,6 +52,18 @@ Xueguang Ma, Xinyu Zhang, Ronak Pradeep, and Jimmy Lin. 2023.
 \newblock Zero-shot listwise document reranking with a large language model.
 \newblock \emph{arXiv preprint arXiv:2305.02156}.
 
+\bibitem[{{Meta AI}(2024)}]{llama31modelcard}
+{Meta AI}. 2024.
+\newblock \href {https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct}
+  {{Llama 3.1 8B Instruct} model card}.
+\newblock Hugging Face model card.
+
+\bibitem[{{Mistral AI}(2026)}]{ministral3modelcard}
+{Mistral AI}. 2026.
+\newblock \href {https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512}
+  {{Ministral 3 8B Instruct 2512} model card}.
+\newblock Hugging Face model card.
+
 \bibitem[{Nogueira et~al.(2020)Nogueira, Jiang, Pradeep, and
   Lin}]{nogueira2020monot5}
 Rodrigo Nogueira, Zhiying Jiang, Ronak Pradeep, and Jimmy Lin. 2020.
@@ -94,12 +72,12 @@ Rodrigo Nogueira, Zhiying Jiang, Ronak Pradeep, and Jimmy Lin. 2020.
 \newblock In \emph{Findings of the Association for Computational Linguistics:
   {EMNLP} 2020}.
 
-\bibitem[{Peng et~al.(2025)Peng, Wei, Song, and Fang}]{peng2025flopsreranking}
-Zhiyuan Peng, Ting-Ruen Wei, Tingyu Song, and Yi~Fang. 2025.
-\newblock {E2R-FLOPs}: Hardware-independent efficiency metrics for {LLM}-based
-  rerankers.
+\bibitem[{Peng et~al.(2025)Peng, Wei, Song, and Zhao}]{peng2025flopsreranking}
+Zhiyuan Peng, Ting-Ruen Wei, Tingyu Song, and Yilun Zhao. 2025.
+\newblock \href {https://doi.org/10.18653/v1/2025.emnlp-industry.186}
+  {Efficiency-effectiveness reranking {FLOP}s for {LLM}-based rerankers}.
 \newblock In \emph{Proceedings of the 2025 Conference on Empirical Methods in
-  Natural Language Processing: Industry Track}.
+  Natural Language Processing: Industry Track}, pages 2782--2791.
 
 \bibitem[{Podolak et~al.(2025)Podolak, Peric, Janicijevic, and
   Petcu}]{podolak2025setwiseinsertion}
@@ -108,13 +86,6 @@ Jakub Podolak, Leon Peric, Mina Janicijevic, and Roxana Petcu. 2025.
   Advancing zero-shot {LLM} reranking efficiency with setwise insertion}.
 \newblock In \emph{Proceedings of the 48th International {ACM} {SIGIR}
   Conference}.
-
-\bibitem[{Pradeep et~al.(2021)Pradeep, Nogueira, and
-  Lin}]{pradeep2021expandomonoduo}
-Ronak Pradeep, Rodrigo Nogueira, and Jimmy Lin. 2021.
-\newblock The {Expando-Mono-Duo} design pattern for text ranking with
-  pretrained sequence-to-sequence models.
-\newblock \emph{arXiv preprint arXiv:2101.05667}.
 
 \bibitem[{Qin et~al.(2024)Qin, Jagerman, Hui, Zhuang, Wu, Yan, Shen, Liu, Liu,
   Metzler, Wang, and Bendersky}]{qin2024prp}
@@ -126,16 +97,11 @@ Zhen Qin, Rolf Jagerman, Kai Hui, Honglei Zhuang, Junru Wu, Le~Yan, Jiaming
 \newblock In \emph{Findings of the Association for Computational Linguistics:
   {NAACL} 2024}.
 
-\bibitem[{{Qwen Team}(2025)}]{qwen3technical}
-{Qwen Team}. 2025.
-\newblock {Qwen3} technical report.
-\newblock \emph{arXiv preprint arXiv:2505.09388}.
-
-\bibitem[{{Rank1 Authors}(2025)}]{rank1_2025}
-{Rank1 Authors}. 2025.
-\newblock \href {https://arxiv.org/abs/2502.18418} {{Rank1}: Test-time compute
-  for reranking in information retrieval}.
-\newblock In \emph{Conference on Language Modeling (COLM)}.
+\bibitem[{{Qwen Team}(2026)}]{qwen35modelcard}
+{Qwen Team}. 2026.
+\newblock \href {https://huggingface.co/Qwen/Qwen3.5-4B} {{Qwen3.5} model
+  cards}.
+\newblock Hugging Face model cards.
 
 \bibitem[{Ren et~al.(2025)Ren, Wang, Zhou, Zhao, Wang, Liu, Wen, and
   Chua}]{ren2025selfcalibrated}
@@ -143,17 +109,6 @@ Ruiyang Ren, Yuhao Wang, Kun Zhou, Wayne~Xin Zhao, Wenjie Wang, Jing Liu,
   Ji-Rong Wen, and Tat-Seng Chua. 2025.
 \newblock Self-calibrated listwise reranking with large language models.
 \newblock In \emph{Proceedings of the {ACM} Web Conference 2025}.
-
-\bibitem[{Robertson and Zaragoza(2009)}]{robertson2009bm25}
-Stephen Robertson and Hugo Zaragoza. 2009.
-\newblock The probabilistic relevance framework: {BM25} and beyond.
-\newblock \emph{Foundations and Trends in Information Retrieval},
-  3(4):333--389.
-
-\bibitem[{Sato(2026)}]{sato2026sortingsurvey}
-Sato. 2026.
-\newblock A survey of sorting algorithms with {LLM}-based comparators.
-\newblock \emph{DPC Technical Report DPC-TR-2026-001}.
 
 \bibitem[{Sun et~al.(2023)Sun, Yan, Ma, Wang, Ren, Chen, Yin, and
   Ren}]{sun2023rankgpt}
@@ -173,20 +128,14 @@ Raphael Tang, Xinyu Zhang, Xueguang Ma, Jimmy Lin, and Ferhan Ture. 2024.
 \newblock In \emph{Proceedings of the 2024 Conference of the North American
   Chapter of the Association for Computational Linguistics}.
 
-\bibitem[{Wang et~al.(2025)Wang, Xia, Liao, Wang, and Liu}]{wang2025realm}
-Pinhuan Wang, Zhiqiu Xia, Chunhua Liao, Feiyi Wang, and Hang Liu. 2025.
-\newblock \href {https://arxiv.org/abs/2508.18379} {{REALM}: Recursive
-  relevance modeling for {LLM}-based document re-ranking}.
-\newblock In \emph{Proceedings of the 2025 Conference on Empirical Methods in
-  Natural Language Processing}.
-
-\bibitem[{Zeng et~al.(2024)Zeng, Tendolkar, Baartmans, Wu, Chen, and
-  Wang}]{zeng2024llmrankfusion}
-Yifan Zeng, Ojas Tendolkar, Roger Baartmans, Qingyun Wu, Lizhong Chen, and
-  Huazheng Wang. 2024.
-\newblock \href {https://arxiv.org/abs/2406.00231} {{LLM-RankFusion}:
-  Mitigating intrinsic inconsistency in {LLM}-based ranking}.
-\newblock In \emph{NeurIPS 2024 Workshop on Adaptive Foundation Models}.
+\bibitem[{Thakur et~al.(2021)Thakur, Reimers, R{\"u}ckl{\'e}, Srivastava, and
+  Gurevych}]{thakur2021beir}
+Nandan Thakur, Nils Reimers, Andreas R{\"u}ckl{\'e}, Abhishek Srivastava, and
+  Iryna Gurevych. 2021.
+\newblock {BEIR}: A heterogeneous benchmark for zero-shot evaluation of
+  information retrieval models.
+\newblock In \emph{Proceedings of the Neural Information Processing Systems
+  Track on Datasets and Benchmarks}.
 
 \bibitem[{Zhang et~al.(2025)Zhang, Hofst{\"a}tter, Lewis, Tang, and
   Lin}]{zhang2025rankwithoutgpt}

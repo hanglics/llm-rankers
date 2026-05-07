@@ -1,190 +1,48 @@
 \section{Related Work}
 \label{sec:related_work}
 
-We organize related work along three axes: (\S\ref{ssec:rw_paradigms}) the
-LLM zero-shot reranking paradigms, with emphasis on setwise; (\S\ref{ssec:rw_extensions})
-recent setwise / tournament extensions that share the ``more information per
-LLM call'' goal but stay anchored to bounded local groups, including
-\textbf{TourRank}; and (\S\ref{ssec:rw_long_context}) long-context attention
-and position-bias work that constrains what is realistic at $N{=}50$.
+\paragraph{Setwise prompting and extensions.}
+\citet{zhuang2024setwise} introduce setwise prompting: present a small
+candidate window, ask the LLM to choose the most relevant passage, and
+embed that choice inside heapsort or bubblesort. We build on the public
+\texttt{llm-rankers} implementation~\citep{ielab_llmrankers} but replace
+the fixed letter-label window with numeric labels so that the full live
+pool is addressable. Recent setwise extensions improve other parts of
+the pipeline: Setwise Insertion warm-starts sorting from the BM25 order
+\citep{podolak2025setwiseinsertion}, while Rank-R1 trains the comparator
+to reason before selecting within a larger setwise window
+\citep{zhuang2025rankr1}. MaxContext is orthogonal: it asks what happens
+when the window is the whole live pool.
 
-\subsection{LLM Zero-Shot Reranking Paradigms}
-\label{ssec:rw_paradigms}
+\paragraph{Tournament-style reranking.}
+TourRank~\citep{chen2025tourrank} and
+BLITZRANK~\citep{blitzrank2026} also try to extract more value from each
+multi-document judgement, using tournament structure, accumulated
+evidence, or tournament graphs. These methods change how comparisons are
+scheduled and aggregated. MaxContext instead changes the live-pool
+granularity of a setwise selector. A matched-budget tournament comparison
+would require sweeps over grouping, advancement, and graph-query knobs;
+we leave that head-to-head to appendix smokes and future work rather than
+making it load-bearing in a four-page short paper.
 
-LLM-based zero-shot reranking has converged on four prompting paradigms.
-\textbf{Pointwise} methods score each query-document pair
-independently~\citep{nogueira2020monot5,pradeep2021expandomonoduo}; they are
-fast and easy to parallelize, but ignore inter-document context.
-\textbf{Pairwise} methods compare two documents per
-call~\citep{qin2024prp}; they extract the strongest local signal but pay
-$O(n^2)$ comparisons in the all-pairs variant, mitigated by sorting-based
-heapsort and bubblesort wrappers. \textbf{Listwise}
-methods~\citep{sun2023rankgpt,ma2023zsl,zhang2025rankwithoutgpt,ren2025selfcalibrated}
-feed a sliding window of candidates and ask the LLM to emit a permutation;
-they are strong at moderate cost but suffer from output parsing fragility,
-window-boundary effects, and well-documented position
-bias~\citep{liu2024lostmiddle}. \textbf{Setwise}
-methods~\citep{zhuang2024setwise} sit between pairwise and listwise: each
-LLM call processes a small set of $c{+}1$ passages and emits a single label
-identifying the most relevant one; the comparator is then embedded in
-heapsort or bubblesort to produce a top-$k$ ranking. We adopt the setwise
-paradigm and the public reference
-implementation~\citep{ielab_llmrankers} as our baseline lineage.
+\paragraph{Listwise reranking.}
+Listwise rerankers ask the model to output an ordered list, often over a
+sliding window or local candidate block
+\citep{sun2023rankgpt,ma2023zsl,zhang2025rankwithoutgpt,ren2025selfcalibrated}.
+Their cost-quality tradeoff is therefore different from MaxContext's:
+they can produce a local permutation with fewer calls, but require longer
+structured outputs and face different parsing and order-sensitivity
+failure modes. Our half-call claim is only against whole-pool
+single-extreme setwise controls, not against listwise rerankers.
 
-The original setwise formulation~\citep{zhuang2024setwise} fixes
-$c{+}1{=}4$, uses single-letter labels (\texttt{A}, \texttt{B}, \texttt{C},
-\texttt{D}), and supports both \emph{generation} scoring (decode the winning
-label) and \emph{likelihood} scoring (compare logits of candidate label
-tokens, on encoder-decoder backbones). MaxContext extends this lineage in
-three respects: (i) the prompt feeds the entire live rerank pool rather than
-a small window; (ii) labels are numeric $1$--$N$ to support
-$N{\,>\,}23$ under strict parser invariants; and (iii) the comparator can
-emit either one (\textsc{TopDown}, \textsc{BottomUp}) or two
-(\textsc{DualEnd}) labels per call. We use generation scoring throughout
-because joint best-worst elicitation requires the model to emit two distinct
-labels in a single response, which the likelihood scoring path cannot
-represent without collapsing to a best-only proxy.
-
-\subsection{Setwise and Tournament Extensions}
-\label{ssec:rw_extensions}
-
-Several recent papers share MaxContext's high-level goal of extracting more
-ranking evidence per LLM call, but each is anchored to bounded local groups
-of $c{+}1{\le}20$.
-
-\paragraph{Joint best-worst elicitation.}
-Building on the public setwise reference
-implementation~\citep{ielab_llmrankers}, we implement a \textsc{DualEnd}
-comparator that asks the LLM to identify the most \emph{and} least relevant
-document in a single prompt, doubling the explicit information per call from
-one label to a partition of the $c{+}1$ candidates into two extremes plus
-the rest. The dual-output comparator naturally pairs with cocktail-shaker
-sort or double-ended selection sort. In our completed baseline experiments
-on TREC DL19/20 across nine LLMs, DualEnd is the strongest small-window
-family but pays $5.6{-}8.9\times$ the wall-clock of TopDown-Heap. We treat
-small-window DualEnd as a \emph{baseline} for this paper rather than a
-contribution: MaxContext-DualEnd inherits the joint best-worst comparator
-and applies it to the entire live pool instead of a $c{+}1{=}4$ window.
-
-\paragraph{Tournament prompting: TourRank.}
-\textbf{TourRank}~\citep{chen2025tourrank} runs setwise comparisons inside a
-multi-round tournament bracket. Documents are seeded into groups using BM25
-ranks, each round uses an LLM to advance a fraction of each group's
-candidates to the next round, and a final ranking is produced by accumulated
-points across $r$ tournaments. The information advantage over plain setwise
-heapsort is structural: a single comparator output provides broader ranking
-evidence through advancement, elimination, and accumulated points across
-rounds, and grouping seeded by initial rank reduces the chance that all
-strong candidates are concentrated in one group. TourRank is highly
-parallelizable --- groups within a round are independent, and tournaments
-are independent of each other --- and reports state-of-the-art quality on
-TREC DL and BEIR at moderate call budgets. Recent
-work~\citep{blitzrank2026} generalizes the tournament intuition into
-principled tournament \emph{graphs} that explicitly model all preferences
-extractable from a $k$-way comparison, rather than only winner identity.
-MaxContext is complementary to both threads: it does not change the bracket
-/ graph topology, but instead changes the \emph{size} of the live group
-inside which a setwise comparator operates, pushing it from $c{+}1{\le}20$
-all the way to $N{=}50$.
-
-\paragraph{Other setwise efficiency improvements.}
-\textbf{Setwise Insertion}~\citep{podolak2025setwiseinsertion} warm-starts the
-sort using the BM25 ranking as a prior, reducing query latency by
-$\sim31\%$ and the number of inferences by $\sim23\%$ without changing the
-comparator. This is orthogonal to MaxContext: an insertion-style warm start
-could be applied within MaxContext's pool-shrinking loop, though we leave
-that to future work. \textbf{Rank-R1}~\citep{zhuang2025rankr1} extends the
-setwise comparator with a reasoning chain learned via reinforcement learning
-and uses $20$ candidates per call --- a known-feasible precedent for
-moderately large setwise windows on Qwen-class models. Rank-R1 is
-complementary: it changes the \emph{quality} of each comparison via training,
-while MaxContext changes the \emph{scale} of each comparison via
-prompt-engineering at zero-shot. Combining a reasoning-trained comparator
-with whole-pool prompting is again future work.
-\textbf{REALM}~\citep{wang2025realm} models per-document relevance as
-Gaussian distributions and uses recursive Bayesian updates to reduce LLM
-queries by 23--84\%. MaxContext takes the opposite extreme of REALM's design
-space: rather than adapting the sort to the comparator's noise, it makes the
-comparator's window so large that the sort itself collapses to a few rounds
-of ``pick-and-place from the live pool.''
-
-\paragraph{Other paradigm-level alternatives.}
-\textbf{Attention-based reranking}~\citep{chen2025icr} skips generation
-entirely and uses attention scores from the LLM's forward pass as relevance
-weights, giving order-of-magnitude latency reductions at some quality cost;
-it is a different paradigm from setwise prompting.
-\textbf{BlockRank}~\citep{gupta2025blockrank} exploits inter-document block
-sparsity in attention to scale in-context ranking to long candidate lists
-within a single forward pass, emphasising raw throughput.
-MaxContext differs from both in that it remains within the setwise prompting
-paradigm and pays the cost of repeated whole-pool generation calls in
-exchange for the ability to elicit best, worst, or both extremes from a
-long-context comparator. Reasoning-enhanced rerankers such as
-\textbf{Rank1}~\citep{rank1_2025} use test-time compute to improve a
-pointwise comparator; the techniques are stackable but address a different
-axis (per-call quality, not per-query call count).
-
-\subsection{Long-Context Attention, Position Bias, and Order Robustness}
-\label{ssec:rw_long_context}
-
-Whole-pool prompting at $N{=}50$ pushes a $\sim25$K-token prompt through the
-LLM, which exposes MaxContext to two well-studied risks.
-
-\paragraph{Lost-in-the-middle.}
-\citet{liu2024lostmiddle} show that LLMs disproportionately attend to
-information at the beginning and end of long contexts, with a documented
-``U-shaped'' performance curve. \citet{hutter2025positionalrag} extend the
-phenomenon to retrieval-augmented generation, finding that bias depends on
-document type and model architecture. \citet{tang2024foundmiddle} propose
-\emph{permutation self-consistency} for listwise reranking: shuffle the
-input list multiple times, run the LLM on each permutation, and aggregate
-the rankings. This mitigates position bias at the cost of multiplying
-inference. MaxContext does \emph{not} apply permutation self-consistency by
-default because doing so would multiply the call count we are trying to
-reduce; instead, we treat order robustness as a launch gate, running a
-controlled-ordering pilot (BM25-forward, BM25-inverse, random) at
-$N{=}50$ and reporting the maximum pairwise NDCG@10 difference as evidence
-for or against order stability at scale.
-
-\paragraph{LLM comparator inconsistency.}
-\citet{zeng2024llmrankfusion} document two intrinsic inconsistencies in
-LLM-based comparison: order inconsistency (swapping inputs gives different
-outputs) and transitivity inconsistency (preference cycles). Sorting-based
-setwise approaches assume both. MaxContext does not eliminate these
-inconsistencies, but it reduces \emph{exposure} to them: with only
-$\lfloor N/2 \rfloor$ or $N{-}2$ comparator calls per query, fewer
-opportunities for inconsistent outputs accumulate compared to small-window
-sorts that make several hundred calls. Order sensitivity is diagnosed by the
-controlled-ordering pilot in \S\ref{sec:experimental_setup}; format
-reliability is diagnosed separately by parse-fallback rates at $N{=}50$.
-
-\paragraph{Sorting with noisy comparators and efficiency reporting.}
-\citet{sato2026sortingsurvey} surveys sorting algorithms specifically for
-LLM-based comparators, noting that classical complexity bounds may not be
-optimal when comparisons are expensive, batchable, and noisy. Recent work
-also argues that LLM-reranker efficiency cannot be summarized by call count
-alone. \citet{peng2025flopsreranking} introduce hardware-independent
-ranking-per-PetaFLOP and queries-per-PetaFLOP metrics, recognising that a
-single LLM call with $25$K prompt tokens is fundamentally different from
-$25$ small-window calls with $1$K tokens each. We adopt the spirit of this
-recommendation: throughout the experimental sections we report all five cost
-axes (LLM calls, prompt tokens, completion tokens, total tokens, wall-clock)
-on every method, and frame our claim narrowly as potential Pareto-frontier
-movement on the comparisons-axis and wall-clock-axis rather than on
-per-token efficiency.
-
-\subsection{Positioning of MaxContext}
-
-Within this landscape, MaxContext is the first setwise reranker we are aware
-of that prompts over the entire live rerank pool on every call (up to
-$N{=}50$ documents) while retaining a controlled comparison of comparator
-output type via the three-variant ablation. It is complementary to
-TourRank-style tournament structure (which changes \emph{how} comparator
-outputs are aggregated), to Setwise Insertion (which changes \emph{where}
-the sort starts), and to Rank-R1 (which changes \emph{what} the comparator
-internally computes). Unlike permutation self-consistency methods, MaxContext
-treats order robustness as an empirical constraint rather than as a
-mitigation strategy: we evaluate controlled input orders rather than
-multiplying inference by default. The natural follow-up question --- whether
-stacking MaxContext with a tournament structure or a reasoning-trained
-comparator yields further improvements --- is left to future work.
+\paragraph{Long-context robustness and efficiency.}
+Long contexts do not remove positional effects:
+\citet{liu2024lostmiddle} show that models can under-use middle context,
+and \citet{tang2024foundmiddle} improve listwise ranking with permutation
+self-consistency at the cost of repeated calls. We therefore measure
+input-order stability rather than assuming whole-pool prompts are
+order-invariant. Finally, \citet{peng2025flopsreranking} argue that
+reranker efficiency should not be summarized by proxy metrics alone. We
+report calls, prompt/completion/total tokens, parser recovery, BM25
+bypasses, and wall-clock, while keeping the main claim narrowly about LLM
+calls and observed wall-clock.

@@ -1,288 +1,58 @@
 \section{Experimental Setup}
 \label{sec:experimental_setup}
 
-We organize the evaluation around three questions, each addressed by a
-predeclared sub-study: \textbf{(Q1)} does whole-pool prompting move the
-Pareto frontier on the comparisons-axis and wall-clock-axis at
-matched-\texttt{hits} cost? \textbf{(Q2)} which mechanism --- joint
-elicitation, whole-pool selection, or single-extreme selection --- is
-responsible for any movement? \textbf{(Q3)} how does whole-pool prompting
-behave under input-order perturbations and varying passage lengths? The
-matrix below is staged so that order-stability and per-query parse
-reliability are validated before the bulk of compute is committed.
+\paragraph{Datasets and retrieval.}
+We evaluate on TREC Deep Learning 2019~\citep{craswell2020dl19}
+(43 queries) and 2020~\citep{craswell2021dl20} (54 queries) over MS MARCO
+passage, plus four BEIR~\citep{thakur2021beir} domains selected to vary
+topic, corpus style, and query count: dbpedia-entity, nfcorpus, scifact,
+and trec-covid. The first-stage ranking is BM25 from Pyserini
+\citep{lin2021pyserini}. MaxContext reranks the BM25 top-$N$ documents
+with $W=k=N$ so that all three variants receive the same initial pool.
 
-\subsection{Datasets and First-Stage Retrieval}
+\paragraph{Models and inference.}
+The main matrix uses four open-weight checkpoints across three model
+families: Qwen3.5-4B, Qwen3.5-9B, Llama-3.1-8B-Instruct, and
+Ministral-3-8B-Instruct-2512. Their published context windows span 128K
+tokens for Llama 3.1 to 256K--262K for Ministral 3 and Qwen3.5
+\citep{llama31modelcard,ministral3modelcard,qwen35modelcard}, comfortably
+above the approximately 26K-token prompt produced by $N{=}50$ and
+$\ell{=}512$. We use generation scoring with greedy decoding and disable
+reasoning/thinking traces when the model interface exposes such a switch.
+All runs enforce the invariants in \S\ref{sec:methodology}: numeric
+labels, no truncation, no permutation self-consistency, and
+abort-on-invalid labels. A size sweep over Qwen3.5-\{0.8B, 2B, 27B\} and
+Ministral-3-\{3B, 14B\} is appendix-only.
 
-We evaluate on the standard zero-shot LLM reranking benchmarks: \textbf{TREC
-Deep Learning 2019}~\citep{craswell2020dl19} and \textbf{TREC Deep Learning
-2020}~\citep{craswell2021dl20}, both built on the MS MARCO passage
-collection. DL19 contains 43 judged queries with graded relevance, DL20
-contains 54. First-stage retrieval is BM25~\citep{robertson2009bm25} as
-implemented in Pyserini~\citep{lin2021pyserini}, retrieving the top-$N$
-candidates per query for $N \in \{10,20,30,40,50\}$. Matched-\texttt{hits}
-discipline (see \S\ref{ssec:baselines}) requires that every reranking method
-is evaluated against a baseline that re-ranked the \emph{same} BM25 top-$N$
-list, since archived runs at $\texttt{hits}{=}100$ cannot be subsetted to
-$\texttt{hits}{=}50$ without changing the candidate pool that the reranker
-ever sees.\footnote{The reference run-script reads only the top-\texttt{hits}
-BM25 candidates before any LLM call, so a $\texttt{hits}{=}50$ rerun is a
-genuinely different experiment from a $\texttt{hits}{=}100$ run with
-post-hoc top-50 truncation.} All experiments report nDCG@10 (primary). We
-also log nDCG@100, MAP@10, MAP@100, and Recall@1000 against the official
-qrels via \texttt{trec\_eval}; secondary metrics are reported in the
-appendix unless space permits inclusion in the main tables.
+\paragraph{Method grid.}
+The three MaxContext variants are evaluated at
+$N \in \{10,20,30,40,50\}$ on TREC DL19/20. For the four BEIR domains we
+use $N \in \{10,30,50\}$ to keep the short-paper compute budget
+tractable while preserving the low/mid/high pool-size anchors. The
+primary quality comparison is at $N{=}50$, where the deterministic
+LLM-call ratio is largest in the planned grid: $25$ calls for
+\textsc{DualEnd} vs.\ $48$ for either single-extreme control.
 
-\subsection{Models}
+\paragraph{Statistical protocol.}
+For each model-dataset cell, we test non-inferiority of
+\textsc{MaxContext-DualEnd} against \textsc{MaxContext-TopDown} and
+\textsc{MaxContext-BottomUp} separately. Let
+$\Delta = \text{nDCG@10}(\textsc{DualEnd}) -
+\text{nDCG@10}(\text{baseline})$ over paired per-query scores. With
+margin $\delta=0.01$, the one-sided test is
+$H_0: \Delta \le -\delta$ vs.\ $H_1: \Delta > -\delta$, implemented as a
+paired sign-flip permutation test with $10{,}000$ resamples and
+$\alpha=0.05$. We report paired-bootstrap 95\% CIs for every point
+estimate. BH-FDR correction ($q=0.05$) is applied separately within the
+24-cell TopDown and BottomUp comparator families; Bonferroni and
+Holm-corrected values are appendix transparency columns.
 
-We instantiate MaxContext on six instruction-tuned Qwen
-checkpoints~\citep{qwen3technical}: \textbf{Qwen3-4B}, \textbf{Qwen3-8B},
-\textbf{Qwen3-14B}, \textbf{Qwen3.5-4B}, \textbf{Qwen3.5-9B}, and
-\textbf{Qwen3.5-27B}. We restrict to Qwen because only the
-generation-scoring code path on Qwen3 / Qwen3.5 in our implementation
-exercises true joint best-worst elicitation as a single decoding step;
-encoder-decoder backbones such as Flan-T5~\citep{chung2024flant5} and the
-likelihood-scoring path collapse joint elicitation to a best-only proxy via
-argmax / argmin over independent label likelihoods. \textbf{All MaxContext
-claims in this paper are therefore scoped to Qwen-generation models; we do
-not claim model-family generality.} Llama- and Mistral-based extension is
-conditional on family-specific sanity-smoke validation (parse stability at
-$N{=}50$, order robustness, refusal-pattern coverage) and is out of scope
-for this submission.
-
-Two contextual notes apply across the model lineup. \textbf{Native context
-length:} Qwen3-{4B,8B,14B} ship with $32{,}768$-token native context;
-Qwen3.5-9B and the larger Qwen3.5 checkpoints ship with $262{,}144$-token
-native context. At passage length $512$, a $50$-document pool plus query,
-prompt scaffolding, and decoding budget consumes well under $30$K tokens,
-so no model in our lineup is ever close to its native limit. \textbf{Thinking
-mode disabled:} Qwen3 / Qwen3.5 generation runs use
-\texttt{enable\_thinking=False}, capping the decoding budget at $\sim$128
-output tokens to discourage long chain-of-thought and keep the parse target
-to a structured \texttt{Best: <int>, Worst: <int>} (or single-int) string.
-
-\subsection{MaxContext Configuration}
-\label{ssec:max_config}
-
-All MaxContext runs use a fixed harness with hard invariants. Each ranker
-asserts at construction time that
-\texttt{pool\_size} $=$ \texttt{hits} $=$ \texttt{ranker.k}, that
-\texttt{num\_permutation} $=$ $1$, that the model family is in the Qwen3 /
-Qwen3.5 allowlist, and that the runtime-rendered prompt fits inside the
-model's context budget with $128$ tokens reserved for decoding. Truncation
-is forbidden: any prompt that would exceed the budget aborts the run with a
-diagnostic. Document labels are numeric ($1$..$N$); the parser tightens the
-upstream regex to validate that extracted integers lie in $[1, N]$ and to
-reject duplicate or out-of-range labels with no silent default. Out-of-range
-labels and duplicate best/worst labels trigger an immediate run-abort
-rather than a fallback ranking. For the single-extreme variants, an
-$n_{\text{docs}}{=}2$ deterministic BM25 endgame resolves the last pair:
-\textsc{MaxContext-TopDown} keeps the higher-BM25 document at the next top
-rank (so the BM25 endgame decides ranks $N{-}1$ vs.\ $N$, the tail of the
-ranking), while \textsc{MaxContext-BottomUp} keeps the lower-BM25 document
-at the next bottom rank (so the BM25 endgame decides ranks $1$ vs.\ $2$,
-the head of the ranking). Because nDCG@10 is sensitive to head-of-ranking
-decisions, we report \textsc{TopDown} and \textsc{BottomUp} on the Pareto
-plot \emph{separately} and decline any causal claim about whether the
-single-extreme bypass position causes the observed quality gap.
-
-\subsection{Baselines}
-\label{ssec:baselines}
-
-\paragraph{Matched-\texttt{hits} setwise / DualEnd lineage.}
-For every \texttt{hits}\,$=$\,pool-size value $N \in \{10, 30, 50\}$
-(the cheapest, mid-range, and deepest anchors of our pool sweep), we
-re-rerank the same BM25 top-$N$ list with four predeclared baselines:
-\textbf{TopDown-Heap (TD-Heap)} and \textbf{TopDown-Bubble (TD-Bubble)}
-(both upstream setwise sorts at \texttt{num\_child}$=$$3$);
-\textbf{DualEnd-Cocktail (DE-Cocktail)} (cocktail-shaker sort over a joint
-best-worst comparator); and \textbf{DualEnd-Selection (DE-Selection)}
-(double-ended selection sort over the same comparator). All four use the
-public setwise reference codebase~\citep{ielab_llmrankers}, our DualEnd
-extension built on top, and the same six Qwen models, two datasets, and
-passage length $512$ as the MaxContext primary runs. If Phase 2's
-order-stability gate (see below) fails at $N{=}50$ and forces the production
-matrix to a smaller pool size, the matched-\texttt{hits} baseline grid is
-extended to include the chosen smaller $N$ ($N{=}20$ by default) so that the
-non-inferiority rule remains evaluated against same-\texttt{hits} baselines.
-
-The headline rule for \textbf{(Q1)} is non-inferiority: at matched
-\texttt{hits} $N$, \textsc{MaxContext-DualEnd} must be no worse than the
-\emph{best of} \{DE-Cocktail, DE-Selection, TD-Bubble\} on nDCG@10 with a
-predeclared margin of $\Delta \geq -0.003$ (point estimate) and a
-bootstrap-CI lower bound of $\geq -0.005$, while reducing the average
-per-query LLM call count. We use the best-of rule rather than a single
-baseline because DE-Selection holds the only Bonferroni-significant
-DualEnd win in our completed small-window experiments; comparing only
-against DE-Cocktail would effectively cherry-pick an easier baseline. If a
-single-extreme variant rather than DualEnd dominates the Phase 4 frontier,
-the same non-inferiority rule is reported for that variant against
-\emph{same-direction} matched-\texttt{hits} baselines (TD-Heap or TD-Bubble
-for \textsc{MaxContext-TopDown}; the BU-Heap upstream baseline for
-\textsc{MaxContext-BottomUp}), so the headline framing scales with whichever
-mechanism is empirically responsible for the frontier movement.
-
-\paragraph{Why TourRank is not a primary baseline.}
-Our primary comparisons are within the matched-\texttt{hits} setwise /
-DualEnd family because the main claim concerns whole-pool prompting under
-controlled pool depth. TourRank~\citep{chen2025tourrank} varies different
-budget knobs --- number of tournaments, group size, advancement fraction,
-and parallel tournament schedule --- so a fair head-to-head requires a
-separate matched-budget sweep. We report TourRank as related work
-(\S\ref{ssec:rw_extensions}) and leave a full MaxContext--TourRank
-comparison to future work. \textbf{TourRank is therefore not part of the
-non-inferiority rule above; the matched-\texttt{hits} non-inferiority claim
-is internal to the setwise / DualEnd family.}
-
-\paragraph{Top-$m$ + DualEnd cascade.}
-The complementary operating point is evaluated under the same Qwen lineup,
-datasets, and passage length. The cascade starts from the BM25 top-$100$
-candidates --- a deeper pool than the matched-\texttt{hits} setwise
-baselines, since the cascade's role is to probe whether prefiltering with
-Top-$m$ selection lets us refine over a larger initial pool than MaxContext
-alone can fit in context. Hyperparameters are predeclared as $G \in \{10,
-20\}$ (setwise group size at the Top-$m$ stage), $m{=}5$, $r \in \{1, 3\}$
-(repeated stratified groupings), and a finalist pool capped at $|F|{=}30$
-that is refined directly with \textsc{MaxContext-DualEnd}
-($\lfloor |F|/2 \rfloor$ dependent calls; no sharding required at
-$|F|{\le}50$). The finalist scoring rule is predeclared:
-\[
-\mathrm{score}(d) = \mathrm{vote}^+(d) - \lambda \,\mathrm{vote}^-(d) + \beta \,\mathrm{prior}_{\mathrm{BM25}}(d),
-\]
-with $\lambda{=}0.25$, $\beta{=}0.10$, and deterministic tie-breaks (higher
-positive vote rate first, then better BM25 rank, then stable document ID).
-\textit{Per-query normalization:} $\mathrm{vote}^+(d)$,
-$\mathrm{vote}^-(d)$, and $\mathrm{prior}_{\mathrm{BM25}}(d)$ are each
-min--max scaled to $[0,1]$ within the query before being combined, so the
-$\lambda$ / $\beta$ hyperparameters operate on a comparable scale across
-queries. Cascade hyperparameters are reported as a fixed sensitivity check
-rather than as a tuned competing method, and finalist-pool recall (the
-fraction of qrels-relevant documents retained in $F$) is reported
-separately as a diagnostic of how aggressively the Top-$m$ stage prunes.
-
-\subsection{Cost Reporting and Statistics}
-
-\paragraph{Five cost axes.}
-Following~\citet{peng2025flopsreranking}, every reported method has all
-five axes recorded and figured: (i) average per-query \emph{dependent} LLM
-calls, labelled ``Avg comparisons'' for parity with prior setwise tables;
-(ii) average per-query prompt tokens; (iii) average per-query completion
-tokens; (iv) average per-query total tokens; (v) end-to-end wall-clock
-latency, measured on identical NVIDIA H100 GPUs via Vast.ai. We also log
-per-call parse status (\texttt{full\_parse}, \texttt{fallback\_parse}, or
-\texttt{abort}) and report the \emph{parse-fallback rate} as the fraction
-of LLM calls per query with a \texttt{fallback\_parse}, averaged over the
-test set. \texttt{fallback\_parse} indicates the parser used a secondary
-extractor (e.g., a numeric-only refusal regex) and recovered a valid label
-within $[1, N]$; an \texttt{abort} indicates an out-of-range label,
-duplicate best/worst labels, or refusal that the parser cannot recover from
---- aborts halt the entire run rather than substitute a fallback ranking. \textbf{We do not claim token
-efficiency:} on prompt-token and total-token axes, MaxContext is expected
-to be more expensive than small-window setwise; the only legitimate
-efficiency claims are on the comparisons-axis and wall-clock-axis.
-
-\paragraph{Significance testing.}
-Pairwise differences in per-query nDCG@10 are tested with paired
-approximate-randomization tests. Bonferroni correction is applied across the
-within-family comparison set (number of model-dataset configurations per
-family, typically 12 within Qwen). Bootstrap 95\% confidence intervals on
-the per-query nDCG@10 difference are reported alongside point-estimate
-deltas, so non-inferiority claims combine point and interval evidence per
-\S\ref{ssec:baselines}.
-
-\subsection{Staged Matrix and Launch Gates}
-
-The full MaxContext production matrix runs on a shared SLURM cluster. Total
-sizing is approximately \textbf{420 runs} ($\sim$$840$ H100 hours of
-compute) across DualEnd, TopDown, and BottomUp pool sweeps plus the
-matched-\texttt{hits} baseline grid; the mandatory pre-production gate
-(Phases 2 and 3 below) adds $\sim$$56$ H100 hours, and the contingent
-smaller-pool fallback adds another $\sim$$36$ H100 hours. Detailed launchers
-and command lines are released with the code.
-
-\paragraph{Phase 1 -- Unit sanity.}
-Single-GPU smoke test on Qwen3-4B, DL19, $N \in \{10,20,30,40,50\}$, $pl=512$.
-Pass criteria: zero parse aborts, zero truncations, output is a permutation
-of the input pool. Phase 1 has already passed for all three MaxContext
-variants in our development runs.
-
-\paragraph{Phase 2 -- Order-robustness pilot (Q3 launch gate).}
-On Qwen3-4B and Qwen3.5-9B, DL19 and DL20, at $N{=}50$ and $pl{=}512$, we
-run \textsc{MaxContext-DualEnd} with three input orderings: BM25-forward (as
-retrieved), BM25-inverse, and a fixed-seed random shuffle (seed $\!=\!42$
-for reproducibility). \textbf{Pass criterion (primary):} maximum pairwise
-nDCG@10 difference across the three orderings must be $\leq 0.01$ for both
-models on both datasets. \textbf{Phase 2 also produces three secondary
-position-bias-at-scale diagnostics} that are reported regardless of pass /
-fail:
-\begin{itemize}
-\item \textit{Selected-position concentration:} per-call frequency at which
-each in-prompt position $i \in [1, N]$ is selected as best (and as worst,
-under DualEnd). Concentration $> 30\%$ at any single position under
-forward ordering is flagged.
-\item \textit{Selected-doc stability:} fraction of queries on which the
-same docid is chosen between forward and inverse orderings; $< 50\%$ is
-flagged as order-dependent.
-\item \textit{Parse-fallback location distribution:} the in-prompt
-position(s) most often associated with parse-fallback events, used to
-inform parser hardening before Phase 4.
-\end{itemize}
-Failing the primary gate at $N{=}50$ re-targets the production matrix to
-the contingent fallback at $N{=}20$ (where context-attention degradation is
-less likely); persistent failure at $N{=}20$ aborts the pivot. Position-
-bias-at-scale results are reported separately from the $w{=}4$ letter-
-scheme analyses in our prior work, since small-window evidence does not
-automatically extend to $N{=}50$.
-
-\paragraph{Phase 3 -- Matched-\texttt{hits} non-inferiority (Q1 launch gate).}
-Four \texttt{(model, dataset)} pairs (Qwen3-8B and Qwen3.5-9B $\times$ DL19
-and DL20) compare \textsc{MaxContext-DualEnd} at $N{=}50$ against
-\{DE-Cocktail, DE-Selection, TD-Bubble\} at matched \texttt{hits}{=}$50$
-under the best-of non-inferiority rule of \S\ref{ssec:baselines}. The
-DE-Cocktail and DE-Selection runs are launched fresh for the four pairs;
-the TD-Bubble runs at $\texttt{hits}{=}50$ are part of the same Phase 4B
-matched-\texttt{hits} baseline grid (and so are not double-counted in the
-Phase 3 gate's compute budget unless the corresponding TD-Bubble run is
-not yet on disk). \textbf{Pass criterion:} non-inferiority on at least 3
-of 4 pairs. Phase 3 is a \emph{launch gate}, not a final generalization
-claim: a 4-pair test on the small TREC DL test sets is large enough to
-catch model-specific or dataset-specific quirks that would otherwise
-contaminate Phase 4, but the final evidence must come from the full Phase
-4 6-model $\times$ 2-dataset production matrix with bootstrap CIs and
-paired tests across all $12$ configurations.
-
-\paragraph{Phase 4 -- Production sweeps (Q1 + Q2).}
-Conditional on Phases 2--3 passing. Three sweeps:
-(i) Study A --- pool-size sweep $N \in \{10,20,30,40,50\}$ for
-\textsc{MaxContext-DualEnd} on six Qwen models $\times$ two datasets ($60$
-runs);
-(ii) Phase 4D --- the same sweep for \textsc{MaxContext-TopDown} ($60$ runs);
-(iii) Phase 4E --- for \textsc{MaxContext-BottomUp} ($60$ runs);
-plus the Phase 4B matched-\texttt{hits} baseline grid at $N \in \{10,30,50\}$
-(or $\{10,20,30,50\}$ if Phase 2 forced the smaller-pool fallback) across
-four sort families ($144$ runs at the default grid). Phase 4 produces the
-headline Pareto plots and the three-variant mechanism ablation.
-
-\paragraph{Phase 5 -- Passage-length sensitivity (Q3).}
-At the predeclared production pool size from Phase 4, the passage-length
-sweep $pl \in \{64, 128, 256, 512\}$ runs both
-\textsc{MaxContext-DualEnd} (treatment, $48$ runs) and a DE-Selection-with-
-\texttt{num\_child}$=$$3$ control arm at the same $pl$ ($48$ runs).
-Confound rule: if shorter $pl$ wins under MaxContext but not under the
-control, attribute to long-context attention degradation; if shorter $pl$
-wins under both, attribute to passage-length sensitivity in the underlying
-Qwen scoring; any other pattern triggers further investigation before any
-attribution.
-
-\subsection{Reproducibility}
-
-All MaxContext code, prompt templates, parser, and launcher scripts are
-released under the same open-source licence as the underlying setwise
-codebase. Each completed run emits a JSON Lines log containing per-query
-LLM-call traces (prompt, response, parse status, label scheme), the
-deterministic seeds used for input-ordering pilots, the SLURM job ID, and
-the model checkpoint hash, so that downstream analyses --- in particular
-the position-bias-at-scale stratification --- can be re-derived without
-re-running the LLM. Cluster wall-clock numbers reported in the paper are
-the median across three independent re-runs of a 3-query subset of the
-official qrels per (model, dataset, method) configuration to absorb shared-
-cluster GPU-utilization variance.
+\paragraph{Stability and cost reporting.}
+A 10-seed input-order rerun on Qwen3-4B / DL19 with
+\texttt{--shuffle\_ranking random} measures sensitivity to candidate
+ordering; we report SD, range, and worst-pair deltas and do not assume
+transfer to Qwen3.5-4B. Each job logs LLM calls, prompt/completion/total
+tokens, parser-recovery rate, BM25 bypass count, per-query wall-clock,
+and total wall-clock. Code, launchers, prompts, JSONL logs, and an
+HF-revision-pinned manifest will be released with the paper under the
+repository license.

@@ -8,36 +8,18 @@
 \usepackage{times}
 \usepackage{latexsym}
 
-% For proper rendering and hyphenation of words containing Latin characters (including in bib files)
 \usepackage[T1]{fontenc}
-% This assumes your files are encoded as UTF8
 \usepackage[utf8]{inputenc}
-
-% Improves layout, saves space.
 \usepackage{microtype}
-
-% Improves aesthetics of typewriter font.
 \usepackage{inconsolata}
-
-% Including images
 \usepackage{graphicx}
-
-% Math
 \usepackage{amsmath,amssymb}
-
-% Tables
 \usepackage{booktabs}
 \usepackage{multirow}
-
-% Algorithms
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
-% Code listings (for prompts)
-\usepackage{xcolor}
-\usepackage{tcolorbox}
-
-\title{MaxContext: Amortizing LLM Setwise Reranking with Whole-Pool Prompts}
+\title{MaxContext: Whole-Pool Setwise Reranking with Joint Best--Worst Elicitation Nearly Halves LLM Calls}
 
 \author{Anonymous EMNLP 2026 Submission}
 
@@ -59,11 +41,9 @@
 \section*{Limitations}
 \input{limitation}
 
-% Custom bibliography entries only
 \bibliography{reference}
 
 \appendix
-
 \input{appendix}
 
 \end{document}

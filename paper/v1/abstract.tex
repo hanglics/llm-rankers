@@ -1,32 +1,20 @@
-Setwise reranking with large language models~\citep{zhuang2024setwise} prompts
-the model to select the most relevant document from a small candidate window
-and sorts these local decisions into a top-$k$ ranking, extracting only one
-explicit extreme per LLM call --- the identity of the best document --- without
-explicitly using the worst document or the relative order of the rest. Asking
-\emph{jointly} for the best and worst document in the same prompt (DualEnd)
-extracts two explicit extremes per call, but at the usual four-passage window
-it still requires hundreds of dependent LLM calls per query, leaving a large
-latency gap between lightweight setwise sorts and quality-oriented joint
-elicitation.
-We propose \textbf{MaxContext}, a family of zero-shot LLM rerankers that
-prompts repeatedly over the \emph{whole live rerank pool} (up to $50$
-documents) instead of a small sliding window. The family has three variants
-that ask, on each call, for either joint best+worst (\textsc{DualEnd}),
-best-only (\textsc{TopDown}), or worst-only (\textsc{BottomUp}) selection from
-the live pool; \textsc{MaxContext-DualEnd} reranks a pool of size $N$ in
-$\lfloor N/2 \rfloor$ dependent LLM calls, and the single-extreme variants in
-$N{-}2$ calls plus a deterministic two-document BM25 endgame. The three
-variants jointly test whether quality differences relative to small-window
-setwise arise from joint elicitation, from whole-pool selection itself, or
-from single-extreme selection at long context. We evaluate MaxContext on six
-Qwen3 / Qwen3.5 checkpoints (4B--27B) on TREC~DL19 and DL20 against
-matched-\texttt{hits} TopDown-Heap, TopDown-Bubble, DualEnd-Cocktail, and
-DualEnd-Selection baselines, with explicit pool-size, passage-length, and
-input-order ablations. As a secondary fixed-configuration operating point that can scale beyond
-MaxContext's pool-size ceiling, we additionally evaluate a Top-$m$~Setwise
-+ DualEnd finalist cascade. We frame
-our claim as potential movement on the comparisons-axis and wall-clock-axis of
-the reranking Pareto frontier with transparent reporting of prompt,
-completion, and total tokens, parse-fallback rates, and order-stability
-diagnostics, so that any quality difference can be audited against its true
-compute cost rather than an isolated call-count headline.
+Setwise LLM reranking~\citep{zhuang2024setwise} usually asks a model to
+select the best document from a small candidate window and embeds those
+decisions in a sorting procedure. Current long-context open-weight models
+can instead fit a complete first-stage rerank pool in one prompt for the
+common $N \le 50$ setting. We introduce \textbf{MaxContext}, a zero-shot
+setwise reranker whose every LLM call sees the current whole live pool.
+The family has three output types: joint best+worst
+(\textsc{DualEnd}), best-only (\textsc{TopDown}), and worst-only
+(\textsc{BottomUp}). The call-count difference is deterministic:
+\textsc{MaxContext-DualEnd} ranks a pool of size $N$ in
+$\lfloor N/2 \rfloor$ LLM calls, while either single-extreme variant needs
+$N{-}2$ LLM calls plus one deterministic two-document BM25 endgame. At
+$N{=}50$, this is $25$ vs.\ $48$ LLM calls. The empirical question is
+whether this call reduction can be obtained without degrading nDCG@10. We
+evaluate on TREC DL19/20 and four BEIR domains across Qwen3.5-4B/9B,
+Llama-3.1-8B-Instruct, and Ministral-3-8B-Instruct-2512, using a
+predeclared one-sided paired-permutation non-inferiority test
+($\delta=0.01$, BH-FDR corrected) plus an input-order stability protocol.
+We frame the efficiency claim only on LLM calls and wall-clock; token
+costs are reported transparently but are not the basis of the claim.
