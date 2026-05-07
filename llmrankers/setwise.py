@@ -722,6 +722,15 @@ class SetwiseLlmRanker(LlmRanker):
                 r"^\s*(\d+)(?:\s|[.,;:!?]|$)",
                 r"(?:MOST\s+RELEVANT|LEAST\s+RELEVANT|BEST|WORST|CLOSEST(?:\s+MATCH)?)[^.\n]{0,40}?PASSAGE\s+(\d+)",
                 r"PASSAGE\s+(\d+)\s+(?:IS|WAS)\s+(?:THE\s+)?(?:MOST(?:\s+RELEVANT)?|LEAST(?:\s+RELEVANT)?|BEST|WORST|CLOSEST(?:\s+MATCH)?)",
+                # B.1 (parse-failure hotfix 2026-05-08): allow a closing paren or
+                # comma (and surrounding whitespace) between the digit and the
+                # IS/WAS trigger. Qwen3.5-9B at N=50/100 frequently emits
+                # "This passage (Passage 21) is the least relevant because...",
+                # which the previous pattern missed because it required digit+IS
+                # adjacency. New branch — old patterns try first, so Qwen3
+                # byte-equality is preserved for outputs the old patterns
+                # already accepted.
+                r"PASSAGE\s+(\d+)\s*[)\],]\s*(?:IS|WAS)\s+(?:THE\s+)?(?:MOST(?:\s+RELEVANT)?|LEAST(?:\s+RELEVANT)?|BEST|WORST|CLOSEST(?:\s+MATCH)?)",
             )
             for pattern in numeric_patterns:
                 for match in re.findall(pattern, cleaned, flags=re.IGNORECASE):
@@ -746,7 +755,17 @@ class SetwiseLlmRanker(LlmRanker):
                     r"\b(choose|pick|select|forced\s+to|i\s+would|"
                     r"my\s+(?:answer|choice|pick)|the\s+answer\s+is|"
                     r"closest\s+is|would\s+be|is\s+the\s+(?:most|least)|"
-                    r"final\s+answer|going\s+with)\b",
+                    r"final\s+answer|going\s+with|"
+                    # B.3 (parse-failure hotfix 2026-05-08): hedges Qwen3.5-9B
+                    # uses without an "is" anchor (e.g., "making it the most
+                    # contextually relevant", "the most contextually relevant",
+                    # "Among the options, Passage X provides..."). Keep narrow
+                    # — must be unambiguous "the model is picking" language so
+                    # we don't pull a number out of unrelated prose.
+                    r"making\s+it\s+(?:the\s+)?(?:most|least)|"
+                    r"the\s+(?:most|least)\s+(?:contextually\s+)?relevant|"
+                    r"among\s+the\s+(?:options|passages)|"
+                    r"is\s+(?:the\s+)?closest)\b",
                     flags=re.IGNORECASE,
                 )
                 if choice_indicator_re.search(cleaned):
@@ -767,11 +786,32 @@ class SetwiseLlmRanker(LlmRanker):
             if self._NUMERIC_ONLY_REGEX.match(cleaned):
                 return None
 
-            num_match = re.search(r"\b(\d+)\b", cleaned)
-            if num_match:
-                idx = int(num_match.group(1)) - 1  # convert 1-based to 0-based
+            # B.2 (parse-failure hotfix 2026-05-08): scan ALL bare-number matches
+            # and return the LAST in-range one. Verbose long-context models
+            # (Qwen3.5-9B at N=50/100) often quote a passage with out-of-range
+            # numbers (years like "2015", statistics like "44,000") at the
+            # START of the output and place their actual answer at the END
+            # ("...the CDC said.\n\n36"). Old behavior used `re.search`
+            # (first-match-only) which would pick "44" as 44>=valid range,
+            # return None, and trigger the strict raise. New behavior mirrors
+            # the soft-refusal-recovery branch above (which uses
+            # `reversed(trailing)`) but doesn't require refusal language.
+            #
+            # Qwen3 byte-equality: clean Qwen3 outputs match an EARLIER pattern
+            # (numeric_patterns or single trailing digit) so they never enter
+            # this branch. Snapshot regression covered by
+            # scripts/check_maxcontext_invariants.py.
+            all_matches = re.findall(r"\b(\d+)\b", cleaned)
+            in_range_indices = []
+            for raw_num in all_matches:
+                try:
+                    idx = int(raw_num) - 1
+                except ValueError:
+                    continue
                 if 0 <= idx < len(valid_chars):
-                    return valid_chars[idx]
+                    in_range_indices.append(idx)
+            if in_range_indices:
+                return valid_chars[in_range_indices[-1]]
             return None
 
         # Handle numeric outputs: map 1-based index to the corresponding label
@@ -917,6 +957,9 @@ class SetwiseLlmRanker(LlmRanker):
                         parse_status = f"{reason}_noop"
                         parse_fallback_reason = reason
                     elif getattr(self, "strict_no_parse_fallback", False):
+                        self.total_parse_failure_strict = getattr(
+                            self, "total_parse_failure_strict", 0
+                        ) + 1
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )

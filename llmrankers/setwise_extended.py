@@ -38,8 +38,34 @@ def _setup_maxcontext_numeric_attrs(ranker, pool_size: int) -> None:
     ranker.total_parse_fallback = 0
     ranker.total_lexical_refusal_fallback = 0
     ranker.total_numeric_out_of_range_fallback = 0
+    # New counters (parse-failure hotfix 2026-05-08):
+    #   total_parse_failure_strict      — incremented just before strict raise
+    #   total_parse_failure_bm25_fallback — incremented when the BM25 fallback
+    #     handler catches a parse-failure ValueError and recovers the query.
+    ranker.total_parse_failure_strict = 0
+    ranker.total_parse_failure_bm25_fallback = 0
+    ranker._allow_parse_failure_bm25_fallback = False
     ranker.label_scheme = "numeric_1_based"
     ranker._maxcontext_pool_size = pool_size
+
+
+def _maxcontext_should_fallback_to_bm25(ranker, exc: BaseException) -> bool:
+    """Return True iff the BM25-fallback path should swallow this ValueError.
+
+    Gates on:
+      * The ranker has the fallback flag enabled.
+      * The exception message identifies a MaxContext label-parse failure
+        (single-label or dual-output) — never swallows shape/contract errors
+        like the "n_docs=2 bypass requires finite BM25 scores" pre-flight.
+    """
+    if not getattr(ranker, "_allow_parse_failure_bm25_fallback", False):
+        return False
+    msg = str(exc)
+    return (
+        "MaxContext single-label parse failed" in msg
+        or "MaxContext dual-output parse failed" in msg
+        or "Duplicate best/worst label" in msg
+    )
 
 
 def _resolve_maxcontext_label_index(
@@ -275,6 +301,9 @@ class BottomUpSetwiseLlmRanker(SetwiseLlmRanker):
                         parse_status = f"{reason}_noop"
                         parse_fallback_reason = reason
                     elif getattr(self, "strict_no_parse_fallback", False):
+                        self.total_parse_failure_strict = getattr(
+                            self, "total_parse_failure_strict", 0
+                        ) + 1
                         raise ValueError(
                             f"MaxContext single-label parse failed. Raw text: {raw_output!r}"
                         )
@@ -686,6 +715,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
         # Safety check: ensure best and worst are different
         if best == worst:
             if self.strict_no_parse_fallback:
+                self.total_parse_failure_strict = getattr(
+                    self, "total_parse_failure_strict", 0
+                ) + 1
                 raise ValueError(f"Duplicate best/worst label {best!r} under strict mode")
             print(f"Warning: best and worst are the same ({best}), defaulting worst to last character")
             for c in reversed(self.CHARACTERS[:len(docs)]):
@@ -932,6 +964,9 @@ class DualEndSetwiseLlmRanker(SetwiseLlmRanker):
             return parsed
 
         if getattr(self, 'strict_no_parse_fallback', False):
+            self.total_parse_failure_strict = getattr(
+                self, "total_parse_failure_strict", 0
+            ) + 1
             raise ValueError(
                 f"MaxContext dual-output parse failed. Raw text: {output!r}"
             )
@@ -1304,7 +1339,8 @@ class MaxContextDualEndSetwiseLlmRanker(_MaxContextOrderingMixin, DualEndSetwise
         "ministral-3", "ministral_3", "ministral3",
     })
 
-    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False,
+                 allow_parse_failure_bm25_fallback: bool = False, **kwargs):
         self._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
@@ -1315,6 +1351,7 @@ class MaxContextDualEndSetwiseLlmRanker(_MaxContextOrderingMixin, DualEndSetwise
         self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
+        self._allow_parse_failure_bm25_fallback = allow_parse_failure_bm25_fallback
 
     @staticmethod
     def _early_reject_unsupported_family(model_name: Optional[str]) -> None:
@@ -1363,7 +1400,23 @@ class MaxContextDualEndSetwiseLlmRanker(_MaxContextOrderingMixin, DualEndSetwise
         self.total_parse_fallback = 0
         self.total_lexical_refusal_fallback = 0
         self.total_numeric_out_of_range_fallback = 0
-        return super().rerank(query, docs)
+        try:
+            return super().rerank(query, docs)
+        except ValueError as exc:
+            if not _maxcontext_should_fallback_to_bm25(self, exc):
+                raise
+            self.total_parse_failure_bm25_fallback = getattr(
+                self, "total_parse_failure_bm25_fallback", 0
+            ) + 1
+            qid = getattr(self, "_current_qid", "?")
+            print(
+                f"[MaxContext] parse_failure_bm25_fallback for query {qid!r}; "
+                f"using first-stage (BM25) ordering. Reason: {exc}"
+            )
+            return [
+                SearchResult(docid=d.docid, score=-rank, text=None)
+                for rank, d in enumerate(docs, start=1)
+            ]
 
     def _assert_maxcontext_fits(self, query: str, docs: List[SearchResult]) -> None:
         ok, rendered_length, limit = compute_max_fit_window(
@@ -1935,7 +1988,8 @@ class MaxContextTopDownSetwiseLlmRanker(_MaxContextOrderingMixin, SetwiseLlmRank
 
     total_bm25_bypass: int = 0
 
-    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False,
+                 allow_parse_failure_bm25_fallback: bool = False, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
@@ -1946,6 +2000,7 @@ class MaxContextTopDownSetwiseLlmRanker(_MaxContextOrderingMixin, SetwiseLlmRank
         self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
+        self._allow_parse_failure_bm25_fallback = allow_parse_failure_bm25_fallback
 
     def _assert_maxcontext_invariants(self, pool_size: int) -> None:
         if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
@@ -2029,7 +2084,20 @@ class MaxContextTopDownSetwiseLlmRanker(_MaxContextOrderingMixin, SetwiseLlmRank
                 f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
             )
         self._assert_maxcontext_fits(query, docs)
-        ordered = self._maxcontext_topdown_select(query, docs)
+        try:
+            ordered = self._maxcontext_topdown_select(query, docs)
+        except ValueError as exc:
+            if not _maxcontext_should_fallback_to_bm25(self, exc):
+                raise
+            self.total_parse_failure_bm25_fallback = getattr(
+                self, "total_parse_failure_bm25_fallback", 0
+            ) + 1
+            qid = getattr(self, "_current_qid", "?")
+            print(
+                f"[MaxContext] parse_failure_bm25_fallback for query {qid!r}; "
+                f"using first-stage (BM25) ordering. Reason: {exc}"
+            )
+            ordered = list(docs)
         return [
             SearchResult(docid=d.docid, score=-rank, text=None)
             for rank, d in enumerate(ordered, start=1)
@@ -2041,7 +2109,8 @@ class MaxContextBottomUpSetwiseLlmRanker(_MaxContextOrderingMixin, BottomUpSetwi
 
     total_bm25_bypass: int = 0
 
-    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False, **kwargs):
+    def __init__(self, *args, pool_size: int, shuffle: bool = False, reverse: bool = False,
+                 allow_parse_failure_bm25_fallback: bool = False, **kwargs):
         MaxContextDualEndSetwiseLlmRanker._early_reject_unsupported_family(
             kwargs.get("model_name_or_path") or (args[0] if args else None)
         )
@@ -2052,6 +2121,7 @@ class MaxContextBottomUpSetwiseLlmRanker(_MaxContextOrderingMixin, BottomUpSetwi
         self.reverse = reverse
         self._assert_maxcontext_invariants(pool_size)
         _setup_maxcontext_numeric_attrs(self, pool_size)
+        self._allow_parse_failure_bm25_fallback = allow_parse_failure_bm25_fallback
 
     def _assert_maxcontext_invariants(self, pool_size: int) -> None:
         if self.config.model_type not in MAXCONTEXT_ALLOWED_MODEL_TYPES:
@@ -2134,7 +2204,20 @@ class MaxContextBottomUpSetwiseLlmRanker(_MaxContextOrderingMixin, BottomUpSetwi
                 f"{self._maxcontext_pool_size} input docs; got {len(docs)}."
             )
         self._assert_maxcontext_fits(query, docs)
-        ordered = self._maxcontext_bottomup_select(query, docs)
+        try:
+            ordered = self._maxcontext_bottomup_select(query, docs)
+        except ValueError as exc:
+            if not _maxcontext_should_fallback_to_bm25(self, exc):
+                raise
+            self.total_parse_failure_bm25_fallback = getattr(
+                self, "total_parse_failure_bm25_fallback", 0
+            ) + 1
+            qid = getattr(self, "_current_qid", "?")
+            print(
+                f"[MaxContext] parse_failure_bm25_fallback for query {qid!r}; "
+                f"using first-stage (BM25) ordering. Reason: {exc}"
+            )
+            ordered = list(docs)
         return [
             SearchResult(docid=d.docid, score=-rank, text=None)
             for rank, d in enumerate(ordered, start=1)

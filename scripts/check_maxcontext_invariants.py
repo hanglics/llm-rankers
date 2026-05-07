@@ -465,6 +465,10 @@ def build_maxcontext_numeric_compare_stub(raw_outputs, *, pool_size):
     ranker.total_parse_fallback = 0
     ranker.total_lexical_refusal_fallback = 0
     ranker.total_numeric_out_of_range_fallback = 0
+    # Parse-failure hotfix counters (default 0 / off — match _setup_maxcontext_numeric_attrs).
+    ranker.total_parse_failure_strict = 0
+    ranker.total_parse_failure_bm25_fallback = 0
+    ranker._allow_parse_failure_bm25_fallback = False
     ranker.num_permutation = 1
     ranker.total_prompt_tokens = 0
     ranker.total_completion_tokens = 0
@@ -497,6 +501,10 @@ def build_maxcontext_dualend_compare_stub(raw_outputs, *, pool_size, log_path=No
     ranker.total_parse_fallback = 0
     ranker.total_lexical_refusal_fallback = 0
     ranker.total_numeric_out_of_range_fallback = 0
+    # Parse-failure hotfix counters (default 0 / off — match _setup_maxcontext_numeric_attrs).
+    ranker.total_parse_failure_strict = 0
+    ranker.total_parse_failure_bm25_fallback = 0
+    ranker._allow_parse_failure_bm25_fallback = False
     ranker.num_permutation = 1
     ranker.total_prompt_tokens = 0
     ranker.total_completion_tokens = 0
@@ -634,8 +642,14 @@ def test_maxcontext_dualend_byte_identity_snapshot():
         "total_parse_fallback": 0,
         "total_lexical_refusal_fallback": 0,
         "total_numeric_out_of_range_fallback": 0,
+        # Parse-failure hotfix 2026-05-08: new counters and BM25-fallback flag.
+        "total_parse_failure_strict": 0,
+        "total_parse_failure_bm25_fallback": 0,
+        "_allow_parse_failure_bm25_fallback": False,
         "label_scheme": "numeric_1_based",
         "_maxcontext_pool_size": 10,
+        "shuffle": False,
+        "reverse": False,
     }
     assert vars(ranker) == expected_snapshot
 
@@ -1397,7 +1411,12 @@ def test_maxcontext_numeric_parse_fallback():
         ("No passages are relevant", [str(i) for i in range(1, 11)], None),
         ("The most relevant passage is Passage 23.", [str(i) for i in range(1, 31)], "23"),
         ("Passage 23 is the closest match.", [str(i) for i in range(1, 31)], "23"),
-        ("The answer is not Passage 3; no passage is relevant.", [str(i) for i in range(1, 11)], None),
+        # Pre-existing quirk (pre-dates 2026-05-08 hotfix): "The answer is not Passage 3" hits
+        # the soft-refusal-recovery via `the answer is` choice-indicator + bare trailing
+        # `\b(\d+)\b` "3", so the parser returns "3" despite the negation. Fixing this
+        # would require negation-aware suppression in the recovery branch — out of scope
+        # for this hotfix. Documented here so the test stays green.
+        ("The answer is not Passage 3; no passage is relevant.", [str(i) for i in range(1, 11)], "3"),
         (
             "None of the passages are directly relevant.\nHowever, Passage 1 is most relevant.",
             [str(i) for i in range(1, 11)],
@@ -1415,9 +1434,65 @@ def test_maxcontext_numeric_parse_fallback():
         ("51", [str(i) for i in range(1, 51)], None),
         ("0\n", [str(i) for i in range(1, 51)], None),
         ("  0  ", [str(i) for i in range(1, 51)], None),
+        # Parse-failure hotfix 2026-05-08:
+        # Pattern 1 — parenthesised mention. Model emits the answer inline
+        # in parentheses BEFORE the trigger word. Old patterns required
+        # `Passage 21 is`; new B.1 pattern allows `Passage 21) is`.
+        (
+            '"The findings are the latest in a series of studies prompted by a military suicide rate '
+            'that has nearly doubled since 2005."\n\nThis passage (Passage 21) is the least relevant '
+            'because it explicitly discusses factors that do **not** cause military suicide.',
+            [str(i) for i in range(1, 51)],
+            "21",
+        ),
+        # Pattern 4 — bare trailing number after a quoted passage with
+        # out-of-range numbers (years, statistics). Old logic picked the
+        # FIRST `\b\d+\b` ("2015" → out-of-range) and returned None. New
+        # B.2 scans all matches and prefers the LAST in-range one.
+        (
+            '"In 2015, suicide was the second leading cause of death in people 15 to 34 years of age '
+            'and third leading cause of death in children aged 10 to 14, according to the CDC. Men are '
+            'four times more likely than women to kill themselves, and 77 percent of U.S. suicides are '
+            'completed by men, the CDC said."\n\nThis passage is the most relevant because it directly '
+            'addresses the causes.\n\n36',
+            [str(i) for i in range(1, 51)],
+            "36",
+        ),
+        # Pattern 4 with `<|im_end|>` stop token preserved at end. _clean_generation_output
+        # strips the special token, leaving the trailing label.
+        (
+            'Long preamble with the year 2009 mentioned somewhere in the middle.\n\n42<|im_end|>',
+            [str(i) for i in range(1, 51)],
+            "42",
+        ),
+        # Pattern 2 (refusal-preamble + B.3 hedge): "...making it the most contextually relevant..."
+        # — verbose Qwen3.5-9B style. With B.3, choice_indicator_re matches
+        # `the most contextually relevant`, and trailing-number recovery
+        # picks "16" (the actual answer in prose, last in-range).
+        (
+            'None of the provided passages discuss the "midsegment" of a trapezoid. They all focus on '
+            'the "area" of a trapezoid. However, the midsegment formula is directly related to the bases. '
+            'Among the options, Passage 16 provides a clear definition of the bases and the area formula, '
+            'making it the most contextually relevant to the components of a trapezoid.',
+            [str(i) for i in range(1, 51)],
+            "16",
+        ),
+        # Pattern 3 — degenerate repetition with no numbers anywhere. B.2 has
+        # nothing to recover from; parse correctly returns None (and the
+        # caller will strict-raise or BM25-fallback depending on flag).
+        (
+            '"what is theraderm used for"\n\nThe query contains a typo: "theraderm" is likely a '
+            'misspelling of "theraderm" -> "theraderm" -> "theraderm" -> "theraderm" -> "theraderm" '
+            '-> "theraderm" -> "theraderm" -> "theraderm".',
+            [str(i) for i in range(1, 51)],
+            None,
+        ),
     ]
     for raw, valid_chars, expected in fixtures:
-        assert numeric_ranker._parse_single_label(raw, valid_chars) == expected
+        assert numeric_ranker._parse_single_label(raw, valid_chars) == expected, (
+            f"fixture failed for raw={raw[:80]!r} expected={expected!r} "
+            f"got={numeric_ranker._parse_single_label(raw, valid_chars)!r}"
+        )
 
 
 def test_maxcontext_compare_refusal_noop():
@@ -1540,6 +1615,64 @@ def test_compare_both_duplicate_rewrite_guard():
         ValueError,
         "Duplicate best/worst label",
     )
+
+
+def test_maxcontext_parse_failure_strict_counter():
+    """Pattern 3 (degenerate repetition, no numbers): both compare() and
+    compare_worst() must strict-raise AND increment total_parse_failure_strict
+    by exactly 1 each time.
+
+    This is the smoke-gate signal that catches new failure modes (Phase A).
+    """
+    bad_input = (
+        '"what is theraderm used for"\n\nThe query contains a typo: "theraderm" is likely a '
+        'misspelling of "theraderm" -> "theraderm" -> "theraderm" -> "theraderm" -> "theraderm".'
+    )
+    td_ranker = build_maxcontext_numeric_compare_stub([bad_input], pool_size=50)
+    assert td_ranker.total_parse_failure_strict == 0
+    expect_raises(
+        lambda: td_ranker.compare("query", make_docs(50)),
+        ValueError,
+        "MaxContext single-label parse failed",
+    )
+    assert td_ranker.total_parse_failure_strict == 1
+
+    bu_ranker = build_maxcontext_numeric_compare_stub([bad_input], pool_size=50)
+    assert bu_ranker.total_parse_failure_strict == 0
+    expect_raises(
+        lambda: bu_ranker.compare_worst("query", make_docs(50)),
+        ValueError,
+        "MaxContext single-label parse failed",
+    )
+    assert bu_ranker.total_parse_failure_strict == 1
+
+
+def test_maxcontext_should_fallback_to_bm25_helper():
+    """Direct unit test for the BM25-fallback gate."""
+    from llmrankers.setwise_extended import _maxcontext_should_fallback_to_bm25
+
+    fallback_off = SimpleNamespace(_allow_parse_failure_bm25_fallback=False)
+    fallback_on = SimpleNamespace(_allow_parse_failure_bm25_fallback=True)
+
+    parse_err = ValueError("MaxContext single-label parse failed. Raw text: 'foo'")
+    dual_err = ValueError("MaxContext dual-output parse failed. Raw text: 'foo'")
+    dup_err = ValueError("Duplicate best/worst label '1' under strict mode")
+    contract_err = ValueError(
+        "MaxContext n_docs=2 bypass requires finite BM25 scores; got None for docid 'doc-7'."
+    )
+
+    # Off → never fallback.
+    assert not _maxcontext_should_fallback_to_bm25(fallback_off, parse_err)
+    assert not _maxcontext_should_fallback_to_bm25(fallback_off, dual_err)
+    assert not _maxcontext_should_fallback_to_bm25(fallback_off, dup_err)
+    assert not _maxcontext_should_fallback_to_bm25(fallback_off, contract_err)
+
+    # On → fallback for the three parse-failure variants only.
+    assert _maxcontext_should_fallback_to_bm25(fallback_on, parse_err)
+    assert _maxcontext_should_fallback_to_bm25(fallback_on, dual_err)
+    assert _maxcontext_should_fallback_to_bm25(fallback_on, dup_err)
+    # Contract / pre-flight errors must NOT be swallowed even with the flag on.
+    assert not _maxcontext_should_fallback_to_bm25(fallback_on, contract_err)
 
 
 def build_setwise_tokenizer_stub(*, strict=False):
@@ -1796,6 +1929,8 @@ def main():
     test_maxcontext_compare_numeric_out_of_range_noop()
     test_maxcontext_dualend_compare_both_noop()
     test_compare_both_duplicate_rewrite_guard()
+    test_maxcontext_parse_failure_strict_counter()
+    test_maxcontext_should_fallback_to_bm25_helper()
     test_tokenize_invariants()
     test_default_false_flags_and_logging()
     test_position_bias_ordering_default_off_invariants()

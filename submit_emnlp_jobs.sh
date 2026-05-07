@@ -25,6 +25,7 @@ OUTPUT_ROOT=""
 TIME_LIMIT="08:00:00"
 SHUFFLE=0
 REVERSE=0
+ALLOW_PARSE_FAILURE_BM25_FALLBACK=0
 
 usage() {
   cat <<'USAGE'
@@ -51,6 +52,11 @@ Options:
   --time-limit HMS    SLURM --time directive override (default: 08:00:00).
   --shuffle           MaxContext-only: per-round shuffle of the remaining pool.
   --reverse           MaxContext-only: per-round reverse of the remaining pool.
+  --allow-parse-failure-bm25-fallback
+                      MaxContext-only: enable per-query BM25 fallback when LLM
+                      label parsing fails (off by default — strict-raise is
+                      preserved so smoke runs surface new parse-failure modes).
+                      Recommended for Phase B/C/F main-matrix dispatch.
   --dry-run           Print sbatch commands instead of submitting.
   -h | --help         Show this help.
 USAGE
@@ -68,6 +74,7 @@ while [[ $# -gt 0 ]]; do
     --time-limit) [[ $# -ge 2 ]] || { echo "Error: --time-limit requires a value" >&2; exit 2; }; TIME_LIMIT="$2"; shift 2 ;;
     --shuffle) SHUFFLE=1; shift ;;
     --reverse) REVERSE=1; shift ;;
+    --allow-parse-failure-bm25-fallback) ALLOW_PARSE_FAILURE_BM25_FALLBACK=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Error: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
@@ -189,6 +196,18 @@ elif [[ "$REVERSE" -eq 1 ]]; then
   CONDITION_EXPORT=",REVERSE=1"
 fi
 
+# MaxContext-only: BM25 fallback flag is propagated to the launcher via env.
+# The launcher reads ALLOW_PARSE_FAILURE_BM25_FALLBACK and passes
+# --allow_parse_failure_bm25_fallback to run.py if set non-zero.
+FALLBACK_EXPORT=""
+if [[ "$ALLOW_PARSE_FAILURE_BM25_FALLBACK" -eq 1 ]]; then
+  if [[ "$K_MODE" != "pool" ]]; then
+    echo "Error: --allow-parse-failure-bm25-fallback is supported only for MaxContext methods" >&2
+    exit 2
+  fi
+  FALLBACK_EXPORT=",ALLOW_PARSE_FAILURE_BM25_FALLBACK=1"
+fi
+
 JOB_COUNT=0
 for N in "${POOL_SIZES[@]}"; do
   printf -v POOL_TAG "pool%02d" "$N"
@@ -202,7 +221,7 @@ for N in "${POOL_SIZES[@]}"; do
     LAUNCHER_ARGS=("$MODEL" "$DATASET_PATH" "$BM25_RUN" "$OUTPUT_DIR" cuda generation 2 10 "$N" 512 "$SETWISE_METHOD")
   fi
 
-  EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}${CONDITION_EXPORT}"
+  EXPORT_VARS="ALL,CONDA_ENV=${CONDA_ENV_PATH},ANALYSIS_LOG_DIR=${OUTPUT_DIR}${CONDITION_EXPORT}${FALLBACK_EXPORT}"
 
   JOB_COUNT=$((JOB_COUNT + 1))
   if [[ "$DRY_RUN" -eq 1 ]]; then

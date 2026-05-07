@@ -86,6 +86,9 @@ fi
 if [[ -n "${REVERSE:-}" && "${REVERSE}" != "0" ]]; then
     CONDITION_ARGS+=(--reverse)
 fi
+if [[ -n "${ALLOW_PARSE_FAILURE_BM25_FALLBACK:-}" && "${ALLOW_PARSE_FAILURE_BM25_FALLBACK}" != "0" ]]; then
+    CONDITION_ARGS+=(--allow_parse_failure_bm25_fallback)
+fi
 
 "${PYTHON}" run.py \
     run --model_name_or_path "${MODEL}" \

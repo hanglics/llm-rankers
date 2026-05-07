@@ -257,6 +257,7 @@ def main(args):
                 pool_size=args.setwise.k,
                 shuffle=args.run.shuffle,
                 reverse=args.run.reverse,
+                allow_parse_failure_bm25_fallback=args.run.allow_parse_failure_bm25_fallback,
             )
         elif args.setwise.direction == 'maxcontext_topdown':
             if args.run.hits != args.setwise.k:
@@ -289,6 +290,7 @@ def main(args):
                 pool_size=args.setwise.k,
                 shuffle=args.run.shuffle,
                 reverse=args.run.reverse,
+                allow_parse_failure_bm25_fallback=args.run.allow_parse_failure_bm25_fallback,
             )
         elif args.setwise.direction == 'maxcontext_bottomup':
             if args.run.hits != args.setwise.k:
@@ -321,6 +323,7 @@ def main(args):
                 pool_size=args.setwise.k,
                 shuffle=args.run.shuffle,
                 reverse=args.run.reverse,
+                allow_parse_failure_bm25_fallback=args.run.allow_parse_failure_bm25_fallback,
             )
         else:
             raise ValueError(f'Unknown direction: {args.setwise.direction}')
@@ -440,6 +443,8 @@ def main(args):
         "total_parse_fallback": "parse fallbacks",
         "total_lexical_refusal_fallback": "lexical refusal fallbacks",
         "total_numeric_out_of_range_fallback": "numeric out-of-range fallbacks",
+        "total_parse_failure_strict": "parse_failure_strict",
+        "total_parse_failure_bm25_fallback": "parse_failure_bm25_fallback",
     }
     optional_stat_totals = {
         attr: 0.0 for attr in optional_stat_labels if hasattr(ranker, attr)
@@ -503,6 +508,11 @@ if __name__ == '__main__':
                             help='Per-round reverse ordering of remaining pool for MaxContext methods.')
     run_parser.add_argument('--log_comparisons', type=str, default=None,
                             help='Path to write per-comparison JSONL log for position bias analysis')
+    run_parser.add_argument('--allow_parse_failure_bm25_fallback', action='store_true', default=False,
+                            help='MaxContext only: when LLM label parsing fails for a single query, '
+                                 'fall back to BM25 (first-stage) ordering for that query and increment '
+                                 'total_parse_failure_bm25_fallback. Off by default — strict-raise behavior '
+                                 'is preserved so smoke runs surface new parse-failure modes.')
 
     pointwise_parser = commands.add_parser('pointwise')
     pointwise_parser.add_argument('--method', type=str, default='yes_no',

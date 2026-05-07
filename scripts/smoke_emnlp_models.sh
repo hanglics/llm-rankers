@@ -119,6 +119,14 @@ PY
     maxcontext_*)
       grep -q "Avg parse fallbacks: 0" "$log" || { echo "[FAIL] ${log}: missing zero parse fallback counter" >&2; return 1; }
       grep -q "Avg numeric out-of-range fallbacks: 0" "$log" || { echo "[FAIL] ${log}: missing zero numeric out-of-range counter" >&2; return 1; }
+      # Smoke gate: parse_failure_strict must be exactly 0. Any non-zero value
+      # is an unrecovered parse failure under strict mode (set
+      # _allow_parse_failure_bm25_fallback=False for smoke). Phase B/C/F dispatchers
+      # may flip the fallback on, in which case parse_failure_bm25_fallback is
+      # non-zero and parse_failure_strict stays at 0 — but for Phase A smoke we
+      # require both to be zero so we surface new failure modes.
+      grep -q "Avg parse_failure_strict: 0" "$log" || { echo "[FAIL] ${log}: parse_failure_strict counter is non-zero (or missing)" >&2; return 1; }
+      grep -q "Avg parse_failure_bm25_fallback: 0" "$log" || { echo "[FAIL] ${log}: parse_failure_bm25_fallback counter is non-zero (or missing)" >&2; return 1; }
       ;;
   esac
 
