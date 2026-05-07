@@ -2,7 +2,7 @@
 
 > **Status:** v4 — aligned to canonical root docs at v8 + multimodal v3 + Phase F v5 (2026-05-07). Sole contribution = MaxContext family. Paper is a 4-page ACL/EMNLP short submission. All pre-idea:007 narrative is dropped.
 > **Companion:** [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md)
-> **Canonical implementation plan:** [`../../EMNLP_EXPERIMENT_PLAN.md`](../../EMNLP_EXPERIMENT_PLAN.md), [`../../EMNLP_IMPLEMENTATION_PLAN.md`](../../EMNLP_IMPLEMENTATION_PLAN.md), [`../../EMNLP_PAPER_DESIGN.md`](../../EMNLP_PAPER_DESIGN.md). The paper's Tier-1 lineup is a subset of v8's required 9-model × 8-dataset × 7-method × 6-pool matrix; v8 produces the data, the paper selects the headline cells.
+> **Canonical implementation plan:** [`../EMNLP_EXPERIMENT_PLAN.md`](../EMNLP_EXPERIMENT_PLAN.md), [`../EMNLP_IMPLEMENTATION_PLAN.md`](../EMNLP_IMPLEMENTATION_PLAN.md), [`../EMNLP_PAPER_DESIGN.md`](../EMNLP_PAPER_DESIGN.md). The paper's Tier-1 lineup is a subset of v8's required 9-model × 8-dataset × 7-method × 6-pool matrix; v8 produces the data, the paper selects the headline cells.
 > **Venue rules:** ACL Rolling Review short — 4 pages of content; references unlimited; Limitations required after Conclusion (no page cost, but cannot carry new results); Ethics optional (no page cost); appendices do not count toward limit but reviewers are not required to read them — every load-bearing claim must live in main text.
 
 ---
@@ -21,7 +21,7 @@ The half-cost framing is the headline, but it is framed strictly on the **LLM-ca
 
 For $N=10$: $5$ vs $8$ LLM calls (5/8 ≈ $0.625$); for $N=50$: $25$ vs $48$ LLM calls (25/48 ≈ $0.521$); for $N=100$: $50$ vs $98$ LLM calls (50/98 ≈ $0.510$). The "half" descriptor is approximate at small $N$ and asymptotically tight at large $N$. **Avoid the unqualified phrase "half the dependent calls"** — TopDown / BottomUp emit one *deterministic* BM25 decision at the very end which is not an LLM call. The plan and paper consistently say "LLM calls".
 
-The pool-size ceiling rises from $N=50$ (paper plan v1/v2) to $N=100$ in v3 because v8 added pool=100 to the required matrix for the 3 large-context EMNLP families (Qwen3.5, Llama-3.1, Ministral-3 — all native ≥128K context). Tier-1 main-paper claims still anchor at $N=50$; the $N=100$ point is reported as an additional Pareto-curve data point and is gated on the BEIR pool=100 fit probe and Phase A smoke (per `../../EMNLP_EXPERIMENT_PLAN.md`).
+The pool-size ceiling rises from $N=50$ (paper plan v1/v2) to $N=100$ in v3 because v8 added pool=100 to the required matrix for the 3 large-context EMNLP families (Qwen3.5, Llama-3.1, Ministral-3 — all native ≥128K context). Tier-1 main-paper claims still anchor at $N=50$; the $N=100$ point is reported as an additional Pareto-curve data point and is gated on the BEIR pool=100 fit probe and Phase A smoke (per `../EMNLP_EXPERIMENT_PLAN.md`).
 
 For odd $N$ (e.g. $N=11$), the DualEnd loop runs $\lfloor N/2 \rfloor$ times and a single unpaired document is placed without an additional LLM call — the formula stays $\lfloor N/2 \rfloor$, not $\lceil N/2 \rceil$.
 
@@ -57,7 +57,7 @@ Notes on H3 multiplicity:
 - Two comparator families (H1$_\text{TD}$ and H1$_\text{BU}$), each with 24 cells. BH-FDR is applied within each family at $q=0.05$. Bonferroni is reported in the appendix table for transparency. Holm-Bonferroni is documented as an alternative we considered (Codex round-2 §4 prefers Holm-Bonferroni for *per-cell* H1 claims; we use BH-FDR because H3 asserts $\ge 80\%$ of cells, an FDR-shaped claim).
 - The aggregate H3 verdict is "supported" iff $\ge 20$ of 24 cells reject $H_0$ in each comparator family.
 
-H4's variance source is **input-order plumbing** — Phase F's MaxContext-only per-comparison `--reverse` and fixed-seed-929 `--shuffle` flags (canonical `../../EMNLP_PAPER_DESIGN.md` v5; supersedes the v1/v2 `--seed`-shuffle protocol). v8 Phase C runs 10 deterministic byte-equality reps; input-order evidence for H4 is sourced from Phase F's paired forward-vs-reverse / forward-vs-shuffle deltas. See [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md) §3 (Phase 3 + Phase F). Renamed from the v1 wording "run-to-run stability" to "input-order stability" per Codex round-2 §5.
+H4's variance source is **input-order plumbing** — Phase F's MaxContext-only per-comparison `--reverse` and fixed-seed-929 `--shuffle` flags (canonical `../EMNLP_PAPER_DESIGN.md` v5; supersedes the v1/v2 `--seed`-shuffle protocol). v8 Phase C runs 10 deterministic byte-equality reps; input-order evidence for H4 is sourced from Phase F's paired forward-vs-reverse / forward-vs-shuffle deltas. See [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md) §3 (Phase 3 + Phase F). Renamed from the v1 wording "run-to-run stability" to "input-order stability" per Codex round-2 §5.
 
 H2 is a deterministic property of the algorithm; the half-cost numbers go into the abstract / introduction without a hypothesis test. H1 + H3 carry the empirical load. H4 is the methodology guard.
 
@@ -97,12 +97,12 @@ The v0 plan over-allocated 4-page content; this version trims aggressively per C
 
 - **Figure 1 (main, single column, two panels stacked).** Pareto plot, x-axis = mean LLM calls per query, y-axis = mean nDCG@10. Top panel: DL19+DL20 mean. Bottom panel: BEIR-mean (over the 4 Tier-1 BEIR domains). Three line series (DualEnd, TopDown, BottomUp). DL panel shows all $N \in \{10,20,30,40,50,100\}$ for families that pass the pool=100 fit gate; **BEIR panel shows only $N \in \{10, 30, 50, 100\}$** to match the experiment-plan trim — the figure caption explicitly notes that the two panels use different $N$ point sets and that the $N=100$ point is family-conditional on Phase A / BEIR-fit gate clearance.
 - **Table 1 (main, double column).** **Compressed form** (per Codex round-2 §1) — full 4×6×3 matrix moves to appendix. Rows = 4 Tier-1 models. Column blocks = {DL19, DL20, BEIR-mean, BEIR-min}. Per-block columns = $\Delta_\text{TD} = \text{DualEnd} - \text{TopDown}$ and $\Delta_\text{BU} = \text{DualEnd} - \text{BottomUp}$ at $N{=}50$. Cell entry = $\Delta$ as a signed nDCG@10 difference, with annotation ✓ / ▲ / ✗ for the H1 verdict on each $\Delta$. Reading the table: ✓ everywhere → DualEnd non-inferior, ✗ → significant gap. The full per-cell raw nDCG@10 + CIs lives in the appendix master table.
-- **Algorithm 1 (main, single column).** 5-line MaxContext-DualEnd pseudocode (port from `paper/v1/introduction.tex`).
+- **Algorithm 1 (main, single column).** 5-line MaxContext-DualEnd pseudocode (port from the original-draft introduction).
 - **Appendix figures/tables.** Full 4×6×3 nDCG@10 table with CIs and verdicts; per-BEIR-domain breakdown; 10× stability per-query SD + range + worst-pair $|\Delta|$; order-robustness pilot; pl-sweep; Tier-2 size sweep; original Setwise vs MaxContext-TopDown smoke (per Codex round-1 §10); Bonferroni and Holm-Bonferroni adjusted $p$-value tables alongside BH-FDR.
 
-## 7. What survives from `paper/v1/`
+## 7. What survives from the original draft
 
-Per the Explore digest: §2 of `paper/v1/introduction.tex` (paradigms) and §4 (MaxContext framing) port nearly verbatim with compression. Entire v1 §3 motivation (BU / BiDir / DE-Cocktail) is **deleted**. Related Work shrinks from 1460 to 250 words. Experimental Setup shrinks from 2207 to 250 words + tiny table — every launch-gate / compute-hour detail moves to appendix.
+Per the Explore digest: §2 of the original-draft introduction (paradigms) and §4 (MaxContext framing) port nearly verbatim with compression. The entire original-draft §3 motivation (BU / BiDir / DE-Cocktail) is **deleted**. Related Work shrinks from 1460 to 250 words. Experimental Setup shrinks from 2207 to 250 words + tiny table — every launch-gate / compute-hour detail moves to appendix.
 
 ## 8. Novelty positioning vs prior work
 
@@ -113,7 +113,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
 - **vs Setwise Insertion.** Warm-starts from BM25 to skip redundant comparisons inside small windows. MaxContext skips the small-window assumption itself.
 - **vs Rank-R1.** Uses an RL-trained reasoning chain inside a $c{+}1 = 20$ window. Different mechanism (training the comparator) on a different axis (per-call quality, not call count).
 - **vs RankGPT / listwise.** Listwise asks for a permutation in **one** call, so its "calls per pool" is $1$. **MaxContext does *not* claim a call-count win against listwise.** Our framing is: MaxContext is a setwise-style alternative to listwise that emits short structured outputs (one or two integer labels per call rather than a permutation), avoids the parser fragility of listwise on long candidate lists, and beats single-extreme whole-pool setwise on call count. Listwise is a different efficiency-quality regime.
-- **vs lost-in-the-middle / permutation self-consistency.** PSC mitigates positional bias but multiplies calls, undoing MaxContext's cost win. We treat order as an *empirical robustness check* sourced from Phase F's MaxContext-only `--reverse` and fixed-seed-929 `--shuffle` controls (per [`../../EMNLP_EXPERIMENT_PLAN.md`](../../EMNLP_EXPERIMENT_PLAN.md) §Phase F = 432 cells across 3 representative models × 4 datasets × 3 MaxContext methods × 6 pools × 2 conditions), not a mitigation strategy.
+- **vs lost-in-the-middle / permutation self-consistency.** PSC mitigates positional bias but multiplies calls, undoing MaxContext's cost win. We treat order as an *empirical robustness check* sourced from Phase F's MaxContext-only `--reverse` and fixed-seed-929 `--shuffle` controls (per [`../EMNLP_EXPERIMENT_PLAN.md`](../EMNLP_EXPERIMENT_PLAN.md) §Phase F = 432 cells across 3 representative models × 4 datasets × 3 MaxContext methods × 6 pools × 2 conditions), not a mitigation strategy.
 - **vs E2R-FLOPs.** We adopt the all-axes reporting recommendation (LLM calls, prompt tokens, completion tokens, total tokens, wall-clock) but frame our claim narrowly on the *LLM-call-count* and *wall-clock* axes — not on tokens, which MaxContext spends more of per call.
 
 ## 9. Risk register (short paper specific)
@@ -135,7 +135,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
 
 - Any pre-idea:007 method as a result, not even as a baseline. The v2 paper's baseline is **MaxContext-TopDown** and **MaxContext-BottomUp**; not TD-Heap, TD-Bubble, DE-Cocktail, DE-Selection. Matched-hits comparisons against the small-window family belong to the long-paper version, not v2.
 - T5 / encoder-decoder backbones (likelihood-scoring path collapses joint elicitation to a best-only proxy).
-- Pools $> 100$. ($N{=}100$ is in scope for Qwen3.5 / Llama-3.1 / Ministral-3 only, gated on Phase A and BEIR pool=100 fit probe per `../../EMNLP_EXPERIMENT_PLAN.md`.)
+- Pools $> 100$. ($N{=}100$ is in scope for Qwen3.5 / Llama-3.1 / Ministral-3 only, gated on Phase A and BEIR pool=100 fit probe per `../EMNLP_EXPERIMENT_PLAN.md`.)
 - Permutation self-consistency.
 - TourRank / BlitzRank as primary baselines (different budget knobs; appendix-only smoke).
 - Listwise (RankGPT-style) as primary baseline (different efficiency regime).
@@ -162,7 +162,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
   - §3 H4: renamed "run-to-run stability" → "input-order stability"; predeclared SD + max-min range + worst-pair $|\Delta|$ thresholds (Codex round-2 §5).
   - §6: Table 1 redesigned as a **compressed signed-$\Delta$ form** (4 models × {DL19, DL20, BEIR-mean, BEIR-min} × {$\Delta_\text{TD}$, $\Delta_\text{BU}$}) to fit 4-page budget; full 4×6×3 nDCG@10 + CI matrix moves to appendix.
   - §6 Figure 1: BEIR panel uses only $N \in \{10, 30, 50\}$ to match experiment-plan trim; caption explicitly flags the asymmetric $N$ sets.
-- v3 (2026-05-06) — aligns paper plan with the canonical v8 EMNLP plan (`../../EMNLP_EXPERIMENT_PLAN.md`, `../../EMNLP_IMPLEMENTATION_PLAN.md`, `../../EMNLP_PAPER_DESIGN.md`). The paper's narrow MaxContext-DualEnd cost claim is unchanged; the surrounding experimental envelope now matches v8:
+- v3 (2026-05-06) — aligns paper plan with the canonical v8 EMNLP plan (`../EMNLP_EXPERIMENT_PLAN.md`, `../EMNLP_IMPLEMENTATION_PLAN.md`, `../EMNLP_PAPER_DESIGN.md`). The paper's narrow MaxContext-DualEnd cost claim is unchanged; the surrounding experimental envelope now matches v8:
   - §1: pool-size ceiling raised from $N{\le}50$ to $N{\le}100$ (v8 added pool=100 to required Qwen3.5 / Llama-3.1 / Ministral-3 cells; gated on Phase A smoke + BEIR pool=100 fit probe). LLM-call accounting table extended with $N=100$ row (DualEnd 50 vs single-extreme 98).
   - §2 RQ2: Tier-2 list extended with v8's optional Phase D/E (Qwen3 family) + the 5 v8-required models that the paper relegates to appendix (Qwen3.5-{0.8B,2B,27B}, Ministral-3-{3B,14B}).
   - §3 H1: implicitly extended to N=100 cells where the family/dataset passes the pool=100 gate; main-paper Table 1 still anchors at N=50 for clean cross-family comparison.
@@ -170,8 +170,8 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
   - §4: new Branch H added for "pool=100 fit probe or Phase A pool=100 smoke fails for one or more families".
   - §6 Figure 1: Pareto x-axis includes $N=100$ point; family-conditional caption.
   - §10 out-of-scope: "Pools $>50$" → "Pools $>100$"; cross-references the v8 plan's pool=100 gate.
-- v4 (2026-05-07) — re-aligned to canonical root docs after the EMNLP isolation restructure (`../../EMNLP_PAPER_DESIGN.md` v5, `../../EMNLP_EXPERIMENT_PLAN.md`, `../../EMNLP_IMPLEMENTATION_PLAN.md` v4):
-  - Cross-reference cleanup: companion link and root-canonical refs corrected after the over-broad sed during the EMNLP isolation restructure mangled `EXPERIMENT_PLAN.md` paths into `Extra-Experiments/EXPERIMENT_PLAN.md`. All paper/v1 refs now point at the post-restructure root locations.
+- v4 (2026-05-07) — re-aligned to canonical root docs after the EMNLP isolation restructure (`../EMNLP_PAPER_DESIGN.md` v5, `../EMNLP_EXPERIMENT_PLAN.md`, `../EMNLP_IMPLEMENTATION_PLAN.md` v4):
+  - Cross-reference cleanup: companion link and root-canonical refs corrected after the over-broad sed during the EMNLP isolation restructure mangled `EXPERIMENT_PLAN.md` paths into `Extra-Experiments/EXPERIMENT_PLAN.md`. All paper-relative refs now point at the post-restructure root locations.
   - §3 H4: input-order variance source updated from the legacy `--seed` shuffle protocol to Phase F's MaxContext-only per-comparison `--reverse` and fixed-seed-929 `--shuffle` flags. v8 Phase C remains deterministic 10× (byte-equality); paired forward-vs-reverse / forward-vs-shuffle deltas from Phase F now source the H4 input-order claim. The H4 thresholds (per-cell SD ≤ 0.005, range ≤ 0.015, worst-pair |Δ| ≤ 0.015) are unchanged.
   - §8 RankGPT/PSC paragraph: "appendix order pilot at $N=50$, three orderings" replaced by Phase F (canonical 432-cell representative subset = 3 models × 4 datasets × 3 MaxContext methods × 6 pools × 2 conditions). Phase F now sources both the §10 input-order limitation evidence and the §9 risk-register order-robustness ask.
   - Multimodal loader landed in implementation (Mistral 3 + Qwen 3.5 vision-language configs route through `MULTIMODAL_MODEL_TYPES` / `AutoProcessor` / `AutoModelForImageTextToText`); Qwen3 / Qwen3-MoE remain on the existing causal path for IDEA_007 byte-equality. No paper-plan claim or branch changes — the loader change is implementation-only and documented in the canonical implementation plan.

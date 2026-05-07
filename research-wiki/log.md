@@ -8,8 +8,8 @@ ablations) live at `Extra-Experiments/research-wiki/log.md`.
   experiments / analysis / results / wiki content / planning docs to
   `Extra-Experiments/`. Renamed `EMNLP_PAPER_DESIGN.md` →
   `EMNLP_PAPER_DESIGN.md`, `EMNLP_IMPLEMENTATION_PLAN.md` →
-  `EMNLP_IMPLEMENTATION_PLAN.md`, `paper/v2/` → `paper/v1/`. See
-  `pre-emnlp-restructure` git tag for rollback point.
+  `EMNLP_IMPLEMENTATION_PLAN.md`, `paper/v2/` → `paper/v1/` →
+  `paper/`. See `pre-emnlp-restructure` git tag for rollback point.
 - **Phase F position-bias controls** (--shuffle, --reverse) implemented
   for MaxContext methods only; Heap/Bubble untouched. Fixed seed 929
   via `hashlib.blake2b`; per-comparison ordering with label remapping

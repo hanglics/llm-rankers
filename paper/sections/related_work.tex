@@ -1,0 +1,57 @@
+\section{Related Work}
+\label{sec:related-work}
+
+% Style note (v2, 2026-05-07): compressed from ~700 to ~250 words to fit
+% the 4-page short-paper budget per plan v4. Five paragraphs reduced to
+% three; less-core comparators (RankSteer, REALM, RefRank, FIRST,
+% self-calibrated listwise) folded into single sentences or dropped.
+
+\paragraph{LLM reranking paradigms.}
+LLM zero-shot reranking is organized around pointwise, pairwise, listwise,
+and setwise prompting.
+Pointwise rerankers score each query--document pair
+independently~\citep{nogueira2020monot5,sachan2022upr,ma2024rankllama};
+pairwise methods choose between two documents and aggregate local
+preferences~\citep{qin2024prp,luo2024prpgraph}; listwise methods prompt the
+LLM to emit a permutation over a candidate
+block~\citep{sun2023rankgpt,ma2023zeroshotlistwise,pradeep2023rankvicuna,
+pradeep2023rankzephyr,zhang2025rankwithoutgpt}.
+Setwise prompting~\citep{zhuang2024setwise} occupies a middle ground: each
+call observes more than two documents, but the output is a short label
+rather than a full permutation. MaxContext belongs to this family. It
+keeps the short-label setwise interface but changes the granularity of
+each comparison from a small local window to the whole current live pool.
+
+\paragraph{Setwise lineage and aggregation alternatives.}
+\citet{zhuang2024setwise} introduce setwise prompting with a small window
+plus heapsort or bubblesort; we build on the public
+\texttt{llm-rankers} implementation~\citep{ielab_llmrankers} but replace
+its fixed letter labels with numeric labels so that the whole live pool is
+addressable. Recent setwise extensions warm-start from
+BM25~\citep{podolak2025setwiseinsertion} or train a setwise reasoner with
+reinforcement learning~\citep{zhuang2025rankr1}. A separate line of work
+extracts more global information from $k$-wise judgments by altering the
+schedule or aggregation rule: TourRank uses a points-based
+tournament~\citep{chen2025tourrank}, BLITZRANK builds preference graphs
+from $k$-wise comparisons~\citep{agrawal2026blitzrank}, and PRP-Graph
+aggregates pairwise units with target-label
+probabilities~\citep{luo2024prpgraph}. MaxContext is orthogonal: it does
+not warm-start, train, or aggregate; it asks what setwise selection looks
+like when the candidate window is the live pool itself.
+
+\paragraph{Long-context order, position bias, and efficiency accounting.}
+Whole-pool prompting does not imply order invariance. Long-context models
+under-use information at some prompt
+positions~\citep{liu2024lostmiddle,tang2024foundmiddle}, and label-based
+LLM judgments are sensitive to option labels and presentation
+order~\citep{zheng2024mcqbias,shi2025positionbias,pradeep2023rankzephyr}.
+We therefore include explicit input-order controls rather than assume
+whole-pool visibility makes MaxContext robust. We also separate efficiency
+axes: prior work emphasizes that LLM reranker cost is not summarizable
+by a single proxy because calls, tokens, FLOPs, and wall-clock can move
+in different
+directions~\citep{zhuang2024setwise,podolak2025setwiseinsertion,
+peng2025flopsreranking}; we report each, and keep the central MaxContext
+claim narrowly framed in serial LLM calls and observed wall-clock.
+Statistical comparisons follow standard IR
+practice~\citep{smucker2007comparison,urbano2019significance}.

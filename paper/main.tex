@@ -33,6 +33,8 @@
 %Including images in your LaTeX document requires adding
 %additional package(s)
 \usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{booktabs}
 \usepackage{natbib}
 
 % If the title and author information does not fit in the area allocated, uncomment the following
@@ -119,8 +121,12 @@
 \input{sections/methodology}
 \input{sections/experimental_setup}
 \input{sections/results}
-\input{sections/analysis}
-\input{sections/ablation}
+% Analysis and ablation content lives inside Results (Q1/Q2/Q3 sub-sections)
+% and the appendix per the 4-page short-paper budget; the standalone files
+% sections/analysis.tex and sections/ablation.tex are reserved for the
+% camera-ready long version and are not loaded here.
+% \input{sections/analysis}
+% \input{sections/ablation}
 \input{sections/conclusion}
 
 \input{sections/limitation}

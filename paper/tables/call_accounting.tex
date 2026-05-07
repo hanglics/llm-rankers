@@ -1,0 +1,28 @@
+\begin{table}[t]
+\centering
+\small
+\caption{MaxContext variants differ deterministically in serial LLM calls and residual BM25 handling.}
+\label{tab:call-accounting}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\hline
+\textbf{Variant} & \textbf{LLM calls} & \textbf{BM25 bypass} & \textbf{Serial decision steps} & \textbf{Pool shrinkage per call} \\
+\hline
+\textsc{MaxContext-DualEnd} & $\lfloor N/2 \rfloor$ & $0$ & $\lfloor N/2 \rfloor$ & $2$ \\
+\textsc{MaxContext-TopDown} & $N{-}2$ & $1$ & $N{-}1$ & $1$ \\
+\textsc{MaxContext-BottomUp} & $N{-}2$ & $1$ & $N{-}1$ & $1$ \\
+\hline
+\end{tabular}%
+}
+
+\vspace{0.4em}
+\scriptsize
+\begin{tabular}{lrrrr}
+\hline
+\textbf{Pool size} & $N{=}10$ & $N{=}20$ & $N{=}50$ & $N{=}100$ \\
+\hline
+\textsc{DualEnd} calls & 5 & 10 & 25 & 50 \\
+Single-extreme calls & 8 & 18 & 48 & 98 \\
+\hline
+\end{tabular}
+\end{table}

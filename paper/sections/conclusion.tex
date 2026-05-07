@@ -1,0 +1,18 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+% Style note (v2, 2026-05-07): single tight paragraph (~80 words) per the
+% 0.1-page short-paper budget. Mirrors the EMNLP 2025 Outstanding-paper
+% pattern (top finding, qualifications, big-picture argument) compressed
+% to short-paper scope. Future-work language is suppressed.
+
+We introduced \textbf{MaxContext}, a zero-shot setwise reranker family
+in which every LLM call observes the whole live reranking pool, and
+isolated whether eliciting both extremes jointly preserves effectiveness
+while halving serial LLM calls.
+[TBD top finding: cross-family DualEnd verdict at $N{=}50$ and $N{=}100$.]
+[TBD qualifier: position-bias result.]
+The contribution is narrow by design --- a single deterministic axis,
+exactly preregistered --- and we argue that this axis is the right one
+for evaluating whether the windowed-setwise compromise is still
+necessary in the long-context regime.
