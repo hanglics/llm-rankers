@@ -1,0 +1,12 @@
+\section{Abstract}
+\label{sec:abstract}
+
+Setwise LLM reranking typically converts repeated local decisions by selecting an extreme document from a small candidate window into a full ranking through a sorting procedure.
+We ask whether this locality remains necessary when modern long-context open-weight models can fit an entire first-stage reranking pool in a single prompt for the common $N \le 100$ setting.
+We introduce \textbf{MaxContext}, a zero-shot setwise reranking family in which every LLM call observes the current live pool.
+MaxContext instantiates three output policies: best-only selection (\textsc{TopDown}), worst-only selection (\textsc{BottomUp}), and joint best-and-worst selection (\textsc{DualEnd}). Its call complexity is deterministic: \textsc{DualEnd} ranks $N$ candidates in $\lfloor N/2 \rfloor$ LLM calls, whereas either single-extreme variant requires $N{-}2$ calls followed by a deterministic two-document BM25 endgame.
+At $N{=}100$, this reduces the number of MaxContext LLM calls from $98$ to $50$.
+We evaluate MaxContext against standard setwise TopDown and BottomUp rerankers instantiated with bubblesort and heapsort, yielding seven methods in total.
+Experiments cover TREC DL19/20 and six BEIR domains across nine open-weight models from the Qwen3.5, Llama-3.1, and Ministral-3 families, with pool sizes $N \in \{10,20,30,40,50,100\}$.
+We measure effectiveness with per-query nDCG@10, test significance using paired bootstrap with Bonferroni correction across the seven methods, and evaluate input-order stability on DL19 using three representative models and ten randomized repetitions.
+We frame the efficiency claim in terms of LLM calls and wall-clock time; token usage is reported transparently but is not the basis of the claim.

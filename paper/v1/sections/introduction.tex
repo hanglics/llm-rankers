@@ -1,0 +1,140 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Modern passage-ranking systems are commonly deployed as multi-stage
+pipelines: a cheap first-stage retriever, often BM25, retrieves a
+candidate pool, and a more expensive neural model reranks the top
+candidates~\citep{robertson2009probabilistic,
+nogueira2019passage,nogueira2020monot5,yates2021pretrained}.
+This setting underlies standard passage-ranking evaluations such as
+MS MARCO, the TREC Deep Learning Tracks, and BEIR, where rerankers are
+measured by their ability to improve a first-stage ranking under graded
+relevance metrics such as nDCG@10~\citep{bajaj2016msmarco,
+craswell2020trecDL,craswell2021trecDL,thakur2021beir,
+jarvelin2002cumulated}. Recent large language model (LLM) rerankers
+revisit this pipeline in a zero-shot form: instead of training a
+task-specific cross-encoder, the model is prompted to judge, compare, or
+order retrieved passages~\citep{sachan2022upr,sun2023rankgpt,
+ma2023zeroshotlistwise,qin2024prp,zhuang2024setwise,
+pradeep2023rankvicuna,pradeep2023rankzephyr}.
+
+LLM zero-shot reranking has largely been organized around four prompting
+paradigms. Pointwise methods estimate relevance for each query--document
+pair independently, either with supervised sequence-to-sequence relevance
+labels or zero-shot likelihood-style scoring~\citep{nogueira2020monot5,
+sachan2022upr}. Pairwise methods ask the model to choose between two
+documents and aggregate local preferences into a ranking, often with
+additional procedures to reduce order bias or comparison
+cost~\citep{pradeep2021expandomonoduo,qin2024prp}. Listwise methods
+present a short list of documents and ask the model to emit a permutation
+or ordered list of document identifiers~\citep{ma2023zeroshotlistwise,
+sun2023rankgpt,pradeep2023rankvicuna,pradeep2023rankzephyr,
+yoon2024listt5}. Setwise methods occupy a useful middle ground: one LLM
+call compares more than two documents, but the model returns only a short
+label, such as the identifier of the most relevant document, rather than
+a full permutation~\citep{zhuang2024setwise}. This smaller output
+interface makes setwise prompting easier to parse than listwise
+permutation generation while allowing each decision to condition on more
+context than pairwise comparison.
+
+Existing setwise rerankers are usually designed around small local
+windows. A typical call sees a query and a window of $c{+}1$ candidate
+passages, selects one extreme item, and embeds that local decision inside
+a sorting procedure such as heapsort or bubblesort
+~\citep{qin2024prp,zhuang2024setwise}. This design was natural when
+context length was a binding constraint: the prompt stayed small, the
+output was easy to validate, and the sorting algorithm supplied the
+global ranking structure. The same locality appears in related listwise
+reranking systems, where sliding-window, tournament-style, or
+cache-assisted procedures are used to avoid asking the model to rank too
+many passages at once~\citep{sun2023rankgpt,ma2023zeroshotlistwise,
+yoon2024listt5}. As a result, small-window setwise reranking has become a
+strong and practical zero-shot baseline. It also inherits a question from
+the original context-limited setting: are local windows still necessary
+when the whole reranking pool fits in context?
+
+The context-length regime has changed for many open-weight rerankers.
+For the common first-stage reranking setting with $N \le 100$, a query
+and all candidate passages can now often fit in a single prompt. With
+passage length $\ell=512$, a query and $50$ passages require roughly
+$26$K input tokens before output reserve, below the advertised or
+documented long-context budgets of the Qwen3.5, Llama-3.1, and
+Ministral-3 families considered in this paper~\citep{qwen2026qwen35,
+dubey2024llama3,liu2026ministral3}. This observation does not make
+small-window setwise reranking obsolete. Long prompts can increase
+input-token cost and per-call latency, and long-context models do not
+necessarily use all prompt positions uniformly~\citep{liu2024lost}.
+Moreover, label-based prompting can be sensitive to option identifiers,
+candidate order, and presentation position~\citep{zheng2024mcqbias,
+shi2025positionbias,pradeep2023rankzephyr}. The changed context regime
+therefore motivates a missing baseline rather than a replacement claim:
+if the current live pool fits in context, how much of the usual setwise
+sorting machinery is still needed?
+
+We study this question through \textbf{MaxContext}, a zero-shot setwise
+reranking family in which every LLM call observes the current whole live
+pool rather than a local candidate window. MaxContext keeps the setwise
+output interface deliberately small. Documents are labeled numerically
+$1,\ldots,|L|$, and the model returns either one extreme document or both
+extreme documents from the live pool. \textsc{MaxContext-TopDown} asks
+for the best document and places it at the top of the ranking.
+\textsc{MaxContext-BottomUp} asks for the worst document and places it at
+the bottom. \textsc{MaxContext-DualEnd} asks for the best and worst
+documents jointly, placing one at each end and removing two documents
+from the live pool in a single call. The single-extreme variants close
+the final two-document residual with a deterministic BM25 endgame.
+
+This three-way design separates two questions that are easy to conflate.
+The first is whether whole-pool setwise selection is a viable alternative
+to small-window setwise sorting. The second is whether eliciting both
+ends of the ranking in the same call preserves effectiveness while
+reducing the number of serial LLM calls. The call-count comparison within
+MaxContext is deterministic: for a pool of size $N$,
+\textsc{MaxContext-DualEnd} uses $\lfloor N/2 \rfloor$ LLM calls,
+whereas either single-extreme MaxContext variant uses $N{-}2$ LLM calls
+plus the BM25 two-document endgame. At $N{=}100$, this is $50$ versus
+$98$ LLM calls. We therefore evaluate whether the joint best--worst
+interface delivers this call reduction without a corresponding loss in
+nDCG@10.
+
+Our experiments compare seven methods: standard TopDown setwise
+reranking with bubblesort and heapsort, standard BottomUp setwise
+reranking with bubblesort and heapsort, and the three MaxContext
+variants. To test whether the effect is specific to one chat template,
+tokenizer, or long-context implementation, we evaluate nine open-weight
+models from the Qwen3.5, Llama-3.1, and Ministral-3 families. The main
+matrix covers TREC DL19/20 and six BEIR domains, with pool sizes
+$N \in \{10,20,30,40,50,100\}$. We measure effectiveness with per-query
+nDCG@10~\citep{jarvelin2002cumulated}, assess significance using paired
+bootstrap tests~\citep{efron1993bootstrap,smucker2007comparison,
+urbano2019significance}, and apply Bonferroni correction across the
+seven methods~\citep{bonferroni1936teoria}. We also run an input-order
+stability protocol on DL19 with three representative models and ten
+randomized repetitions, motivated by known order and position effects in
+long-context and label-based LLM prompting~\citep{liu2024lost,
+zheng2024mcqbias,shi2025positionbias,pradeep2023rankzephyr}.
+
+We frame the efficiency claim carefully. MaxContext-DualEnd is designed
+to reduce the number of serial LLM calls, and we report wall-clock time
+to measure the practical effect of that reduction. We also report input,
+output, and total token counts, but we do not claim token efficiency:
+whole-pool prompts can consume more input tokens than small-window
+setwise calls even when they require fewer calls. This distinction is
+important because latency, forward passes, input tokens, output tokens,
+and FLOPs capture different aspects of the efficiency--effectiveness
+tradeoff for LLM rerankers~\citep{peng2025flopsreranking}. Our central
+empirical question is therefore whether whole-pool dual-end elicitation
+offers a better call-latency tradeoff while maintaining reranking
+effectiveness.
+
+Our contributions are threefold. First, we introduce MaxContext, a
+whole-pool setwise reranking family with best-only, worst-only, and joint
+best--worst output policies, yielding a deterministic call-count gap of
+$\lfloor N/2 \rfloor$ versus $N{-}2$ within the MaxContext family.
+Second, we provide a controlled comparison against standard setwise
+TopDown and BottomUp rerankers instantiated with bubblesort and heapsort,
+covering seven methods across nine models, eight datasets, and six pool
+sizes. Third, we evaluate both effectiveness and stability, using
+per-query nDCG@10, paired-bootstrap significance testing with Bonferroni
+correction, wall-clock and token accounting, and an explicit input-order
+stability protocol.

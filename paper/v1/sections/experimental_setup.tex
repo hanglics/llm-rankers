@@ -1,0 +1,143 @@
+\section{Experimental Setup}
+\label{sec:experimental-setup}
+
+\paragraph{Datasets and retrieval.}
+We evaluate on eight passage-ranking benchmarks. The TREC Deep Learning
+datasets are TREC DL 2019 and TREC DL 2020 over the MS MARCO passage
+corpus~\citep{bajaj2016msmarco,craswell2020dl19,craswell2021dl20}. To
+test zero-shot transfer beyond MS MARCO-style web queries, we also use
+six BEIR domains~\citep{thakur2021beir}: \textsc{DBPedia-Entity},
+\textsc{NFCorpus}, \textsc{SciFact}, \textsc{TREC-COVID},
+\textsc{Webis-Touche2020}, and \textsc{FiQA}. These datasets vary in
+query style, corpus genre, domain specificity, and relevance density.
+
+For every dataset, the first-stage run is BM25~\citep{robertson2009probabilistic}
+from Pyserini/Anserini~\citep{lin2021pyserini,yang2017anserini}. We
+rerank only the BM25 top-$N$ pool, with
+$N \in \{10,20,30,40,50\}$. All methods receive the same first-stage
+pool for a given query and pool size. For MaxContext, this means the
+initial prompt window is $W=N$ and the output depth is $k=N$; the whole
+BM25 top-$N$ pool is visible in the first call.
+
+\paragraph{Models.}
+The required model matrix contains nine open-weight causal LLMs from
+three families: five Qwen3.5 models, one Llama-3.1 model, and three
+Ministral-3 models. Specifically, we use
+Qwen3.5-\{0.8B, 2B, 4B, 9B, 27B\}, Llama-3.1-8B-Instruct, and
+Ministral-3-\{3B, 8B, 14B\}-Instruct-2512
+~\citep{qwen35modelcard,dubey2024llama3,ministral3modelcard}. This
+multi-family design is intended to test whether MaxContext is a
+model-family-general reranking pattern rather than a behavior specific
+to a single tokenizer, chat template, or long-context implementation.
+
+All experiments use the instruction or post-trained chat variant of each
+checkpoint and generation-based prompting with greedy decoding. We do not
+use likelihood scoring for MaxContext, because the joint best--worst
+objective in \textsc{MaxContext-DualEnd} is not equivalent to an
+independent single-label likelihood score. When a model interface exposes
+reasoning or thinking traces, we disable them so that outputs remain
+short label selections rather than chain-of-thought generations.
+
+\paragraph{Context-fit and inference invariants.}
+Each candidate passage is rendered with passage length $\ell=512$. At
+$N=100$, this gives approximately 26K input tokens before output reserve,
+although the exact count is tokenizer-dependent. The published context
+budgets of the selected model families are above this regime, but we do
+not rely only on advertised limits: every rendered prompt is tokenized
+before inference and must pass a context-fit preflight check. Prompts are
+never truncated. A model--query--pool cell that fails this check is
+blocked rather than silently shortened.
+
+All MaxContext runs enforce the invariants from
+\S\ref{sec:methodology}: numeric one-based document labels, strict
+integer parsing, no fallback repair for invalid labels, no permutation
+self-consistency, and deterministic BM25 resolution for the final
+two-document residual in the single-extreme variants. Standard setwise
+baselines use the same model, decoding configuration, first-stage pool,
+and passage rendering, differing only in the local-window setwise
+scheduling and sorting procedure.
+
+\paragraph{Method grid.}
+We evaluate seven reranking methods. Four are standard setwise baselines
+following the local-window formulation of \citet{zhuang2024setwise}:
+TopDown setwise with bubblesort, TopDown setwise with heapsort,
+BottomUp setwise with bubblesort, and BottomUp setwise with heapsort.
+The remaining three are the MaxContext variants introduced in this
+paper: \textsc{MaxContext-TopDown}, \textsc{MaxContext-BottomUp}, and
+\textsc{MaxContext-DualEnd}. Standard DualEnd sorting baselines are not
+included in the EMNLP method matrix.
+
+The main experiment is therefore:
+\[
+7\
+\times 9\
+\times 8\
+\times 5\
+= 2520\ \text{runs}.
+\]
+The primary efficiency contrast within the MaxContext family is at
+$N=100$, where \textsc{MaxContext-DualEnd} uses $50$ LLM calls and either
+single-extreme MaxContext control uses $98$ LLM calls plus a deterministic BM25 two-document endgame.
+
+\paragraph{Evaluation metric.}
+The primary effectiveness metric is per-query nDCG@10
+~\citep{jarvelin2002cumulated}. We compute nDCG@10 after reranking the
+BM25 top-$N$ pool and report macro averages over queries. We also retain
+per-query scores for paired significance testing, confidence intervals,
+and stability analysis. Because MaxContext produces a full permutation
+of the BM25 pool, the same evaluation code is used for all seven
+methods.
+
+\paragraph{Statistical protocol.}
+For each model--dataset--pool-size cell, we use paired bootstrap tests
+over per-query nDCG@10 scores~\citep{efron1993bootstrap,
+smucker2007comparison,urbano2019significance}. The bootstrap unit is the
+query: each resample draws queries with replacement and recomputes the
+mean paired difference between two methods. We report paired-bootstrap
+95\% confidence intervals for method differences and use two-sided
+paired-bootstrap $p$-values for significance annotations.
+
+Multiplicity is controlled with Bonferroni correction across the
+seven-method family within each model--dataset--pool-size cell
+~\citep{bonferroni1936teoria}. This keeps the main significance protocol
+simple and conservative for a short paper. Appendix tables report the
+uncorrected paired differences, confidence intervals, and corrected
+$p$-values so that the effect sizes remain visible even when a contrast
+does not pass the corrected threshold.
+
+\paragraph{Input-order stability.}
+Whole-pool prompting may introduce position sensitivity, so we evaluate
+input-order stability explicitly rather than assuming order invariance.
+The required stability matrix uses DL19 with three representative models:
+Qwen3.5-9B, Llama-3.1-8B-Instruct, and
+Ministral-3-8B-Instruct-2512. For each of the seven methods and each
+pool size $N \in \{10,20,30,40,50,100\}$, we run ten randomized input-order
+repetitions using the same underlying BM25 pool. This gives
+\[
+7\
+\times 3\
+\times 1\
+\times 5\
+\times 10\
+= 1050\ \text{stability runs}.
+\]
+We report mean nDCG@10, standard deviation, range, and worst-pair
+differences across repetitions. We also analyze selected-label position
+patterns for one representative model from each family to diagnose
+whether whole-pool visibility changes positional behavior.
+
+\paragraph{Cost and logging.}
+For every run, we log LLM calls, prompt tokens, completion tokens, total
+tokens, parser outcomes, BM25 bypass counts, per-query wall-clock time,
+and aggregate wall-clock time. These axes are reported separately because
+they measure different costs: reducing serial LLM calls does not imply
+reducing input tokens, output tokens, FLOPs, or wall-clock time in every
+setting~\citep{peng2025flopsreranking}. Our main efficiency claim is
+therefore restricted to deterministic LLM-call counts and observed
+wall-clock behavior.
+
+All outputs are written as query-level JSONL logs and TREC-format run
+files. The release package includes code, launchers, prompts, evaluation
+scripts, logs, and a revision-pinned model manifest so that the exact
+checkpoint, tokenizer, decoding, and prompt-rendering configuration can
+be audited.
