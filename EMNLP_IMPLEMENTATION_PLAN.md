@@ -1,13 +1,13 @@
 ---
 status: planning
-refines: IDEA_007_IMPLEMENTATION_PLAN.md
+refines: Extra-Experiments/IDEA_007_IMPLEMENTATION_PLAN.md
 target_gaps: G1, G4, G5
 target_venue: EMNLP 2026 short paper
 ---
 
 # IDEA_008 — Implementation Plan
 
-> **Source spec:** `IDEA_008_maxcontext_multi_family.md`.
+> **Source spec:** `EMNLP_PAPER_DESIGN.md`.
 > **Prime constraint:** IDEA_007's default paths remain byte-identical unless explicitly running the audited EMNLP extension gates.
 > **Implementation stance:** extend, do not refactor.
 
@@ -28,7 +28,7 @@ The core invariants remain:
 
 - No behavior change to standard methods on Qwen3, Qwen3.5, or T5.
 - No behavior change to standard methods from the allowlist split; only Llama-3.1 and Ministral-3 admission is added.
-- No change to IDEA_007 phase numbering or `MAX_CONTEXT_EXPERIMENT_PLAN.md` model matrix.
+- No change to IDEA_007 phase numbering or `Extra-Experiments/MAX_CONTEXT_Extra-Experiments/EXPERIMENT_PLAN.md` model matrix.
 - No change to existing `experiments/run_*.sh` launchers.
 - No prompt tuning, decoding sampling, or retry policy for Llama / Ministral unless Phase A exposes a blocker.
 - No GPU jobs or HF Hub probing in this documentation/code continuation pass.
@@ -96,7 +96,7 @@ IDEA_008 records a **65-cell prime-constraint gate**:
 
 | Component                          | Count | Meaning                                                                                                                                                                   |
 |------------------------------------|------:|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| IDEA_007 goldens                   |     9 | Existing `.eval` goldens from IDEA_007_IMPLEMENTATION_PLAN.md §9.1; they span flan-t5-large, qwen3-8b, and qwen3.5-9b across multiple methods. They are not all Qwen3-4B. |
+| IDEA_007 goldens                   |     9 | Existing `.eval` goldens from Extra-Experiments/IDEA_007_IMPLEMENTATION_PLAN.md §9.1; they span flan-t5-large, qwen3-8b, and qwen3.5-9b across multiple methods. They are not all Qwen3-4B. |
 | Phase C′ canonical stability diffs |    35 | Post-merge Qwen3-4B DL19 default-layout reruns diffed against `results/maxcontext_dualend/qwen3-4b-dl19/stability-test-runs/test_run_v1/`.                                |
 | Phase A smoke-as-goldens           |    21 | The v7 pool=50 EMNLP Phase A smoke cells, frozen only after the first successful Phase A run. v8 pool=100 smoke cells are supplemental and stay outside this gate.        |
 
@@ -118,9 +118,9 @@ The smoke gate is method-aware: all seven methods require full `.txt` coverage, 
 
 New root docs:
 
-- `IDEA_008_maxcontext_multi_family.md`
-- `IDEA_008_IMPLEMENTATION_PLAN.md`
-- `EMNLP_EXPERIMENT_PLAN.md`
+- `EMNLP_PAPER_DESIGN.md`
+- `EMNLP_IMPLEMENTATION_PLAN.md`
+- `EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`
 
 New operator and analysis files:
 
@@ -163,9 +163,9 @@ New wiki files:
 
 Modified docs/wiki files:
 
-- `MAX_CONTEXT_EXPERIMENT_PLAN.md`
-- `IDEA_007.md`
-- `IDEA_007_IMPLEMENTATION_PLAN.md`
+- `Extra-Experiments/MAX_CONTEXT_Extra-Experiments/EXPERIMENT_PLAN.md`
+- `Extra-Experiments/IDEA_007.md`
+- `Extra-Experiments/IDEA_007_IMPLEMENTATION_PLAN.md`
 - `research-wiki/index.md`
 - `research-wiki/log.md`
 - `research-wiki/gap_map.md`

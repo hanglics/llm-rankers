@@ -1,6 +1,6 @@
 ---
 status: planning
-refines: IDEA_007.md
+refines: Extra-Experiments/IDEA_007.md
 target_gaps: G1, G4, G5
 target_venue: EMNLP 2026 short paper
 ---
@@ -26,7 +26,7 @@ The EMNLP paper method axis is the canonical seven-method list in `research-wiki
 
 ## 3. Code Changes
 
-The line-level implementation is recorded in the v7 plan §A and summarized in `IDEA_008_IMPLEMENTATION_PLAN.md`; this spec does not duplicate that audit trail.
+The line-level implementation is recorded in the v7 plan §A and summarized in `EMNLP_IMPLEMENTATION_PLAN.md`; this spec does not duplicate that audit trail.
 
 Summary:
 
@@ -51,7 +51,7 @@ If Phase A reports a shorter effective context, the offending model/pool pair is
 
 ## 5. Experiments
 
-The operator command sheet is `EMNLP_EXPERIMENT_PLAN.md`.
+The operator command sheet is `EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`.
 
 Required phases:
 

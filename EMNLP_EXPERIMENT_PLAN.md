@@ -1,9 +1,9 @@
 # EMNLP 2026 MaxContext Multi-Family Command Sheet
 
 Source documents:
-- `IDEA_008_maxcontext_multi_family.md`
-- `IDEA_008_IMPLEMENTATION_PLAN.md`
-- `MAX_CONTEXT_EXPERIMENT_PLAN.md` for the unchanged IDEA_007 Qwen-only matrix
+- `EMNLP_PAPER_DESIGN.md`
+- `EMNLP_IMPLEMENTATION_PLAN.md`
+- `Extra-Experiments/MAX_CONTEXT_Extra-Experiments/EXPERIMENT_PLAN.md` for the unchanged IDEA_007 Qwen-only matrix
 
 This sheet is for the human operator after the implementation gate is green. The EMNLP plan is independent of IDEA_007 phase numbering; do not interleave.
 

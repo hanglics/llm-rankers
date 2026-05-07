@@ -1,8 +1,8 @@
 # EMNLP_SHORT_PLAN.md — MaxContext short-paper plan (v2)
 
 > **Status:** v3 — aligned to the canonical v8 EMNLP plan (2026-05-06). Sole contribution = MaxContext family. Paper is a 4-page ACL/EMNLP short submission. All pre-idea:007 narrative is dropped.
-> **Companion:** [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md)
-> **Canonical implementation plan:** [`../../EMNLP_EXPERIMENT_PLAN.md`](../../EMNLP_EXPERIMENT_PLAN.md), [`../../IDEA_008_IMPLEMENTATION_PLAN.md`](../../IDEA_008_IMPLEMENTATION_PLAN.md), [`../../IDEA_008_maxcontext_multi_family.md`](../../IDEA_008_maxcontext_multi_family.md). The paper's Tier-1 lineup is a subset of v8's required 9-model × 8-dataset × 7-method × 6-pool matrix; v8 produces the data, the paper selects the headline cells.
+> **Companion:** [`EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md`](EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md)
+> **Canonical implementation plan:** [`../../EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`](../../EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md), [`../../EMNLP_IMPLEMENTATION_PLAN.md`](../../EMNLP_IMPLEMENTATION_PLAN.md), [`../../EMNLP_PAPER_DESIGN.md`](../../EMNLP_PAPER_DESIGN.md). The paper's Tier-1 lineup is a subset of v8's required 9-model × 8-dataset × 7-method × 6-pool matrix; v8 produces the data, the paper selects the headline cells.
 > **Venue rules:** ACL Rolling Review short — 4 pages of content; references unlimited; Limitations required after Conclusion (no page cost, but cannot carry new results); Ethics optional (no page cost); appendices do not count toward limit but reviewers are not required to read them — every load-bearing claim must live in main text.
 
 ---
@@ -21,7 +21,7 @@ The half-cost framing is the headline, but it is framed strictly on the **LLM-ca
 
 For $N=10$: $5$ vs $8$ LLM calls (5/8 ≈ $0.625$); for $N=50$: $25$ vs $48$ LLM calls (25/48 ≈ $0.521$); for $N=100$: $50$ vs $98$ LLM calls (50/98 ≈ $0.510$). The "half" descriptor is approximate at small $N$ and asymptotically tight at large $N$. **Avoid the unqualified phrase "half the dependent calls"** — TopDown / BottomUp emit one *deterministic* BM25 decision at the very end which is not an LLM call. The plan and paper consistently say "LLM calls".
 
-The pool-size ceiling rises from $N=50$ (paper plan v1/v2) to $N=100$ in v3 because v8 added pool=100 to the required matrix for the 3 large-context EMNLP families (Qwen3.5, Llama-3.1, Ministral-3 — all native ≥128K context). Tier-1 main-paper claims still anchor at $N=50$; the $N=100$ point is reported as an additional Pareto-curve data point and is gated on the BEIR pool=100 fit probe and Phase A smoke (per `EMNLP_EXPERIMENT_PLAN.md`).
+The pool-size ceiling rises from $N=50$ (paper plan v1/v2) to $N=100$ in v3 because v8 added pool=100 to the required matrix for the 3 large-context EMNLP families (Qwen3.5, Llama-3.1, Ministral-3 — all native ≥128K context). Tier-1 main-paper claims still anchor at $N=50$; the $N=100$ point is reported as an additional Pareto-curve data point and is gated on the BEIR pool=100 fit probe and Phase A smoke (per `EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`).
 
 For odd $N$ (e.g. $N=11$), the DualEnd loop runs $\lfloor N/2 \rfloor$ times and a single unpaired document is placed without an additional LLM call — the formula stays $\lfloor N/2 \rfloor$, not $\lceil N/2 \rceil$.
 
@@ -57,7 +57,7 @@ Notes on H3 multiplicity:
 - Two comparator families (H1$_\text{TD}$ and H1$_\text{BU}$), each with 24 cells. BH-FDR is applied within each family at $q=0.05$. Bonferroni is reported in the appendix table for transparency. Holm-Bonferroni is documented as an alternative we considered (Codex round-2 §4 prefers Holm-Bonferroni for *per-cell* H1 claims; we use BH-FDR because H3 asserts $\ge 80\%$ of cells, an FDR-shaped claim).
 - The aggregate H3 verdict is "supported" iff $\ge 20$ of 24 cells reject $H_0$ in each comparator family.
 
-H4's variance source is **input-order seed plumbing** — see [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md) §3 / Phase 3 for the prerequisite code change. Renamed from the v1 wording "run-to-run stability" to "input-order stability" per Codex round-2 §5.
+H4's variance source is **input-order seed plumbing** — see [`EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md`](EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md) §3 / Phase 3 for the prerequisite code change. Renamed from the v1 wording "run-to-run stability" to "input-order stability" per Codex round-2 §5.
 
 H2 is a deterministic property of the algorithm; the half-cost numbers go into the abstract / introduction without a hypothesis test. H1 + H3 carry the empirical load. H4 is the methodology guard.
 
@@ -135,7 +135,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
 
 - Any pre-idea:007 method as a result, not even as a baseline. The v2 paper's baseline is **MaxContext-TopDown** and **MaxContext-BottomUp**; not TD-Heap, TD-Bubble, DE-Cocktail, DE-Selection. Matched-hits comparisons against the small-window family belong to the long-paper version, not v2.
 - T5 / encoder-decoder backbones (likelihood-scoring path collapses joint elicitation to a best-only proxy).
-- Pools $> 100$. ($N{=}100$ is in scope for Qwen3.5 / Llama-3.1 / Ministral-3 only, gated on Phase A and BEIR pool=100 fit probe per `EMNLP_EXPERIMENT_PLAN.md`.)
+- Pools $> 100$. ($N{=}100$ is in scope for Qwen3.5 / Llama-3.1 / Ministral-3 only, gated on Phase A and BEIR pool=100 fit probe per `EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`.)
 - Permutation self-consistency.
 - TourRank / BlitzRank as primary baselines (different budget knobs; appendix-only smoke).
 - Listwise (RankGPT-style) as primary baseline (different efficiency regime).
@@ -162,7 +162,7 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
   - §3 H4: renamed "run-to-run stability" → "input-order stability"; predeclared SD + max-min range + worst-pair $|\Delta|$ thresholds (Codex round-2 §5).
   - §6: Table 1 redesigned as a **compressed signed-$\Delta$ form** (4 models × {DL19, DL20, BEIR-mean, BEIR-min} × {$\Delta_\text{TD}$, $\Delta_\text{BU}$}) to fit 4-page budget; full 4×6×3 nDCG@10 + CI matrix moves to appendix.
   - §6 Figure 1: BEIR panel uses only $N \in \{10, 30, 50\}$ to match experiment-plan trim; caption explicitly flags the asymmetric $N$ sets.
-- v3 (2026-05-06) — aligns paper plan with the canonical v8 EMNLP plan (`EMNLP_EXPERIMENT_PLAN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md`, `IDEA_008_maxcontext_multi_family.md`). The paper's narrow MaxContext-DualEnd cost claim is unchanged; the surrounding experimental envelope now matches v8:
+- v3 (2026-05-06) — aligns paper plan with the canonical v8 EMNLP plan (`EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`, `EMNLP_IMPLEMENTATION_PLAN.md`, `EMNLP_PAPER_DESIGN.md`). The paper's narrow MaxContext-DualEnd cost claim is unchanged; the surrounding experimental envelope now matches v8:
   - §1: pool-size ceiling raised from $N{\le}50$ to $N{\le}100$ (v8 added pool=100 to required Qwen3.5 / Llama-3.1 / Ministral-3 cells; gated on Phase A smoke + BEIR pool=100 fit probe). LLM-call accounting table extended with $N=100$ row (DualEnd 50 vs single-extreme 98).
   - §2 RQ2: Tier-2 list extended with v8's optional Phase D/E (Qwen3 family) + the 5 v8-required models that the paper relegates to appendix (Qwen3.5-{0.8B,2B,27B}, Ministral-3-{3B,14B}).
   - §3 H1: implicitly extended to N=100 cells where the family/dataset passes the pool=100 gate; main-paper Table 1 still anchors at N=50 for clean cross-family comparison.
@@ -173,4 +173,4 @@ Per Codex round-1 §10, original Setwise must be cited as a *direct comparator*,
 
 ---
 
-*Companion:* [`EMNLP_SHORT_EXPERIMENT_PLAN.md`](EMNLP_SHORT_EXPERIMENT_PLAN.md) — concrete model lineup with pinned HF identifiers, dataset matrix, statistical protocol, 10× stability plan, compute budget recomputed against actual BEIR query counts, and Phase-by-Phase staging.
+*Companion:* [`EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md`](EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md) — concrete model lineup with pinned HF identifiers, dataset matrix, statistical protocol, 10× stability plan, compute budget recomputed against actual BEIR query counts, and Phase-by-Phase staging.

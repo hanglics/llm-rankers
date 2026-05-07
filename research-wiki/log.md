@@ -6,8 +6,8 @@ ablations) live at `Extra-Experiments/research-wiki/log.md`.
 ## 2026-05-07
 - **Project restructure**: isolated EMNLP active scope. Moved legacy
   experiments / analysis / results / wiki content / planning docs to
-  `Extra-Experiments/`. Renamed `IDEA_008_maxcontext_multi_family.md` →
-  `EMNLP_PAPER_DESIGN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md` →
+  `Extra-Experiments/`. Renamed `EMNLP_PAPER_DESIGN.md` →
+  `EMNLP_PAPER_DESIGN.md`, `EMNLP_IMPLEMENTATION_PLAN.md` →
   `EMNLP_IMPLEMENTATION_PLAN.md`, `paper/v2/` → `paper/v1/`. See
   `pre-emnlp-restructure` git tag for rollback point.
 - **Phase F position-bias controls** (--shuffle, --reverse) implemented

@@ -1,9 +1,9 @@
-# EMNLP_SHORT_EXPERIMENT_PLAN.md — experiments for the v2 short paper
+# EMNLP_SHORT_Extra-Experiments/EXPERIMENT_PLAN.md — experiments for the v2 short paper
 
 > **Status:** v3 — aligned to the canonical v8 EMNLP plan (2026-05-06). Companion to [`EMNLP_SHORT_PLAN.md`](EMNLP_SHORT_PLAN.md).
 > **Goal:** support claims H1–H4 from the short-paper plan with the smallest matrix that survives reviewer pushback in 4 pages.
 > **Hardware target:** NVIDIA H100 80 GB on the project's HPC cluster, single-GPU per job. SLURM dispatchers (`submit_emnlp_jobs.sh`, `submit_emnlp_stability_jobs.sh`, `submit_max_context_jobs.sh`) resolve the conda env per model family (`ranker_env` for Qwen3 / pyserini, `qwen35_env` for Qwen3.5 / Llama-3.1 / Ministral-3) and propagate it via `sbatch --export=ALL,CONDA_ENV=...`.
-> **Relationship to v8:** the canonical implementation plan is `EMNLP_EXPERIMENT_PLAN.md` + `IDEA_008_IMPLEMENTATION_PLAN.md` + `IDEA_008_maxcontext_multi_family.md`. v8's required matrix (9 models × 8 datasets × 7 methods × 6 pool sizes = 3024 main + 1260 stability + 35 prime-recheck = 4361 jobs) is the production launcher. The paper's Tier-1 selects **4 of v8's 9 required models** and **3 of v8's 7 methods (the MaxContext family)** for the main-paper headline; the rest are appendix-only.
+> **Relationship to v8:** the canonical implementation plan is `EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md` + `EMNLP_IMPLEMENTATION_PLAN.md` + `EMNLP_PAPER_DESIGN.md`. v8's required matrix (9 models × 8 datasets × 7 methods × 6 pool sizes = 3024 main + 1260 stability + 35 prime-recheck = 4361 jobs) is the production launcher. The paper's Tier-1 selects **4 of v8's 9 required models** and **3 of v8's 7 methods (the MaxContext family)** for the main-paper headline; the rest are appendix-only.
 
 ---
 
@@ -265,7 +265,7 @@ Same as `EMNLP_SHORT_PLAN.md` §10. In particular: no T5, no pre-007 baselines a
   - §4: H1 hypothesis direction **inverted to the textbook non-inferiority form** $H_0: \Delta \le -\delta$ vs $H_1: \Delta > -\delta$. v1 had it backwards (rejecting v1's $H_0: \Delta \ge -\delta$ would have supported *inferiority*, not non-inferiority).
   - §4: multiplicity correction explicitly applied **per comparator family** (separate FDR runs for H1$_\text{TD}$ and H1$_\text{BU}$). Holm-Bonferroni and Bonferroni adjusted $p$-values added as appendix transparency columns alongside BH-FDR.
   - §7: pre-launch checklist gains 5 items — `AutoConfig.model_type` verification, license / gated-access checks for Llama and Ministral 3, significance-script update, run-manifest with HF revision hashes, `--shuffle_ranking random` propagation alongside `--seed`.
-- v3 (2026-05-06) — aligns experiment plan with the canonical v8 EMNLP plan (`EMNLP_EXPERIMENT_PLAN.md`, `IDEA_008_IMPLEMENTATION_PLAN.md`, `IDEA_008_maxcontext_multi_family.md`):
+- v3 (2026-05-06) — aligns experiment plan with the canonical v8 EMNLP plan (`EMNLP_Extra-Experiments/EXPERIMENT_PLAN.md`, `EMNLP_IMPLEMENTATION_PLAN.md`, `EMNLP_PAPER_DESIGN.md`):
   - **HF identifier fixes:** Qwen3.5 stripped of trailing `-Instruct` (corrected against actual HF release names; v8's canonical IDs are `Qwen/Qwen3.5-{0.8B,2B,4B,9B,27B}`). Llama-3.1 prefixed with `Meta-` to match v8's `meta-llama/Meta-Llama-3.1-8B-Instruct` canonical form.
   - §1 model lineup: Tier-2 row added for v8 Phase D/E optional Qwen3 family (Qwen3-{0.6B,1.7B,4B,8B,14B,32B}). Note that v8's required matrix is broader (9 models) than the paper's Tier 1 (4 models); paper headline is the 4-model subset.
   - §1 code prerequisites: items 1, 2, 3, 8 marked ✅ DONE in v8 implementation. Items 4, 5 covered by Phase A smoke. Items 6, 7 noted as still-TODO with v8 fallback semantics.
