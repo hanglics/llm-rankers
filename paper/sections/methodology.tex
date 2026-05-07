@@ -1,62 +1,19 @@
 \section{MaxContext}
 \label{sec:methodology}
 
-% Style note (v2, 2026-05-07): tightened to ~400 words + Algorithm 1 to fit
-% the 0.7-page budget per plan v4. Adopts the Outstanding-paper convention
-% of question-style or claim-style section titles where it improves clarity;
-% here the section is named after the method itself, matching the
-% method-named title.
+% Style note (v2, 2026-05-07): tightened to ~400 words + Algorithm 1 to fit the 0.7-page budget per plan v4. Adopts the Outstanding-paper convention of question-style or claim-style section titles where it improves clarity; here the section is named after the method itself, matching the method-named title.
 
-\paragraph{Reranking setup.}
-Given a query $q$ and a first-stage BM25
-run~\citep{robertson2009probabilistic}, let
-$P=(d_1,\ldots,d_N)$ denote the top-$N$ candidate pool in BM25 order. The
-task is to produce a full reranking $R=(r_1,\ldots,r_N)$ from which
-nDCG@10~\citep{jarvelin2002cumulated} is computed on the prefix. We study
-the matched operating point $k=N$ for all methods, and for MaxContext an
-initial prompt window $W=N$: the entire reranking pool is visible in the
-first LLM call. Passages are rendered with passage length $\ell{=}512$. A
-runtime tokenization preflight then verifies that the rendered prompt
-fits the model context window; prompts are not truncated.
+\paragraph{Reranking Setup.}
+Given a query $q$ and a first-stage BM25 run~\citep{robertson2009probabilistic}, let $P=(d_1,\ldots,d_N)$ denote the top-$N$ candidate pool in BM25 order. The task is to produce a full reranking $R=(r_1,\ldots,r_N)$ from which nDCG@10~\citep{jarvelin2002cumulated} is computed on the prefix. We study the matched operating point $k=N$ for all methods, and for MaxContext an initial prompt window $W=N$: the entire reranking pool is visible in the first LLM call. Passages are rendered with passage length $\ell{=}512$. A runtime tokenization preflight then verifies that the rendered prompt fits the model context window; prompts are not truncated.
 
-\paragraph{Compared methods.}
-Our method axis contains seven rerankers. Four are standard setwise
-baselines following the local-window formulation of
-\citet{zhuang2024setwise}: TopDown setwise with bubblesort, TopDown
-setwise with heapsort, BottomUp setwise with bubblesort, and BottomUp
-setwise with heapsort, all using the public
-\texttt{llm-rankers} implementation~\citep{ielab_llmrankers}. The
-remaining three are MaxContext variants:
-best-only \textsc{MaxContext-TopDown},
-worst-only \textsc{MaxContext-BottomUp}, and
-joint best--worst \textsc{MaxContext-DualEnd}. Standard DualEnd sorting
-baselines are not part of this method matrix.
+\paragraph{Compared Methods.}
+Our method axis contains seven rerankers. Four are standard setwise baselines following the local-window formulation of \citet{zhuang2024setwise}: TopDown setwise with bubblesort, TopDown setwise with heapsort, BottomUp setwise with bubblesort, and BottomUp setwise with heapsort, all using the public \texttt{llm-rankers} implementation~\citep{ielab_llmrankers}. The remaining three are MaxContext variants: best-only \textsc{MaxContext-TopDown}, worst-only \textsc{MaxContext-BottomUp}, and joint best--worst \textsc{MaxContext-DualEnd}. Standard DualEnd sorting baselines are not part of this method matrix.
 
-\paragraph{MaxContext skeleton.}
-MaxContext maintains a live pool $L$, initialized to the BM25 top-$N$
-list $P$. Every LLM call sees the query and every document in the current
-$L$. Documents are addressed by local numeric labels $1,\ldots,|L|$, which
-replace the fixed-letter interface of windowed setwise and allow the
-whole live pool to be referenced when $|L|$ exceeds the letter range.
-Outputs are strictly parsed as integer labels: a single-extreme call
-accepts exactly one integer in $[1,|L|]$, a dual-end call accepts exactly
-two distinct integers in $[1,|L|]$. Out-of-range, duplicate, or missing
-labels and refusal-like outputs are recorded as parse failures and
-invalidate the run --- we do not repair such outputs with fallback
-heuristics. Every successful MaxContext run thus returns a true
-permutation of the original BM25 pool.
+\paragraph{MaxContext Skeleton.}
+MaxContext maintains a live pool $L$, initialized to the BM25 top-$N$ list $P$. Every LLM call sees the query and every document in the current $L$. Documents are addressed by local numeric labels $1,\ldots,|L|$, which replace the fixed-letter interface of windowed setwise and allow the whole live pool to be referenced when $|L|$ exceeds the letter range. Outputs are strictly parsed as integer labels: a single-extreme call accepts exactly one integer in $[1,|L|]$, a dual-end call accepts exactly two distinct integers in $[1,|L|]$. Out-of-range, duplicate, or missing labels and refusal-like outputs are recorded as parse failures and invalidate the run --- we do not repair such outputs with fallback heuristics. Every successful MaxContext run thus returns a true permutation of the original BM25 pool.
 
-\paragraph{Three variants.}
-\textsc{MaxContext-TopDown} asks for the best document, places it at the
-next free head of $R$, and removes it from $L$.
-\textsc{MaxContext-BottomUp} asks for the worst, places it at the next
-free tail, and removes it. Both single-extreme variants stop when two
-documents remain and order the residual pair deterministically by BM25
-(higher above lower).
-\textsc{MaxContext-DualEnd} asks for both extremes in the same call,
-placing one at the head and one at the tail and removing both per call;
-Algorithm~\ref{alg:dualend} formalizes the loop and
-Figure~\ref{fig:dualend} traces a worked $N{=}10$ run.
+\paragraph{Three Variants.}
+\textsc{MaxContext-TopDown} asks for the best document, places it at the next free head of $R$, and removes it from $L$. \textsc{MaxContext-BottomUp} asks for the worst, places it at the next free tail, and removes it. Both single-extreme variants stop when two documents remain and order the residual pair deterministically by BM25 (higher above lower). \textsc{MaxContext-DualEnd} asks for both extremes in the same call, placing one at the head and one at the tail and removing both per call; Algorithm~\ref{alg:dualend} formalizes the loop and Figure~\ref{fig:dualend} traces a worked $N{=}10$ run.
 
 \input{figures/dualend_overview}
 
@@ -86,27 +43,10 @@ Figure~\ref{fig:dualend} traces a worked $N{=}10$ run.
 \end{algorithmic}
 \end{algorithm}
 
-\paragraph{LLM-call counts.}
-At the matched operating point $W{=}k{=}N$, \textsc{DualEnd} uses
-$C_{\mathrm{DualEnd}}(N) = \lfloor N/2 \rfloor$ LLM calls, while either
-single-extreme variant uses
-$C_{\mathrm{TopDown}}(N) = C_{\mathrm{BottomUp}}(N) = N{-}2$ LLM calls
-plus one deterministic two-document BM25 endgame.
-At $N{=}100$, this is 50 vs.\ 98 calls; the ratio approaches $1/2$ from
-above as $N$ grows. Table~\ref{tab:call-accounting} reports the gap at
-representative $N$. The comparison is exact and within the MaxContext
-family; it is \emph{not} a claim that DualEnd halves tokens, FLOPs, or
-wall-clock --- those axes depend on prompt length, batching, and model
-throughput, which differ across variants.
+\paragraph{LLM-Call Counts.}
+At the matched operating point $W{=}k{=}N$, \textsc{DualEnd} uses $C_{\mathrm{DualEnd}}(N) = \lfloor N/2 \rfloor$ LLM calls, while either single-extreme variant uses $C_{\mathrm{TopDown}}(N) = C_{\mathrm{BottomUp}}(N) = N{-}2$ LLM calls plus one deterministic two-document BM25 endgame. At $N{=}100$, this is 50 vs.\ 98 calls; the ratio approaches $1/2$ from above as $N$ grows. Table~\ref{tab:call-accounting} reports the gap at representative $N$. The comparison is exact and within the MaxContext family; it is \emph{not} a claim that DualEnd halves tokens, FLOPs, or wall-clock --- those axes depend on prompt length, batching, and model throughput, which differ across variants.
 
 \input{tables/call_accounting}
 
-\paragraph{Hard invariants.}
-The EMNLP configuration fixes: $W=N=k$, $N\in\{10,20,30,40,50,100\}$,
-$\ell{=}512$, numeric one-based labels, strict context-fit preflight, no
-truncation, no parse-fallback repair, no permutation self-consistency,
-and generation-based scoring on causal LLMs from the Qwen3.5, Llama-3.1,
-and Ministral-3 families. Likelihood-scoring T5-style rerankers are
-excluded because the joint best--worst objective in DualEnd does not
-reduce to an independent single-label likelihood score without changing
-the method.
+\paragraph{Hard Invariants.}
+The EMNLP configuration fixes: $W=N=k$, $N\in\{10,20,30,40,50,100\}$, $\ell{=}512$, numeric one-based labels, strict context-fit preflight, no truncation, no parse-fallback repair, no permutation self-consistency, and generation-based scoring on causal LLMs from the Qwen3.5, Llama-3.1, and Ministral-3 families. Likelihood-scoring T5-style rerankers are excluded because the joint best--worst objective in DualEnd does not reduce to an independent single-label likelihood score without changing the method.

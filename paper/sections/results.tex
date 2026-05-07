@@ -8,131 +8,53 @@
 % the rhetorical scaffold and statistical protocol are settled here so
 % that camera-ready edits are local.
 
-We organize the results around three questions, each tested over the
-same main matrix with the protocol of \S\ref{sec:experimental-setup}.
+We organize the results around three questions, each tested over the same main matrix with the protocol of \S\ref{sec:experimental-setup}.
 
 \subsection{Q1: Does whole-pool DualEnd preserve effectiveness while approximately halving serial LLM calls?}
 \label{sec:results-cost-quality}
 
 \paragraph{Setup.}
-We compare the seven methods within each (model, dataset, pool-size)
-cell at the matched operating point $W{=}k{=}N$. The within-MaxContext
-contrast is between \textsc{DualEnd} and either single-extreme
-MaxContext variant, where call counts are deterministic
-(Table~\ref{tab:call-accounting}). The cross-family contrast is between
-the three MaxContext variants and the four standard windowed setwise
-baselines.
+We compare the seven methods within each (model, dataset, pool-size) cell at the matched operating point $W{=}k{=}N$. The within-MaxContext contrast is between \textsc{DualEnd} and either single-extreme MaxContext variant, where call counts are deterministic (Table~\ref{tab:call-accounting}). The cross-family contrast is between the three MaxContext variants and the four standard windowed setwise baselines.
 
 \paragraph{Hypothesis.}
 We predict that \textsc{DualEnd} is non-inferior to
-\textsc{MaxContext-TopDown} and \textsc{MaxContext-BottomUp} on per-query
-nDCG@10 at margin $\delta{=}0.01$, on at least 80\% of cells (the H3
-threshold). We further
-predict that the three MaxContext variants are competitive with the
-standard windowed setwise baselines at the same matched operating
-point, since context-length is no longer the binding constraint that
-motivated the windowed design. We do \emph{not} predict that
-\textsc{DualEnd} dominates the field; the central efficiency claim is
-about serial LLM calls, not effectiveness.
+\textsc{MaxContext-TopDown} and \textsc{MaxContext-BottomUp} on per-query nDCG@10 at margin $\delta{=}0.01$, on at least 80\% of cells (the H3 threshold). We further predict that the three MaxContext variants are competitive with the standard windowed setwise baselines at the same matched operating point, since context-length is no longer the binding constraint that motivated the windowed design. We do \emph{not} predict that \textsc{DualEnd} dominates the field; the central efficiency claim is about serial LLM calls, not effectiveness.
 
 \paragraph{Results.}
-Table~\ref{tab:main-deltas} reports per-cell signed nDCG@10 differences
-$\Delta_{\mathrm{TD}} = \mathrm{nDCG@10}(\textsc{DualEnd})
-- \mathrm{nDCG@10}(\textsc{MaxContext-TopDown})$ and
-$\Delta_{\mathrm{BU}} = \mathrm{nDCG@10}(\textsc{DualEnd})
-- \mathrm{nDCG@10}(\textsc{MaxContext-BottomUp})$ at $N{=}50$, with
-$\checkmark$ / $\blacktriangle$ / $\times$ markers for the H1
-non-inferiority verdict. [TBD: per-cell verdicts after Phase B
-completion.] Aggregated across the 4-model main-paper subset and 6
-datasets, [TBD: $X/24$ cells favor non-inferiority for
-$\Delta_{\mathrm{TD}}$ and $Y/24$ for $\Delta_{\mathrm{BU}}$ under
-Holm-Bonferroni at $\alpha{=}0.05$]. Figure~\ref{fig:pareto} plots the
-mean LLM calls vs.\ mean nDCG@10 across the pool sweep
-$N \in \{10,20,30,40,50,100\}$.
+Table~\ref{tab:main-deltas} reports per-cell signed nDCG@10 differences $\Delta_{\mathrm{TD}} = \mathrm{nDCG@10}(\textsc{DualEnd}) - \mathrm{nDCG@10}(\textsc{MaxContext-TopDown})$ and $\Delta_{\mathrm{BU}} = \mathrm{nDCG@10}(\textsc{DualEnd}) - \mathrm{nDCG@10}(\textsc{MaxContext-BottomUp})$ at $N{=}50$, with $\checkmark$ / $\blacktriangle$ / $\times$ markers for the H1 non-inferiority verdict. [TBD: per-cell verdicts after Phase B completion.] Aggregated across the 4-model main-paper subset and 6 datasets, [TBD: $X/24$ cells favor non-inferiority for $\Delta_{\mathrm{TD}}$ and $Y/24$ for $\Delta_{\mathrm{BU}}$ under Holm-Bonferroni at $\alpha{=}0.05$]. Figure~\ref{fig:pareto} plots the mean LLM calls vs.\ mean nDCG@10 across the pool sweep $N \in \{10,20,30,40,50,100\}$.
 
 \input{tables/main_deltas}
 \input{figures/pareto}
 
 \paragraph{Discussion.}
-[TBD interpretation paragraph.] If the verdict pattern is supportive,
-this is direct evidence that joint best--worst elicitation amortizes the
-serial-call cost of whole-pool setwise selection. If supportive only
-below $N{=}100$, the discussion frames a long-context saturation point
-rather than a flat win. If the verdict is mixed, the call-count
-reduction remains exact (Table~\ref{tab:call-accounting}) but its
-practical value depends on the model family --- a discussion we resume
-in Q2.
+[TBD interpretation paragraph.] If the verdict pattern is supportive, this is direct evidence that joint best--worst elicitation amortizes the serial-call cost of whole-pool setwise selection. If supportive only below $N{=}100$, the discussion frames a long-context saturation point rather than a flat win. If the verdict is mixed, the call-count reduction remains exact (Table~\ref{tab:call-accounting}) but its practical value depends on the model family --- a discussion we resume in Q2.
 
 \subsection{Q2: Does the result generalize across model families?}
 \label{sec:results-family}
 
 \paragraph{Setup.}
-Each (method, dataset, pool-size) verdict from Q1 is broken out by model
-family --- five Qwen3.5 checkpoints, one Llama-3.1, three Ministral-3 ---
-and by parameter scale within Qwen3.5 (0.8B--27B). Tier-1 main-paper
-cells use four checkpoints chosen to vary family while holding scale
-near the 8B class; the remaining cells populate the appendix.
+Each (method, dataset, pool-size) verdict from Q1 is broken out by model family --- five Qwen3.5 checkpoints, one Llama-3.1, three Ministral-3 --- and by parameter scale within Qwen3.5 (0.8B--27B). Tier-1 main-paper cells use four checkpoints chosen to vary family while holding scale near the 8B class; the remaining cells populate the appendix.
 
 \paragraph{Hypothesis.}
-We predict that the within-family DualEnd-vs-single-extreme contrast is
-qualitatively consistent across the three families, even where its
-magnitude is not. We do not predict that all families behave
-identically; differences in chat template, tokenizer, and long-context
-implementation are expected to produce family-specific effect sizes.
+We predict that the within-family DualEnd-vs-single-extreme contrast is qualitatively consistent across the three families, even where its magnitude is not. We do not predict that all families behave identically; differences in chat template, tokenizer, and long-context implementation are expected to produce family-specific effect sizes.
 
 \paragraph{Results.}
-[TBD per-family signed-$\Delta$ summary across the four Tier-1
-checkpoints and six datasets at $N{=}50$, with per-family verdict
-counts.] Figure~\ref{fig:pareto} bottom panel reports the BEIR-mean
-Pareto curve per family. Family-stratified scale behavior within
-Qwen3.5 (0.8B--27B) is reported in the appendix.
+[TBD per-family signed-$\Delta$ summary across the four Tier-1 checkpoints and six datasets at $N{=}50$, with per-family verdict counts.] Figure~\ref{fig:pareto} bottom panel reports the BEIR-mean Pareto curve per family. Family-stratified scale behavior within Qwen3.5 (0.8B--27B) is reported in the appendix.
 
 \paragraph{Discussion.}
-[TBD interpretation: whether the finding is a property of the algorithm
-or of a specific family.] The cross-family design is the principal guard
-against the single-family confound that motivated this
-study~(\S\ref{sec:methodology}); the specific pattern of agreement or
-disagreement across Qwen3.5, Llama-3.1, and Ministral-3 is the cleanest
-evidence we can report on family-generality.
+[TBD interpretation: whether the finding is a property of the algorithm or of a specific family.] The cross-family design is the principal guard against the single-family confound that motivated this study~(\S\ref{sec:methodology}); the specific pattern of agreement or disagreement across Qwen3.5, Llama-3.1, and Ministral-3 is the cleanest evidence we can report on family-generality.
 
 \subsection{Q3: How sensitive is whole-pool MaxContext to candidate order?}
 \label{sec:results-position-bias}
 
 \paragraph{Setup.}
-We pair each MaxContext-only forward run from Q1 with two
-per-comparison position-bias controls applied to the live pool $L$
-before each LLM call: a deterministic \textbf{reverse} of $L$, and a
-fixed-seed shuffle of $L$ (seed 929). The required matrix covers three
-representative models, four representative datasets, three MaxContext
-methods, six pool sizes, and two control conditions
-($3 \times 4 \times 3 \times 6 \times 2 = 432$ runs;
-\S\ref{sec:experimental-setup}). The analysis reports paired within-query
-nDCG@10 deltas for forward vs.\ reverse and forward vs.\ shuffle, plus
-selected-label position frequencies.
+We pair each MaxContext-only forward run from Q1 with two per-comparison position-bias controls applied to the live pool $L$ before each LLM call: a deterministic \textbf{reverse} of $L$, and a fixed-seed shuffle of $L$ (seed 929). The required matrix covers three representative models, four representative datasets, three MaxContext methods, six pool sizes, and two control conditions ($3 \times 4 \times 3 \times 6 \times 2 = 432$ runs; \S\ref{sec:experimental-setup}). The analysis reports paired within-query nDCG@10 deltas for forward vs.\ reverse and forward vs.\ shuffle, plus selected-label position frequencies.
 
 \paragraph{Hypothesis.}
-We predict that whole-pool MaxContext is \emph{not} order-invariant: the
-forward-vs-reverse and forward-vs-shuffle deltas should be detectable
-above the deterministic-decoding noise floor, with magnitudes that
-correlate with pool size $N$ and may correlate with model family. We
-take this as a property of long-context LLM
-prompting~\citep{liu2024lostmiddle,tang2024foundmiddle,zheng2024mcqbias,
-shi2025positionbias,pradeep2023rankzephyr} rather than a critique of
-MaxContext.
+We predict that whole-pool MaxContext is \emph{not} order-invariant: the forward-vs-reverse and forward-vs-shuffle deltas should be detectable above the deterministic-decoding noise floor, with magnitudes that correlate with pool size $N$ and may correlate with model family. We take this as a property of long-context LLM prompting~\citep{liu2024lostmiddle,tang2024foundmiddle,zheng2024mcqbias,shi2025positionbias,pradeep2023rankzephyr} rather than a critique of MaxContext.
 
 \paragraph{Results.}
-[TBD: per-cell paired delta distribution; aggregated summary statistics
-(mean, SD, range, worst-pair $|\Delta|$); selected-label position
-frequencies.] We expect the position-frequency view to expose whether
-selected-label distributions concentrate at specific live-pool positions
-under forward order and shift predictably under reverse and shuffle.
+[TBD: per-cell paired delta distribution; aggregated summary statistics (mean, SD, range, worst-pair $|\Delta|$); selected-label position frequencies.] We expect the position-frequency view to expose whether selected-label distributions concentrate at specific live-pool positions under forward order and shift predictably under reverse and shuffle.
 
 \paragraph{Discussion.}
-[TBD interpretation.] If forward-vs-reverse deltas are large and
-systematic, this is a position-bias finding for whole-pool MaxContext
-that windowed setwise reranking does not surface --- the finding is
-specific to the long-context regime and does not refute the call-count
-result in Q1. If deltas are small, the long-context regime tolerates
-pool reordering and the call-count result is robust. The deterministic
-10$\times$ stability check (\S\ref{sec:experimental-setup}) is reported
-separately as a byte-equality guard rather than as input-order evidence.
+[TBD interpretation.] If forward-vs-reverse deltas are large and systematic, this is a position-bias finding for whole-pool MaxContext that windowed setwise reranking does not surface --- the finding is specific to the long-context regime and does not refute the call-count result in Q1. If deltas are small, the long-context regime tolerates pool reordering and the call-count result is robust. The deterministic 10$\times$ stability check (\S\ref{sec:experimental-setup}) is reported separately as a byte-equality guard rather than as input-order evidence.

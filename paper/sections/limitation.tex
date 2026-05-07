@@ -8,39 +8,10 @@
 % ceiling, generation-only scoring). Word target ~250 to fit the
 % Limitations budget per plan v4.
 
-Our central efficiency claim is restricted to serial LLM calls, and our
-central effectiveness claim to per-query nDCG@10 under a specific
-non-inferiority margin. This is a deliberate narrowing. One reading of a
-positive result would be that whole-pool DualEnd is uniformly more
-efficient than windowed setwise reranking; another, equally reasonable,
-is that the call-count gap matters most when serial latency dominates
-and is largely absorbed by batching, prompt re-encoding, or token
-throughput. We report wall-clock and prompt/completion/total tokens
-alongside calls so that either reading is auditable, but our findings
-alone cannot adjudicate which efficiency axis matters for a given
-deployment.
+Our central efficiency claim is restricted to serial LLM calls, and our central effectiveness claim to per-query nDCG@10 under a specific non-inferiority margin. This is a deliberate narrowing. One reading of a positive result would be that whole-pool DualEnd is uniformly more efficient than windowed setwise reranking; another, equally reasonable, is that the call-count gap matters most when serial latency dominates and is largely absorbed by batching, prompt re-encoding, or token throughput. We report wall-clock and prompt/completion/total tokens alongside calls so that either reading is auditable, but our findings alone cannot adjudicate which efficiency axis matters for a given deployment.
 
-We rerank only the BM25 top-$N$ pool. This isolates the reranker's
-contribution given a strong but fixed first stage, but it also means
-that any per-query effect we observe is a property of \emph{both} the
-reranker and the BM25 pool's composition. Whether the same pattern
-holds for dense first-stage retrievers, hybrid sparse--dense pools, or
-weaker first stages is not a question this paper can answer.
+We rerank only the BM25 top-$N$ pool. This isolates the reranker's contribution given a strong but fixed first stage, but it also means that any per-query effect we observe is a property of \emph{both} the reranker and the BM25 pool's composition. Whether the same pattern holds for dense first-stage retrievers, hybrid sparse--dense pools, or weaker first stages is not a question this paper can answer.
 
-We restrict MaxContext to generation-based scoring on causal LLMs from
-three open-weight families, on TREC DL19/20 and six BEIR domains, all
-in English. The joint best--worst objective in DualEnd is not
-equivalent to an independent likelihood score, so we do not include
-T5-style likelihood scorers in the matrix. Scaling MaxContext to
-non-English benchmarks, mixed-multilingual pools, and likelihood- or
-embedding-based scorers is a question we leave open.
+We restrict MaxContext to generation-based scoring on causal LLMs from three open-weight families, on TREC DL19/20 and six BEIR domains, all in English. The joint best--worst objective in DualEnd is not equivalent to an independent likelihood score, so we do not include T5-style likelihood scorers in the matrix. Scaling MaxContext to non-English benchmarks, mixed-multilingual pools, and likelihood- or embedding-based scorers is a question we leave open.
 
-Pool sizes are capped at $N{=}100$ and gated on a per-family context-fit
-preflight; the cap is context-window- and passage-length-dependent
-rather than fundamental. Methodologically, the position-bias controls
-(\S\ref{sec:results-position-bias}) are applied only to MaxContext, not
-to the windowed setwise baselines, because their per-comparison
-semantics differ. We report the deterministic 10$\times$ stability check
-and the Phase F forward/reverse/shuffle deltas as separate views of
-input-order behavior, and frame conclusions about position-bias under
-whole-pool prompting accordingly.
+Pool sizes are capped at $N{=}100$ and gated on a per-family context-fit preflight; the cap is context-window- and passage-length-dependent rather than fundamental. Methodologically, the position-bias controls (\S\ref{sec:results-position-bias}) are applied only to MaxContext, not to the windowed setwise baselines, because their per-comparison semantics differ. We report the deterministic 10$\times$ stability check and the Phase F forward/reverse/shuffle deltas as separate views of input-order behavior, and frame conclusions about position-bias under whole-pool prompting accordingly.

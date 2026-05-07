@@ -7,67 +7,18 @@
 % the metric, the statistical protocol, and the Phase F controls.
 
 \paragraph{Datasets and retrieval.}
-We evaluate on TREC DL19, TREC DL20~\citep{bajaj2016msmarco,
-craswell2020dl19,craswell2021dl20} and six BEIR
-domains~\citep{thakur2021beir} --- DBPedia-Entity, NFCorpus, SciFact,
-TREC-COVID, Webis-Touche2020, and FiQA. The first stage is BM25 from
-Pyserini/Anserini~\citep{robertson2009probabilistic,lin2021pyserini,
-yang2017anserini}; we rerank only the BM25 top-$N$ pool with
-$N \in \{10,20,30,40,50,100\}$. All methods receive the same first-stage
-pool. For MaxContext, $W{=}N{=}k$: the whole top-$N$ pool is visible to
-the first call.
+We evaluate on TREC DL19, TREC DL20~\citep{bajaj2016msmarco, craswell2020dl19,craswell2021dl20} and six BEIR domains~\citep{thakur2021beir} --- DBPedia-Entity, NFCorpus, SciFact, TREC-COVID, Webis-Touche2020, and FiQA. The first stage is BM25 from Pyserini/Anserini~\citep{robertson2009probabilistic,lin2021pyserini,yang2017anserini}; we rerank only the BM25 top-$N$ pool with $N \in \{10,20,30,40,50,100\}$. All methods receive the same first-stage pool. For MaxContext, $W{=}N{=}k$: the whole top-$N$ pool is visible to the first call.
 
 \paragraph{Models.}
-The required matrix contains nine open-weight causal LLMs from three
-families: \textsc{Qwen3.5-\{0.8B, 2B, 4B, 9B, 27B\}},
-\textsc{Llama-3.1-8B-Instruct}, and
-\textsc{Ministral-3-\{3B, 8B, 14B\}-Instruct-2512}~\citep{qwen35modelcard,
-dubey2024llama3,ministral3modelcard}. We use the instruction or
-post-trained chat variant of each checkpoint with greedy decoding;
-reasoning traces are disabled. Likelihood scoring is not used for
-MaxContext (the joint best--worst objective in DualEnd is not equivalent
-to an independent single-label likelihood score).
+The required matrix contains nine open-weight causal LLMs from three families: \textsc{Qwen3.5-\{0.8B, 2B, 4B, 9B, 27B\}}, \textsc{Llama-3.1-8B-Instruct}, and \textsc{Ministral-3-\{3B, 8B, 14B\}-Instruct-2512}~\citep{qwen35modelcard,dubey2024llama3,ministral3modelcard}. We use the instruction or post-trained chat variant of each checkpoint with greedy decoding; reasoning traces are disabled. Likelihood scoring is not used for MaxContext (the joint best--worst objective in DualEnd is not equivalent to an independent single-label likelihood score).
 
 \paragraph{Method grid.}
-Seven methods --- TopDown setwise/bubblesort, TopDown setwise/heapsort,
-BottomUp setwise/bubblesort, BottomUp setwise/heapsort, and the three
-MaxContext variants --- are crossed with nine models, eight datasets, and
-six pool sizes ($7 \times 9 \times 8 \times 6 = 3024$ runs). At $\ell{=}512$
-and $N{=}100$, rendered prompts are about 51K input tokens before output
-reserve, well below the published context budgets of all required model
-families; every prompt is tokenized and gated by a context-fit preflight
-before inference (\S\ref{sec:methodology}; appendix details).
+Seven methods --- TopDown setwise/bubblesort, TopDown setwise/heapsort, BottomUp setwise/bubblesort, BottomUp setwise/heapsort, and the three MaxContext variants --- are crossed with nine models, eight datasets, and six pool sizes ($7 \times 9 \times 8 \times 6 = 3024$ runs). At $\ell{=}512$ and $N{=}100$, rendered prompts are about 51K input tokens before output reserve, well below the published context budgets of all required model families; every prompt is tokenized and gated by a context-fit preflight before inference (\S\ref{sec:methodology}; appendix details).
 
 \paragraph{Effectiveness metric and statistical protocol.}
-The primary metric is per-query
-nDCG@10~\citep{jarvelin2002cumulated}.
-For each (model, dataset, pool-size) cell we run a one-sided paired
-permutation test with non-inferiority margin
-$\delta{=}0.01$~\citep{efron1993bootstrap,smucker2007comparison,
-urbano2019significance}: writing
-$\Delta = \mathrm{nDCG@10}(\textsc{DualEnd}) -
-\mathrm{nDCG@10}(\text{baseline})$, we test
-$H_0\!:\Delta \le -\delta$ vs.\ $H_1\!:\Delta > -\delta$ at $\alpha{=}0.05$
-with $10{,}000$ resamples; paired-bootstrap 95\% CIs on $\Delta$ are
-reported alongside each verdict. Multiplicity across the seven-method
-family within each cell is controlled with Holm-Bonferroni; Bonferroni
-and Benjamini-Hochberg adjustments accompany the appendix master table.
+The primary metric is per-query nDCG@10~\citep{jarvelin2002cumulated}. For each (model, dataset, pool-size) cell we run a one-sided paired permutation test with non-inferiority margin $\delta{=}0.01$~\citep{efron1993bootstrap,smucker2007comparison,urbano2019significance}: writing $\Delta = \mathrm{nDCG@10}(\textsc{DualEnd}) - \mathrm{nDCG@10}(\text{baseline})$, we test $H_0\!:\Delta \le -\delta$ vs.\ $H_1\!:\Delta > -\delta$ at $\alpha{=}0.05$ with $10{,}000$ resamples; paired-bootstrap 95\% CIs on $\Delta$ are reported alongside each verdict. Multiplicity across the seven-method family within each cell is controlled with Holm-Bonferroni; Bonferroni and Benjamini-Hochberg adjustments accompany the appendix master table.
 
 \paragraph{Position-bias controls.}
-Whole-pool prompting is not order-invariant. We instrument MaxContext
-with two per-comparison controls applied to the live pool $L$ before each
-LLM call: a deterministic \textbf{reverse} of $L$, and a fixed-seed
-shuffle of $L$ (seed 929). Standard windowed setwise baselines are not
-reordered. The required position-bias matrix runs three representative
-models (Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512)
-$\times$ four representative datasets (DL19, DL20, DBPedia-Entity, FiQA)
-$\times$ three MaxContext methods $\times$ six pool sizes $\times$ two
-control conditions = $432$ runs. Forward outputs are reused from the
-main matrix; the analysis reports paired within-query nDCG@10 deltas for
-forward vs.\ reverse and forward vs.\ shuffle.
+Whole-pool prompting is not order-invariant. We instrument MaxContext with two per-comparison controls applied to the live pool $L$ before each LLM call: a deterministic \textbf{reverse} of $L$, and a fixed-seed shuffle of $L$ (seed 929). Standard windowed setwise baselines are not reordered. The required position-bias matrix runs three representative models (Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512) $\times$ four representative datasets (DL19, DL20, DBPedia-Entity, FiQA) $\times$ three MaxContext methods $\times$ six pool sizes $\times$ two control conditions = $432$ runs. Forward outputs are reused from the main matrix; the analysis reports paired within-query nDCG@10 deltas for forward vs.\ reverse and forward vs.\ shuffle.
 
-A deterministic 10-repetition byte-equality stability check on the same
-three representative models on DL19 is reported in the appendix, as is
-the cost-axis logging (calls, prompt/completion/total tokens, parser
-outcomes, BM25 bypass counts, wall-clock) and the revision-pinned model
-manifest.
+A deterministic 10-repetition byte-equality stability check on the same three representative models on DL19 is reported in the appendix, as is the cost-axis logging (calls, prompt/completion/total tokens, parser outcomes, BM25 bypass counts, wall-clock) and the revision-pinned model manifest.
