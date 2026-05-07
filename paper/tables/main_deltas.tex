@@ -1,0 +1,27 @@
+% Table 2 — Compressed signed-Δ matrix at N=50.
+% PLACEHOLDER: this table is camera-ready-only. Once Phase B finishes,
+% replace this file with the populated 4×4×2 matrix:
+%   Rows = 4 Tier-1 models (Qwen3.5-4B, Qwen3.5-9B, Llama-3.1-8B-Instruct, Ministral-3-8B-Instruct-2512)
+%   Column blocks = {DL19, DL20, BEIR-mean, BEIR-min}
+%   Per-block columns = Δ_TD = nDCG@10(DualEnd) − nDCG@10(TopDown),
+%                       Δ_BU = nDCG@10(DualEnd) − nDCG@10(BottomUp)
+%   Cell entry = signed Δ with marker ✓ / ▲ / ✗ for the H1 verdict.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Per-cell signed nDCG@10 differences at $N{=}50$ between \textsc{MaxContext-DualEnd} and the two single-extreme controls, with $\checkmark$ / $\blacktriangle$ / $\times$ markers for the per-cell H1 non-inferiority verdict (one-sided paired permutation, $\delta{=}0.01$, Holm-Bonferroni at $\alpha{=}0.05$). \textit{Placeholder: populated at camera-ready from Phase B.}}
+\label{tab:main-deltas}
+\begin{tabular}{l cc cc cc cc}
+\toprule
+& \multicolumn{2}{c}{\textbf{DL19}} & \multicolumn{2}{c}{\textbf{DL20}} & \multicolumn{2}{c}{\textbf{BEIR-mean}} & \multicolumn{2}{c}{\textbf{BEIR-min}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+\textbf{Model} & $\Delta_{\mathrm{TD}}$ & $\Delta_{\mathrm{BU}}$ & $\Delta_{\mathrm{TD}}$ & $\Delta_{\mathrm{BU}}$ & $\Delta_{\mathrm{TD}}$ & $\Delta_{\mathrm{BU}}$ & $\Delta_{\mathrm{TD}}$ & $\Delta_{\mathrm{BU}}$ \\
+\midrule
+Qwen3.5-4B & --- & --- & --- & --- & --- & --- & --- & --- \\
+Qwen3.5-9B & --- & --- & --- & --- & --- & --- & --- & --- \\
+Llama-3.1-8B-Instruct & --- & --- & --- & --- & --- & --- & --- & --- \\
+Ministral-3-8B-Instruct-2512 & --- & --- & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table*}

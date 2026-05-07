@@ -1,28 +1,26 @@
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \small
-\caption{MaxContext variants differ deterministically in serial LLM calls and residual BM25 handling.}
+\caption{MaxContext variants differ deterministically in serial LLM calls and residual BM25 handling. Top: per-variant accounting at pool size $N$. Bottom: concrete call counts at representative $N$.}
 \label{tab:call-accounting}
-\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
-\hline
+\toprule
 \textbf{Variant} & \textbf{LLM calls} & \textbf{BM25 bypass} & \textbf{Serial decision steps} & \textbf{Pool shrinkage per call} \\
-\hline
+\midrule
 \textsc{MaxContext-DualEnd} & $\lfloor N/2 \rfloor$ & $0$ & $\lfloor N/2 \rfloor$ & $2$ \\
 \textsc{MaxContext-TopDown} & $N{-}2$ & $1$ & $N{-}1$ & $1$ \\
 \textsc{MaxContext-BottomUp} & $N{-}2$ & $1$ & $N{-}1$ & $1$ \\
-\hline
-\end{tabular}%
-}
+\bottomrule
+\end{tabular}
 
-\vspace{0.4em}
-\scriptsize
+\vspace{0.6em}
+
 \begin{tabular}{lrrrr}
-\hline
+\toprule
 \textbf{Pool size} & $N{=}10$ & $N{=}20$ & $N{=}50$ & $N{=}100$ \\
-\hline
+\midrule
 \textsc{DualEnd} calls & 5 & 10 & 25 & 50 \\
 Single-extreme calls & 8 & 18 & 48 & 98 \\
-\hline
+\bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
