@@ -17,7 +17,9 @@ module load anaconda3/2023.09-0
 # module load java/21.0.8
 : "${EBROOTANACONDA3:?EBROOTANACONDA3 is not set after module load anaconda3/2023.09-0}"
 source "$EBROOTANACONDA3/etc/profile.d/conda.sh"
-module load cuda/12.2.0
+# module load cuda/12.2.0  # disabled: not registered in SLURM batch env on
+#                          # this cluster (was silently failing pre-`set -e`).
+#                          # PyTorch in conda env brings its own bundled CUDA.
 # CONDA_ENV is resolved per-model by the dispatcher (submit_max_context_jobs.sh
 # / submit_emnlp_jobs.sh) and propagated via sbatch --export=ALL. Default is
 # ranker_env (Qwen3 family + pyserini); qwen35_env is used for Qwen3.5,
